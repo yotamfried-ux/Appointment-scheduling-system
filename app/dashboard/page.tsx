@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { AppShell } from "@/components/app-shell";
 import { PublishButton } from "@/app/dashboard/publish-button";
 import { PageHeader } from "@/components/patterns/page-header";
 import { requireUser } from "@/lib/auth/session";
@@ -17,11 +18,8 @@ export default async function DashboardPage() {
   const host = process.env.NEXT_PUBLIC_SITE_HOST ?? "tori.example";
 
   return (
-    <main id="main" className="mx-auto max-w-3xl space-y-6 p-5">
+    <AppShell email={String(claims.email ?? "")}>
       <PageHeader title={t("welcome", { name: `\u2068${b.name}\u2069` })} description={t("placeholder")} />
-      <p className="text-sm text-muted-foreground">
-        <bdi data-testid="whoami">{String(claims.email ?? "")}</bdi>
-      </p>
       <dl className="divide-y rounded-lg border bg-card">
         <div className="flex flex-col gap-1 p-4 sm:flex-row sm:justify-between sm:gap-4">
           <dt className="text-muted-foreground">{t("kind")}</dt>
@@ -38,6 +36,6 @@ export default async function DashboardPage() {
       </dl>
       {b.published_at ? null : <PublishButton businessId={b.id} />}
       <Link href="/settings/security" className="inline-block text-sm font-medium text-primary underline-offset-4 hover:underline">{t("security")}</Link>
-    </main>
+    </AppShell>
   );
 }

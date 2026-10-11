@@ -79,11 +79,11 @@ export function TimeRibbon({
       </div>
       {legend ? (
         <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground" aria-hidden>
-          {(["booked", "free", "pending"] as const)
+          {(["booked", "free", "pending", "closed"] as const)
             .filter((st) => segments.some((x) => x.state === st))
             .map((st) => (
               <li key={st} className="flex items-center gap-1.5">
-                <span className={cn("inline-block h-3 w-5 rounded-[3px]", st === "booked" && "ribbon-booked", st === "free" && "ribbon-free", st === "pending" && "ribbon-pending")} />
+                <span className={cn("inline-block h-3 w-5 rounded-[3px]", st === "booked" && "ribbon-booked", st === "free" && "ribbon-free", st === "pending" && "ribbon-pending", st === "closed" && "ribbon-closed")} />
                 {labels[st]}
               </li>
             ))}

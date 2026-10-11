@@ -42,7 +42,7 @@ export function MfaEnroll({ enrolled }: { enrolled: boolean }) {
   return (
     <form
       noValidate
-      className="grid gap-4"
+      className="mx-auto grid w-full max-w-sm gap-4"
       onSubmit={async (e) => {
         e.preventDefault();
         setBusy(true);
@@ -54,10 +54,13 @@ export function MfaEnroll({ enrolled }: { enrolled: boolean }) {
         setState("done");
       }}
     >
-      <p className="text-sm text-muted-foreground">{t("scan")}</p>
+      <p className="text-center text-sm text-muted-foreground">{t("scan")}</p>
       {/* eslint-disable-next-line @next/next/no-img-element -- QR is an inline data: SVG from the auth server */}
-      <img src={factor!.qr} alt={t("qrAlt")} width={176} height={176} className="rounded-md border bg-white p-2" />
-      <p className="text-sm">{t("secret")}: <bdi className="font-mono" data-testid="mfa-secret">{factor!.secret}</bdi></p>
+      <img src={factor!.qr} alt={t("qrAlt")} width={176} height={176} className="mx-auto rounded-md border bg-white p-2" />
+      <div className="grid gap-1 rounded-md bg-muted px-3 py-2.5 text-center">
+        <p className="text-xs text-muted-foreground">{t("secret")}</p>
+        <bdi className="font-mono text-sm tracking-wider [overflow-wrap:anywhere]" data-testid="mfa-secret">{factor!.secret}</bdi>
+      </div>
       <FormField label={t("code")} error={error ?? undefined}>
         {(a) => <Input {...a} inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} />}
       </FormField>

@@ -21,10 +21,10 @@ export default async function Home() {
           </Suspense>
         </nav>
       </header>
-      <main id="main" className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-start justify-center gap-5 px-5 py-16">
+      <main id="main" className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-center justify-center gap-5 px-5 py-16 text-center">
         <h1 className="text-4xl font-bold tracking-tight text-balance sm:text-5xl">{t("title")}</h1>
-        <p className="max-w-xl text-lg text-muted-foreground">{t("subtitle")}</p>
-        <div className="mt-2 flex flex-wrap items-center gap-3">
+        <p className="max-w-xl text-lg text-balance text-muted-foreground">{t("subtitle")}</p>
+        <div className="mt-2 flex w-full flex-col items-stretch gap-3 sm:w-auto sm:flex-row sm:items-center">
           <Button asChild size="lg">
             <Link href="/auth/login">
               {t("cta")}
