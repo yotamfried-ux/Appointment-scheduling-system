@@ -71,7 +71,8 @@ async function sendOne(row: Claimed, provider: EmailPort, s: RunSummary, now: Da
     return finish(row.id, "skipped", { skip: "missing" });
   }
   // NTF-03: the world may have changed since this was queued.
-  const stale = staleReason(ctx.type, ctx.appointment.status, ctx.appointment.startsAt, now);
+  const subject = ctx.offer ? { status: ctx.offer.status, startsAt: ctx.offer.slotStartsAt } : { status: ctx.appointment!.status, startsAt: ctx.appointment!.startsAt };
+  const stale = staleReason(ctx.type, subject.status, subject.startsAt, now);
   if (stale) {
     s.skipped++;
     return finish(row.id, "skipped", { skip: stale });
@@ -86,8 +87,13 @@ async function sendOne(row: Claimed, provider: EmailPort, s: RunSummary, now: Da
     s.skipped++;
     return finish(row.id, "skipped", { skip: "suppressed", hash }); // NTF-05
   }
-  const ttl = Math.max(3600, Math.floor((new Date(ctx.appointment.startsAt).getTime() - now.getTime()) / 1000) + 7 * 86_400);
-  const manageToken = ctx.recipient === "customer" ? signToken({ appointmentId: ctx.appointment.id, scope: "view", ttlSeconds: ttl }) : undefined;
+  const ttl = Math.max(3600, Math.floor((new Date(subject.startsAt).getTime() - now.getTime()) / 1000) + 7 * 86_400);
+  const manageToken =
+    ctx.recipient !== "customer"
+      ? undefined
+      : ctx.offer
+        ? signToken({ appointmentId: ctx.offer.entryId, scope: "wl_view", ttlSeconds: ttl })
+        : signToken({ appointmentId: ctx.appointment!.id, scope: "view", ttlSeconds: ttl });
   const message = render(ctx, { appUrl: appUrl(), manageToken });
   try {
     const sent = await provider.send({ to, subject: message.subject, html: message.html, text: message.text, idempotencyKey: `notif-${row.id}`, attempt: row.attempts });

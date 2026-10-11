@@ -312,6 +312,14 @@ export function BookingFlow({ kind, session: sessionParam, limit, base }: { kind
                 <span className="text-muted-foreground">{formatDayLabel(firstAvailable.iso, "short")}</span>
               </Button>
             ) : null}
+            {base && business?.waitlistEnabled && s.serviceId ? (
+              <p className="text-sm text-muted-foreground" data-testid="waitlist-hint">
+                {t("day.waitlistHint")}{" "}
+                <a href={`/book/${base.split("/").pop()}/waitlist?service=${encodeURIComponent(s.serviceId)}`} className="inline-flex min-h-11 items-center font-semibold text-primary underline underline-offset-2" data-testid="waitlist-link">
+                  {t("day.waitlistLink")}
+                </a>
+              </p>
+            ) : null}
           </div>
         )}
 

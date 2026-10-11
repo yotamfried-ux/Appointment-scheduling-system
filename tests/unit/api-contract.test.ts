@@ -369,3 +369,32 @@ describe("owner contracts", () => {
     expect(C.OwnerTransitionRequest.safeParse({ action: "approve", id: "x" }).success).toBe(false);
   });
 });
+
+describe("waitlist contracts (stage 7)", () => {
+  const ok = { serviceId: "s", date: "2026-10-14", customer: { fullName: "נועם לוי", phone: "050-1234567", email: "noam@example.com" } };
+  it("joining needs a valid e-mail (offers travel by e-mail), a phone and a name", () => {
+    expect(C.JoinWaitlistRequest.safeParse(ok).success).toBe(true);
+    for (const email of ["", "   ", "nope", "a@b"]) expect(C.JoinWaitlistRequest.safeParse({ ...ok, customer: { ...ok.customer, email } }).success, email).toBe(false);
+    expect(C.JoinWaitlistRequest.safeParse({ ...ok, customer: { ...ok.customer, phone: "12" } }).success).toBe(false);
+    expect(C.JoinWaitlistRequest.safeParse({ ...ok, customer: { ...ok.customer, fullName: "א" } }).success).toBe(false);
+  });
+  it("refuses unknown fields (tenant spoofing), impossible dates and inverted windows", () => {
+    expect(C.JoinWaitlistRequest.safeParse({ ...ok, businessId: "x" }).success).toBe(false);
+    expect(C.JoinWaitlistRequest.safeParse({ ...ok, customer: { ...ok.customer, id: "x" } }).success).toBe(false);
+    expect(C.JoinWaitlistRequest.safeParse({ ...ok, date: "2026-02-31" }).success).toBe(false);
+    expect(C.JoinWaitlistRequest.safeParse({ ...ok, window: { from: "09:00", to: "12:00" } }).success).toBe(true);
+    expect(C.JoinWaitlistRequest.safeParse({ ...ok, window: { from: "12:00", to: "09:00" } }).success).toBe(false);
+    expect(C.JoinWaitlistRequest.safeParse({ ...ok, window: { from: "09:00", to: "09:00" } }).success).toBe(false);
+    expect(C.JoinWaitlistRequest.safeParse({ ...ok, window: { from: "9:00", to: "12:00" } }).success).toBe(false);
+  });
+  it("owner requests: a time of day, and at least one known setting", () => {
+    expect(C.OwnerOfferRequest.safeParse({ time: "10:30" }).success).toBe(true);
+    for (const time of ["25:00", "10:60", "1030", ""]) expect(C.OwnerOfferRequest.safeParse({ time }).success, time).toBe(false);
+    expect(C.OwnerOfferRequest.safeParse({ time: "10:30", entry: "x" }).success).toBe(false);
+    expect(C.OwnerWaitlistSettingsRequest.safeParse({ autoOffer: false }).success).toBe(true);
+    expect(C.OwnerWaitlistSettingsRequest.safeParse({ enabled: true, autoOffer: true }).success).toBe(true);
+    expect(C.OwnerWaitlistSettingsRequest.safeParse({}).success).toBe(false);
+    expect(C.OwnerWaitlistSettingsRequest.safeParse({ autoOffer: "yes" }).success).toBe(false);
+    expect(C.OwnerWaitlistSettingsRequest.safeParse({ autoOffer: false, businessId: "x" }).success).toBe(false);
+  });
+});

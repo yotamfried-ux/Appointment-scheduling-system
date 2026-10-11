@@ -29,6 +29,8 @@ end $$;
 
 -- These tests assume an empty outbox (rolled back at the end): a database used by earlier E2E runs holds due rows that would be claimed too.
 delete from public.notification_log;
+delete from public.waitlist_offers;
+delete from public.waitlist_entries;
 delete from public.domain_events;
 delete from public.appointments;   -- the reminder window counts every business's appointments
 

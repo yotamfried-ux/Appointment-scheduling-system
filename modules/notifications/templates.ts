@@ -10,12 +10,17 @@ export type NotificationType =
   | "booking_cancelled_by_customer"
   | "reminder"
   | "owner_new_request"
-  | "owner_customer_cancelled";
+  | "owner_customer_cancelled"
+  | "waitlist_offer"
+  | "waitlist_offer_expired";
 
 export interface NotifContext {
   type: NotificationType;
   recipient: "customer" | "owner";
-  appointment: { id: string; status: string; startsAt: string; endsAt: string; reference: string; serviceName: string };
+  /** Set for booking messages; null for waitlist messages. */
+  appointment: { id: string; status: string; startsAt: string; endsAt: string; reference: string; serviceName: string } | null;
+  /** Set for waitlist messages; null for booking messages. */
+  offer: { id: string; status: string; slotStartsAt: string; expiresAt: string; serviceName: string; entryId: string } | null;
   business: { name: string; slug: string; kind: BusinessKindId; timezone: string; phone: string | null };
   customer: { name: string; email: string | null };
   owner: { email: string | null };
@@ -43,6 +48,8 @@ const SUBJECT: Record<NotificationType, (b: string) => string> = {
   reminder: (b) => `תזכורת לתור שלך · ${b}`,
   owner_new_request: () => "בקשת תור חדשה ממתינה לאישור",
   owner_customer_cancelled: () => "לקוח ביטל תור",
+  waitlist_offer: (b) => `התפנה תור בשבילך · ${b}`,
+  waitlist_offer_expired: (b) => `ההצעה לתור פגה · ${b}`,
 };
 
 const LEAD: Record<NotificationType, (name: string) => string> = {
@@ -54,23 +61,28 @@ const LEAD: Record<NotificationType, (name: string) => string> = {
   reminder: () => "תזכורת: מחר יש לך תור.",
   owner_new_request: (n) => `${n} ביקש/ה תור וממתין/ה לאישור שלך.`,
   owner_customer_cancelled: (n) => `${n} ביטל/ה תור.`,
+  waitlist_offer: () => "התפנה תור בזמן שביקשת. התור שמור לך לזמן קצר, ואחר כך עובר לממתין הבא.",
+  waitlist_offer_expired: () => "ההצעה לא נענתה בזמן והתור עבר לממתין הבא. נשארת ברשימת ההמתנה ונשלח הצעה נוספת כשיתפנה תור אחר.",
 };
 
 export function render(ctx: NotifContext, opts: { appUrl: string; manageToken?: string }): Rendered {
   const k = BUSINESS_KINDS[ctx.business.kind];
   const biz = clean(ctx.business.name);
   const name = clean(ctx.customer.name);
-  const when = whenLabel(ctx.appointment.startsAt, ctx.business.timezone);
+  const offer = ctx.offer;
+  const when = whenLabel(ctx.appointment?.startsAt ?? offer!.slotStartsAt, ctx.business.timezone);
+  const serviceName = ctx.appointment?.serviceName ?? offer!.serviceName;
   const showService = !k.privacy.hideServiceNameInMessages;
   const owner = ctx.recipient === "owner";
-  const link = owner ? `${opts.appUrl}/dashboard` : opts.manageToken ? `${opts.appUrl}/booking/${opts.manageToken}` : null;
-  const linkLabel = owner ? "פתיחת היומן" : "צפייה בתור או ביטולו";
+  const link = owner ? `${opts.appUrl}/dashboard` : opts.manageToken ? `${opts.appUrl}/${offer ? "waitlist" : "booking"}/${opts.manageToken}` : null;
+  const linkLabel = owner ? "פתיחת היומן" : ctx.type === "waitlist_offer" ? "לצפייה ולאישור התור" : offer ? "מצב ההמתנה שלי" : "צפייה בתור או ביטולו";
 
   const rows: [string, string][] = [["מועד", when]];
-  if (showService) rows.push(["שירות", clean(ctx.appointment.serviceName)]);
+  if (showService) rows.push(["שירות", clean(serviceName)]);
   if (owner) rows.unshift(["לקוח/ה", name]);
   else rows.unshift(["עסק", biz]);
-  rows.push(["מספר אישור", ctx.appointment.reference]);
+  if (ctx.type === "waitlist_offer" && offer) rows.push(["תקף עד", new Intl.DateTimeFormat("he-IL", { timeZone: ctx.business.timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(offer.expiresAt))]);
+  if (ctx.appointment) rows.push(["מספר אישור", ctx.appointment.reference]);
 
   const lead = LEAD[ctx.type](name);
   const subject = clean(SUBJECT[ctx.type](biz));

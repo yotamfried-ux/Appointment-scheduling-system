@@ -1,48 +1,12 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { Webhook } from "svix";
-import { admin, firstDayWithSlots, loginAs, makeBusiness, publicBook, rand, sql, type TestBusiness } from "./helpers/business";
+import { firstDayWithSlots, loginAs, makeBusiness, publicBook, rand, sql, type TestBusiness } from "./helpers/business";
+import { auth, byType, drain, freshBucket, idle, mail, release, rows, runOutbox, settled } from "./helpers/outbox";
 import { CRON_SECRET, RESEND_WEBHOOK_SECRET } from "./helpers/secrets";
 
 // E-mail notifications on the real stack (fake provider: nothing leaves the machine; failures are injected through the address).
 // Scenarios: NTF-01 (exactly once, concurrent runners), NTF-02, NTF-03 (check before send), NTF-04 (retry → dead → owner banner),
 // NTF-05 (bounce webhook → suppression), NTF-06, NTF-12, OPS-05, docs/05 §2 (privacy).
-const auth = { authorization: `Bearer ${CRON_SECRET}` };
-const mail = (tag = "") => `n-${rand()}${tag}@example.com`;
-
-interface Row {
-  appointment_id: string;
-  type: string;
-  recipient: string;
-  status: string;
-  attempts: number;
-  skip_reason: string | null;
-  error: string | null;
-  provider_message_id: string | null;
-  preview: { to: string; subject: string; text: string } | null;
-}
-const rows = async (b: TestBusiness) => (await admin().from("notification_log").select("appointment_id, type, recipient, status, attempts, skip_reason, error, provider_message_id, preview").eq("business_id", b.id).order("created_at")).data as Row[];
-const byType = (rs: Row[], type: string) => rs.filter((r) => r.type === type);
-const runOutbox = (request: APIRequestContext) => request.post("/api/jobs/outbox", { headers: auth });
-
-/** Run the outbox until `done` holds (other specs leave events behind, and a run handles a bounded batch). */
-async function drain(request: APIRequestContext, done: () => Promise<boolean>, releaseFor?: string) {
-  for (let i = 0; i < 60; i++) {
-    if (releaseFor) release(releaseFor); // the backoff of any retrying message of this appointment has "elapsed"
-    expect((await runOutbox(request)).status()).toBe(200);
-    if (await done()) return;
-  }
-  throw new Error("outbox did not settle");
-}
-const idle = (rs: Row[]) => rs.every((r) => !["queued", "sending"].includes(r.status)); // nobody (including a parallel spec's runner) is mid-send
-const settled = (b: TestBusiness, n: number) => async () => {
-  const rs = await rows(b);
-  return rs.length >= n && idle(rs);
-};
-const release = (appointmentId: string, type?: string) =>
-  sql(`update public.notification_log set next_attempt_at = now() - interval '1 second' where appointment_id = '${appointmentId}'${type ? ` and type = '${type}'` : ""} and status in ('queued','failed')`);
-/** Each test starts from a clean reminder bucket: desktop and mobile runs book the same slot, and a used bucket is (rightly) skipped. */
-const freshBucket = (t: Date) => sql(`delete from public.job_runs where job_name = 'reminders' and run_key = 'r:${new Date(Math.floor(t.getTime() / 900_000) * 900_000).toISOString().slice(0, 16)}'`);
-
 test.describe("job endpoints are authenticated", () => {
   test("cron endpoints refuse everyone without the secret and answer with a summary to the scheduler", async ({ request }) => {
     for (const path of ["/api/jobs/outbox", "/api/jobs/reminders"]) {

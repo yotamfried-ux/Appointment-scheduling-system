@@ -65,3 +65,18 @@ describe("segmentsFromSlots", () => {
     expect(seg.find((s) => s.state === "selected")).toEqual({ start: 600, end: 660, state: "selected" });
   });
 });
+
+describe("waitlist token scopes (stage 7)", () => {
+  const env = { BOOKING_TOKEN_SECRET: "x".repeat(40) } as unknown as NodeJS.ProcessEnv;
+  const scopes = ["view", "cancel", "wl_view", "wl_accept", "wl_decline", "wl_leave"] as const;
+  it("each token verifies only for its own scope (a booking link cannot act on the waitlist, and vice versa)", () => {
+    for (const s of scopes) {
+      const t = signToken({ appointmentId: "id-1", scope: s, ttlSeconds: 60 }, env);
+      for (const other of scopes) expect(verifyToken(t, other, env).ok, `${s} as ${other}`).toBe(other === s);
+    }
+  });
+  it("an expired waitlist token is refused", () => {
+    const t = signToken({ appointmentId: "e1", scope: "wl_accept", ttlSeconds: 1, now: Date.now() - 10_000 }, env);
+    expect(verifyToken(t, "wl_accept", env).ok).toBe(false);
+  });
+});

@@ -18,7 +18,7 @@ export const Slug = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/i).max(40);
 const CatalogRpc = z.object({
   business: z.object({
     id: z.uuid(), slug: z.string(), name: z.string(), kind: z.enum(KIND_IDS), timezone: z.string(), address: z.string(),
-    requiresApproval: z.boolean(), cancelUntilHours: z.number(), minNoticeMinutes: z.number(), horizonDays: z.number(),
+    requiresApproval: z.boolean(), cancelUntilHours: z.number(), minNoticeMinutes: z.number(), horizonDays: z.number(), waitlistEnabled: z.boolean(),
   }),
   services: z.array(z.object({ id: z.uuid(), name: z.string(), description: z.string(), durationMinutes: z.number(), bufferMinutes: z.number(), priceCents: z.number(), requiresApproval: z.boolean().nullable() })),
   rules: z.array(z.object({ weekday: z.number(), startMinute: z.number(), endMinute: z.number() })),
@@ -53,6 +53,7 @@ export function toServicesResponse(c: Catalog): z.infer<typeof C.ServicesRespons
       vocab: { ...k.vocab } as Record<string, string>,
       requireApproval: c.business.requiresApproval,
       cancelUntilHours: c.business.cancelUntilHours,
+      waitlistEnabled: c.business.waitlistEnabled,
     },
     services: c.services.map((s) => ({ id: s.id, name: s.name, description: s.description, durationMinutes: s.durationMinutes, priceNis: s.priceCents / 100, group: false })),
   };

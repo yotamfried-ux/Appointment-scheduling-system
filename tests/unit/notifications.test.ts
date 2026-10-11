@@ -13,6 +13,7 @@ const ctx = (over: Partial<NotifContext> = {}, kind: NotifContext["business"]["k
   type: "booking_confirmed",
   recipient: "customer",
   appointment: { id: "a1", status: "confirmed", startsAt: "2026-10-14T07:00:00Z", endsAt: "2026-10-14T07:30:00Z", reference: "TR-ABC123", serviceName: "תספורת גברים" },
+  offer: null,
   business: { name: "מספרת הדר", slug: "hadar", kind, timezone: "Asia/Jerusalem", phone: "+972501234567" },
   customer: { name: "נועם לוי", email: "noam@example.com" },
   owner: { email: "owner@example.com" },
@@ -121,6 +122,39 @@ describe("templates (NTF-08, docs/05 §2)", () => {
   it("times are rendered in the business time zone", () => {
     const r = render(ctx(), opts); // 07:00Z in October (Israel summer time, UTC+3) = 10:00
     expect(r.text).toMatch(/10:00/);
+  });
+});
+
+describe("waitlist messages (WLT-01/03)", () => {
+  const offerCtx = (type: "waitlist_offer" | "waitlist_offer_expired", kind: NotifContext["business"]["kind"] = "barber"): NotifContext =>
+    ctx({ type, appointment: null, offer: { id: "o1", status: type === "waitlist_offer" ? "pending" : "expired", slotStartsAt: "2026-10-14T07:00:00Z", expiresAt: "2026-10-13T08:30:00Z", serviceName: "תספורת גברים", entryId: "e1" } }, kind);
+  const opts = { appUrl: "https://tori.example", manageToken: "WLTOKEN.SIG" };
+  it("an offer links to the waitlist page (not the booking page) and shows when it expires", () => {
+    const r = render(offerCtx("waitlist_offer"), opts);
+    expect(r.html).toContain("https://tori.example/waitlist/WLTOKEN.SIG");
+    expect(r.html).not.toContain("/booking/");
+    expect(r.text).toContain("תקף עד");
+    expect(r.text).toMatch(/10:00/); // the slot, in the business time zone
+    expect(r.text).not.toContain("מספר אישור"); // there is no booking yet
+  });
+  it("the subject never names the service; sensitive kinds also keep it out of the body", () => {
+    expect(render(offerCtx("waitlist_offer"), opts).subject).not.toContain("תספורת");
+    expect(render(offerCtx("waitlist_offer", "clinic"), opts).text).not.toContain("תספורת גברים");
+    expect(render(offerCtx("waitlist_offer", "barber"), opts).text).toContain("תספורת גברים");
+  });
+  it("the expiry notice tells the customer they are still on the list", () => {
+    const r = render(offerCtx("waitlist_offer_expired"), opts);
+    expect(r.subject).toContain("פגה");
+    expect(r.text).toContain("נשארת ברשימת ההמתנה");
+    expect(r.text).not.toContain("תקף עד");
+  });
+  it("check-before-send: an offer is announced only while it is live; the expiry notice only after it expired", () => {
+    const now = new Date("2026-10-13T08:00:00Z");
+    expect(staleReason("waitlist_offer", "pending", "2026-10-14T07:00:00Z", now)).toBeNull();
+    for (const status of ["accepted", "declined", "expired", "lost"]) expect(staleReason("waitlist_offer", status, "2026-10-14T07:00:00Z", now)).toBe("appointment_inactive");
+    expect(staleReason("waitlist_offer", "pending", "2026-10-13T07:00:00Z", now)).toBe("appointment_inactive");
+    expect(staleReason("waitlist_offer_expired", "expired", "2026-10-14T07:00:00Z", now)).toBeNull();
+    expect(staleReason("waitlist_offer_expired", "accepted", "2026-10-14T07:00:00Z", now)).toBe("appointment_inactive");
   });
 });
 

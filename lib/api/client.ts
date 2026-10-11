@@ -70,6 +70,7 @@ export const labApi = {
   slots: (o: ClientOptions, q: { service: string; date: string; selected?: string }) => call(C.SlotsResponse, `slots?${qs(q)}`, o).then((r) => r.data),
   createBooking: (o: ClientOptions, body: z.input<typeof C.CreateBookingRequest>, idempotencyKey: string) =>
     call(C.CreateBookingResponse, "bookings", o, { method: "POST", body, idempotencyKey }).then((r) => r.data.booking),
+  joinWaitlist: (o: ClientOptions, body: z.input<typeof C.JoinWaitlistRequest>) => call(C.JoinWaitlistResponse, "waitlist", o, { method: "POST", body }).then((r) => ({ ...r.data, created: r.status === 201 })),
   notification: (o: ClientOptions, id: string) => call(C.NotificationPreview, `bookings/${encodeURIComponent(id)}/notification`, o).then((r) => r.data),
   appointments: (o: ClientOptions) => call(C.AppointmentsResponse, "appointments", o).then((r) => r.data),
   transition: (o: ClientOptions, id: string, action: z.infer<typeof C.TransitionRequest>["action"]) =>
@@ -95,5 +96,9 @@ export const ownerApi = {
   agenda: (date?: string, signal?: AbortSignal) => call(C.OwnerAgendaResponse, `appointments${date ? `?${qs({ date })}` : ""}`, { ...OWNER, signal }).then((r) => r.data),
   transition: (id: string, action: z.infer<typeof C.OwnerAction>) =>
     call(C.OwnerTransitionResponse, `appointments/${encodeURIComponent(id)}/transition`, OWNER, { method: "POST", body: { action } }).then((r) => r.data),
+  version: (signal?: AbortSignal) => call(C.OwnerVersionResponse, "version", { ...OWNER, signal }).then((r) => r.data.version),
+  waitlistRemove: (id: string) => call(C.OwnerOutcomeResponse, `waitlist/${encodeURIComponent(id)}/remove`, OWNER, { method: "POST", body: {} }).then((r) => r.data),
+  waitlistOffer: (id: string, time: string) => call(C.OwnerOutcomeResponse, `waitlist/${encodeURIComponent(id)}/offer`, OWNER, { method: "POST", body: { time } }).then((r) => r.data),
+  waitlistSettings: (body: { autoOffer?: boolean; enabled?: boolean }) => call(C.OwnerOutcomeResponse, "waitlist/settings", OWNER, { method: "POST", body }).then((r) => r.data),
   createManual: (body: z.input<typeof C.CreateManualRequest>) => call(C.CreateManualResponse, "appointments", OWNER, { method: "POST", body }).then((r) => r.data),
 };

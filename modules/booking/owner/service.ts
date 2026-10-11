@@ -16,7 +16,7 @@ import { systemClock, zonedParts, zonedTimeToUtc } from "@/platform/clock";
 // The business is derived from the session (first membership), never from anything the request says.
 export interface OwnerCtx {
   supabase: SupabaseClient;
-  business: { id: string; name: string; kind: BusinessKindId; timezone: string };
+  business: { id: string; name: string; kind: BusinessKindId; timezone: string; waitlist_enabled: boolean; waitlist_auto_offer: boolean };
 }
 
 export async function ownerContext(): Promise<OwnerCtx> {
@@ -24,7 +24,7 @@ export async function ownerContext(): Promise<OwnerCtx> {
   const { data } = await supabase.auth.getClaims();
   if (!data?.claims) throw fail("UNAUTHENTICATED", "יש להתחבר מחדש.");
   if (!(await hasRequiredAssurance(supabase))) throw fail("UNAUTHENTICATED", "נדרש אימות דו-שלבי.");
-  const { data: rows } = await supabase.from("businesses").select("id, name, kind, timezone").order("created_at").limit(1);
+  const { data: rows } = await supabase.from("businesses").select("id, name, kind, timezone, waitlist_enabled, waitlist_auto_offer").order("created_at").limit(1);
   const b = rows?.[0] as OwnerCtx["business"] | undefined;
   if (!b) throw fail("FORBIDDEN", "אין עסק מקושר לחשבון.");
   return { supabase, business: b };
@@ -35,6 +35,17 @@ const statusOf = (s: string): z.infer<typeof C.OwnerStatus> =>
   s === "cancellation_requested" ? "cancellationRequested" : s === "no_show" ? "noShow" : s.startsWith("cancelled") ? "cancelled" : (s as "confirmed" | "pending" | "completed");
 
 const COLUMNS = "id, status, starts_at, ends_at, source, out_of_availability, owner_note, service_snapshot, customers(full_name, phone)";
+
+interface WaitlistRow {
+  id: string;
+  on_date: string;
+  from_minute: number | null;
+  to_minute: number | null;
+  status: "waiting" | "offered";
+  customers: { full_name: string; phone: string } | null;
+  services: { name: string } | null;
+  waitlist_offers: { status: string; expires_at: string; slot_starts_at: string }[];
+}
 
 interface Row {
   id: string;
@@ -52,7 +63,7 @@ export async function agenda(ctx: OwnerCtx, date: string): Promise<z.infer<typeo
   const tz = ctx.business.timezone;
   const from = zonedTimeToUtc(date, 0, tz);
   const to = zonedTimeToUtc(addDaysIso(date, 1), 0, tz);
-  const [appts, av, svcs, inbox, dead] = await Promise.all([
+  const [appts, av, svcs, inbox, dead, wl, version] = await Promise.all([
     ctx.supabase
       .from("appointments")
       .select(COLUMNS)
@@ -77,8 +88,18 @@ export async function agenda(ctx: OwnerCtx, date: string): Promise<z.infer<typeo
       .eq("business_id", ctx.business.id)
       .eq("status", "dead")
       .gte("created_at", new Date(systemClock.now().getTime() - 7 * 86_400_000).toISOString()),
+    ctx.supabase
+      .from("waitlist_entries")
+      .select("id, on_date, from_minute, to_minute, status, customers(full_name, phone), services(name), waitlist_offers(status, expires_at, slot_starts_at)")
+      .eq("business_id", ctx.business.id)
+      .in("status", ["waiting", "offered"])
+      .gte("on_date", zonedParts(systemClock.now(), tz).date)
+      .order("on_date")
+      .order("created_at")
+      .limit(100),
+    changeVersion(ctx),
   ]);
-  if (appts.error || svcs.error || inbox.error || dead.error) throw new Error("agenda unavailable");
+  if (appts.error || svcs.error || inbox.error || dead.error || wl.error) throw new Error("agenda unavailable");
   const dto = (r: Row) => ({
     id: r.id,
     date: zonedParts(new Date(r.starts_at), tz).date,
@@ -102,6 +123,22 @@ export async function agenda(ctx: OwnerCtx, date: string): Promise<z.infer<typeo
     appointments: (appts.data as unknown as Row[]).map(dto),
     inbox: (inbox.data as unknown as Row[]).map(dto),
     undelivered: dead.count ?? 0,
+    waitlist: (wl.data as unknown as WaitlistRow[]).map((e) => {
+      const live = e.waitlist_offers.find((o) => o.status === "pending" && Date.parse(o.expires_at) > systemClock.now().getTime());
+      return {
+        id: e.id,
+        date: e.on_date,
+        customer: e.customers?.full_name ?? "",
+        phone: e.customers?.phone ?? "",
+        service: e.services?.name ?? "",
+        fromMinute: e.from_minute,
+        toMinute: e.to_minute,
+        status: e.status === "offered" && live ? ("offered" as const) : ("waiting" as const),
+        offer: live ? { expiresAt: live.expires_at, expiresMinute: zonedParts(new Date(live.expires_at), tz).minutes, slotStartMinute: zonedParts(new Date(live.slot_starts_at), tz).minutes } : null,
+      };
+    }),
+    settings: { waitlistEnabled: ctx.business.waitlist_enabled, waitlistAutoOffer: ctx.business.waitlist_auto_offer },
+    version,
     services: (svcs.data ?? []).map((s) => ({ id: s.id as string, name: s.name as string, durationMinutes: s.duration_minutes as number })),
     business: { name: ctx.business.name, kind: ctx.business.kind },
   };
@@ -114,6 +151,8 @@ function mapError(e: { code?: string | null; message?: string | null }) {
   if (m.includes("invalid_transition")) return fail("INVALID_TRANSITION", "התור כבר השתנה. רעננו את הדף.");
   if (m.includes("slot_in_past") || m.includes("slot_too_far")) return fail("INVALID_SLOT", "אפשר להוסיף תור עד 24 שעות אחורה.");
   if (m.includes("service_unavailable")) return fail("SERVICE_UNAVAILABLE", "השירות אינו זמין.");
+  if (m.includes("slot_unavailable")) return fail("SLOT_TAKEN", "אי אפשר להציע את השעה הזו: היא תפוסה, קרובה מדי או שכבר יש עליה הצעה.");
+  if (m.includes("invalid_state")) return fail("INVALID_TRANSITION", "לממתין כבר יש הצעה או שהוא הוסר. רעננו את הדף.");
   if (e.code === "42501") return fail("NOT_FOUND", "לא נמצא."); // not yours and not existing look the same
   if (e.code === "28000") return fail("UNAUTHENTICATED", "יש להתחבר מחדש.");
   if (e.code === "23514") return fail("VALIDATION_FAILED", "הבקשה אינה תקינה.");
@@ -159,4 +198,35 @@ export async function transition(ctx: OwnerCtx, id: string, action: z.infer<type
   if (error) throw mapError(error);
   const r = data as { id: string; status: string };
   return { id: r.id, status: statusOf(r.status) };
+}
+
+/** A cheap marker that changes whenever something the dashboard shows changes (appointments, waitlist, undelivered mail). */
+export async function changeVersion(ctx: OwnerCtx): Promise<string> {
+  const latest = async (table: string, column: string) => {
+    const { data } = await ctx.supabase.from(table).select(column).eq("business_id", ctx.business.id).order(column, { ascending: false }).limit(1);
+    return ((data as unknown as Record<string, string>[] | null)?.[0]?.[column] ?? "0") as string;
+  };
+  const [a, w, n] = await Promise.all([latest("appointments", "updated_at"), latest("waitlist_entries", "updated_at"), latest("notification_log", "created_at")]);
+  return `${a}|${w}|${n}`;
+}
+
+// ---------------------------------------------------------------- waitlist (owner)
+export async function waitlistRemove(ctx: OwnerCtx, id: string): Promise<void> {
+  const { error } = await ctx.supabase.rpc("waitlist_owner_remove", { p_entry: id });
+  if (error) throw mapError(error);
+}
+
+export async function waitlistOffer(ctx: OwnerCtx, id: string, time: string): Promise<void> {
+  const { data: e } = await ctx.supabase.from("waitlist_entries").select("on_date").eq("id", id).eq("business_id", ctx.business.id).maybeSingle();
+  if (!e) throw fail("NOT_FOUND", "לא נמצא.");
+  const startsAt = zonedTimeToUtc(e.on_date as string, hhmmToMinutes(time), ctx.business.timezone);
+  const { error } = await ctx.supabase.rpc("waitlist_manual_offer", { p_entry: id, p_starts_at: startsAt.toISOString() });
+  if (error) throw mapError(error);
+}
+
+export async function waitlistSettings(ctx: OwnerCtx, input: { autoOffer?: boolean; enabled?: boolean }): Promise<void> {
+  const patch = { ...(input.autoOffer !== undefined ? { waitlist_auto_offer: input.autoOffer } : {}), ...(input.enabled !== undefined ? { waitlist_enabled: input.enabled } : {}) };
+  const { data, error } = await ctx.supabase.from("businesses").update(patch).eq("id", ctx.business.id).select("id");
+  if (error) throw mapError(error);
+  if (!data?.length) throw fail("FORBIDDEN", "רק מנהל העסק יכול לשנות את ההגדרה.");
 }

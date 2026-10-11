@@ -35,6 +35,7 @@ const eslintConfig = defineConfig([
       "app/api/public/**",
       "modules/booking/public/**",
       "modules/notifications/**",
+      "modules/waitlist/public.ts",
       "tests/**",
     ],
     rules: { "no-restricted-imports": "off" },

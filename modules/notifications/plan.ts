@@ -46,7 +46,7 @@ export function plan(event: OutboxEvent, appointmentStatus: string | null): Plan
   }
 }
 
-/** NTF-03: check before sending. Returns a skip reason when the world has changed since the message was queued. */
+/** NTF-03: check before sending. Returns a skip reason when the world has changed since the message was queued. (`status`/`startsAtIso` describe the appointment, or the offer for waitlist messages.) */
 export function staleReason(type: NotificationType, status: string, startsAtIso: string, now: Date): string | null {
   const ok = (cond: boolean) => (cond ? null : "appointment_inactive");
   switch (type) {
@@ -63,5 +63,9 @@ export function staleReason(type: NotificationType, status: string, startsAtIso:
     case "booking_cancelled_by_customer":
     case "owner_customer_cancelled":
       return ok(status === "cancelled_by_customer");
+    case "waitlist_offer": // `status` is the offer's status: only a live offer is worth announcing
+      return ok(status === "pending" && new Date(startsAtIso) > now);
+    case "waitlist_offer_expired":
+      return ok(status === "expired");
   }
 }

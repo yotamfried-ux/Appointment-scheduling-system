@@ -10,6 +10,8 @@ import { ApprovalsPanel, type ApprovalAction } from "@/components/lab/dashboard/
 import { DaySchedule } from "@/components/lab/dashboard/day-schedule";
 import { StatStrip } from "@/components/lab/dashboard/stat-strip";
 import { ManualDialog } from "@/components/owner/manual-dialog";
+import { OfferDialog } from "@/components/owner/offer-dialog";
+import { WaitlistPanel, type WaitlistEntry } from "@/components/owner/waitlist-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { dismissAllToasts, toast } from "@/components/ui/toast";
@@ -34,6 +36,8 @@ export function OwnerAgenda() {
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
   const [confirming, setConfirming] = useState<string | null>(null);
   const [dialog, setDialog] = useState<{ open: boolean; time: string }>({ open: false, time: "" });
+  const [offering, setOffering] = useState<WaitlistEntry | null>(null);
+  const [pollMs, setPollMs] = useState(10_000);
   const inFlight = useRef(false); // synchronous guard: React state is too late for a fast double click
 
   const refresh = useCallback(
@@ -57,6 +61,37 @@ export function OwnerAgenda() {
     void refresh(date, ctl.signal);
     return () => ctl.abort();
   }, [date, refresh]);
+
+  // Live view (WLT-07): a cheap version check while the tab is visible, an immediate check when it comes back to the front. The interval can be
+  // shortened with ?poll=<ms> (500–60000) — used by tests, harmless for anyone else.
+  useEffect(() => {
+    const n = Number(new URLSearchParams(window.location.search).get("poll"));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- read the optional ?poll= once on the client
+    if (Number.isInteger(n) && n >= 500 && n <= 60_000) setPollMs(n);
+  }, []);
+  const version = load.status === "ready" ? load.agenda.version : null;
+  const viewedDate = load.status === "ready" ? load.agenda.date : date;
+  useEffect(() => {
+    if (version === null) return;
+    let stopped = false;
+    const check = async () => {
+      if (document.visibilityState !== "visible" || inFlight.current) return;
+      try {
+        const v = await ownerApi.version();
+        if (!stopped && v !== version && !inFlight.current) void refresh(viewedDate);
+      } catch {
+        /* offline or expired session: the next tick or the next action reports it */
+      }
+    };
+    const id = setInterval(check, pollMs);
+    const onVisible = () => document.visibilityState === "visible" && void check();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      stopped = true;
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [version, viewedDate, pollMs, refresh]);
 
   const current = load.status === "ready" ? load.agenda.date : date;
   const reload = () => refresh(current);
@@ -90,6 +125,23 @@ export function OwnerAgenda() {
     };
     return act(action, a, copy[action]);
   };
+
+  async function waitlistRun(fn: () => Promise<unknown>, okMessage: string) {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(new Set(["waitlist"]));
+    try {
+      await fn();
+      toast(okMessage, { variant: "success" });
+    } catch (e) {
+      if (e instanceof ApiClientError && e.code === "UNAUTHENTICATED") router.replace("/auth/login");
+      else toast(e instanceof ApiClientError && e.code === "INVALID_TRANSITION" ? t("agenda.errStale") : t("waitlist.errAction"), { variant: "warning" });
+    } finally {
+      inFlight.current = false;
+      setBusy(new Set());
+      await reload();
+    }
+  }
 
   if (load.status === "error") {
     return (
@@ -186,8 +238,18 @@ export function OwnerAgenda() {
         </section>
         <div className="order-first grid gap-6 lg:order-none">
           <ApprovalsPanel appointments={inbox} onAction={onApproval} busyIds={busy} />
+          <WaitlistPanel
+            entries={agenda.waitlist}
+            settings={agenda.settings}
+            busy={busy.size > 0}
+            onOffer={(e) => setOffering(e)}
+            onRemove={(e) => waitlistRun(() => ownerApi.waitlistRemove(e.id), t("waitlist.toastRemoved"))}
+            onSettings={(patch) => waitlistRun(() => ownerApi.waitlistSettings(patch), t("waitlist.toastEnabled"))}
+          />
         </div>
       </div>
+
+      {offering ? <OfferDialog entry={offering} onClose={() => setOffering(null)} onDone={() => void reload()} /> : null}
 
       {dialog.open ? (
         <ManualDialog

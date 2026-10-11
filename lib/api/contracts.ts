@@ -36,6 +36,8 @@ export const BusinessDto = z.object({
   vocab: z.record(z.string(), z.string()),
   requireApproval: z.boolean(),
   cancelUntilHours: z.number(),
+  /** Public pages only: customers may join the waitlist for a full day. */
+  waitlistEnabled: z.boolean().optional(),
 });
 
 export const ServicesResponse = z.object({ kind: KindSchema, business: BusinessDto, services: z.array(ServiceDto) });
@@ -79,6 +81,24 @@ export const CreateBookingRequest = z
   })
   .strict();
 export type CreateBookingInput = z.infer<typeof CreateBookingRequest>;
+
+const EmailRequired = z.string().trim().min(1, "יש להזין כתובת אימייל — ההצעות נשלחות אליה.").refine((v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), "כתובת האימייל אינה תקינה.");
+export const JoinWaitlistRequest = z
+  .object({
+    serviceId: z.string().min(1),
+    date: IsoDate,
+    window: z.object({ from: HHmm, to: HHmm }).strict().refine((w) => w.from < w.to, "שעת ההתחלה חייבת להיות לפני הסיום.").optional(),
+    customer: z
+      .object({
+        fullName: z.string().trim().min(2, "יש להזין שם (לפחות 2 תווים).").max(80, "השם ארוך מדי."),
+        phone: z.string().min(1, "יש להזין מספר טלפון.").refine((v) => normalizePhone(v) !== null, "מספר הטלפון אינו תקין."),
+        email: EmailRequired,
+      })
+      .strict(),
+  })
+  .strict();
+export type JoinWaitlistInput = z.infer<typeof JoinWaitlistRequest>;
+export const JoinWaitlistResponse = z.object({ id: z.string(), replay: z.boolean(), manageUrl: z.string() });
 
 export const BookingDto = z.object({
   id: z.string(),
@@ -132,6 +152,18 @@ export const OwnerAppointmentDto = z.object({
   outOfHours: z.boolean(),
   note: z.string().optional(),
 });
+export const OwnerWaitlistEntryDto = z.object({
+  id: z.string(),
+  date: IsoDate,
+  customer: z.string(),
+  phone: z.string(),
+  service: z.string(),
+  fromMinute: z.number().int().nullable(),
+  toMinute: z.number().int().nullable(),
+  status: z.enum(["waiting", "offered"]),
+  /** Only for a live offer: until when the customer may accept, and which slot (local minutes). */
+  offer: z.object({ expiresAt: z.string(), expiresMinute: z.number().int(), slotStartMinute: z.number().int() }).nullable(),
+});
 export const OwnerAgendaResponse = z.object({
   date: IsoDate,
   today: IsoDate,
@@ -142,6 +174,10 @@ export const OwnerAgendaResponse = z.object({
   inbox: z.array(OwnerAppointmentDto),
   /** Messages that could not be delivered after all retries in the last 7 days (NTF-04): the owner should reach those customers another way. */
   undelivered: z.number().int().nonnegative(),
+  waitlist: z.array(OwnerWaitlistEntryDto),
+  settings: z.object({ waitlistEnabled: z.boolean(), waitlistAutoOffer: z.boolean() }),
+  /** Cheap change marker: the client polls `/api/owner/version` and reloads only when it differs. */
+  version: z.string(),
   services: z.array(z.object({ id: z.string(), name: z.string(), durationMinutes: z.number().int().positive() })),
   business: z.object({ name: z.string(), kind: KindSchema }),
 });
@@ -163,6 +199,14 @@ export const CreateManualRequest = z
 export type CreateManualInput = z.infer<typeof CreateManualRequest>;
 export const CreateManualResponse = z.object({ id: z.string(), reference: z.string(), outOfHours: z.boolean() });
 
+export const OwnerOfferRequest = z.object({ time: HHmm }).strict();
+export const OwnerWaitlistSettingsRequest = z
+  .object({ autoOffer: z.boolean().optional(), enabled: z.boolean().optional() })
+  .strict()
+  .refine((v) => v.autoOffer !== undefined || v.enabled !== undefined, "יש לציין הגדרה לשינוי.");
+export const OwnerOutcomeResponse = z.object({ ok: z.literal(true) });
+export const OwnerVersionResponse = z.object({ version: z.string() });
+
 export const ERROR_CODES = [
   "BAD_REQUEST",
   "VALIDATION_FAILED",
@@ -177,6 +221,7 @@ export const ERROR_CODES = [
   "SERVICE_UNAVAILABLE",
   "TOO_LATE",
   "TOO_EARLY",
+  "WAITLIST_LIMIT",
   "UNAUTHENTICATED",
   "FORBIDDEN",
   "UNAVAILABLE",

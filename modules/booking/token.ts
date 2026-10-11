@@ -4,9 +4,9 @@
 // current value to PREVIOUS and set a new current: tokens already sent keep working until PREVIOUS is removed.
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 
-export type TokenScope = "view" | "cancel";
+export type TokenScope = "view" | "cancel" | "wl_view" | "wl_accept" | "wl_decline" | "wl_leave"; // wl_* : waitlist (a = entry id for wl_view/wl_leave, offer id for wl_accept/wl_decline)
 export interface TokenPayload {
-  a: string; // appointment id
+  a: string; // appointment id (or waitlist entry / offer id, see TokenScope)
   s: TokenScope;
   e: number; // expiry, unix seconds
   j: string; // unique token id
