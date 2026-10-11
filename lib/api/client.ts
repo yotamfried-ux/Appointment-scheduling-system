@@ -21,20 +21,22 @@ export interface ClientOptions {
   session: string;
   /** Test hook: lowers the server-side rate limit for this request. */
   limit?: number;
+  /** API root. Default: the lab API for `kind`. Public booking passes `/api/public/<slug>`. */
+  base?: string;
   signal?: AbortSignal;
 }
 
 async function call<T>(schema: z.ZodType<T>, path: string, o: ClientOptions, init: { method?: string; body?: unknown; idempotencyKey?: string } = {}): Promise<{ data: T; status: number; replay: boolean }> {
   let res: Response;
   try {
-    res = await fetch(`/api/lab/${o.kind}/${path}`, {
+    res = await fetch(`${o.base ?? `/api/lab/${o.kind}`}/${path}`, {
       method: init.method ?? "GET",
       signal: o.signal,
       headers: {
         "x-lab-session": o.session,
         ...(init.body !== undefined ? { "content-type": "application/json" } : {}),
         ...(init.idempotencyKey ? { "idempotency-key": init.idempotencyKey } : {}),
-        ...(o.limit ? { "x-lab-limit": String(o.limit) } : {}),
+        ...(o.limit ? { "x-lab-limit": String(o.limit), "x-test-limit": String(o.limit) } : {}),
       },
       body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
     });

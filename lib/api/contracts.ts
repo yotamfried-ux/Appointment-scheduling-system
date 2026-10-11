@@ -88,6 +88,8 @@ export const BookingDto = z.object({
   time: HHmm,
   endTime: HHmm,
   requiresApproval: z.boolean(),
+  /** Public bookings only: the customer's private management link (shown on screen; e-mail comes with notifications). */
+  manageUrl: z.string().optional(),
 });
 export const CreateBookingResponse = z.object({ booking: BookingDto });
 
@@ -124,6 +126,9 @@ export const ERROR_CODES = [
   "IDEMPOTENCY_KEY_REQUIRED",
   "IDEMPOTENCY_KEY_REUSED",
   "RATE_LIMITED",
+  "BOOKING_LIMIT",
+  "SERVICE_UNAVAILABLE",
+  "TOO_LATE",
   "INTERNAL",
 ] as const;
 export const ApiErrorBody = z.object({

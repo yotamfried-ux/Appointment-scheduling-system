@@ -8,6 +8,9 @@ const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
 const env = {
   NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://127.0.0.1:54321",
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? "sb_publishable_e2e_placeholder",
+  SUPABASE_SECRET_KEY: process.env.SUPABASE_SECRET_KEY ?? "",
+  BOOKING_TOKEN_SECRET: process.env.BOOKING_TOKEN_SECRET ?? "e2e-booking-token-secret-0123456789abcdef",
+  ALLOW_TEST_LIMIT_HEADER: "1", // lets E2E lower rate limits per request; ignored when VERCEL_ENV=production
   PORT: String(PORT),
 };
 

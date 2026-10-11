@@ -41,7 +41,8 @@ function fieldKey(path: string): string {
   return path;
 }
 
-export function BookingFlow({ kind, session: sessionParam, limit }: { kind: BusinessKindId; session?: string; limit?: number }) {
+/** `base` switches the data source: omitted = the lab API (design lab); `/api/public/<slug>` = a real published business. */
+export function BookingFlow({ kind, session: sessionParam, limit, base }: { kind: BusinessKindId; session?: string; limit?: number; base?: string }) {
   const t = useTranslations("booking");
   const [s, dispatch] = useReducer(bookingReducer, initialBookingState);
   const [touched, setTouched] = useState(false);
@@ -49,7 +50,7 @@ export function BookingFlow({ kind, session: sessionParam, limit }: { kind: Busi
   const firstRender = useRef(true);
 
   const [session] = useState(() => resolveSession(sessionParam));
-  const opts = useMemo<ClientOptions>(() => ({ kind, session, limit }), [kind, session, limit]);
+  const opts = useMemo<ClientOptions>(() => ({ kind, session, limit, base }), [kind, session, limit, base]);
 
   const [catalog, setCatalog] = useState<Load<Catalog>>({ status: "loading" });
   const [avail, setAvail] = useState<Load<Map<string, { closed: boolean; freeSlots: number }>>>({ status: "idle" });
@@ -184,6 +185,15 @@ export function BookingFlow({ kind, session: sessionParam, limit }: { kind: Busi
         dispatch({ type: "selectDay", iso: s.day });
         dispatch({ type: "back" });
         toast(e.code === "SLOT_TAKEN" ? t("errors.slotTaken") : t("errors.invalidSlot"), { variant: "warning" });
+      } else if (e.code === "SERVICE_UNAVAILABLE") {
+        // The service was switched off while the form was open (BKG-10): choose again.
+        setSubmit({ status: "idle" });
+        toast(t("errors.serviceUnavailable"), { variant: "warning" });
+        setBooking(null);
+        dispatch({ type: "reset" });
+        loadCatalog();
+      } else if (e.code === "BOOKING_LIMIT") {
+        setSubmit({ status: "error", message: t("errors.bookingLimit") });
       } else if (e.code === "VALIDATION_FAILED") {
         setServerErrors(Object.fromEntries(e.details.map((d) => [fieldKey(d.field), d.message])));
         setSubmit({ status: "error", message: t("errors.validation") });
@@ -221,9 +231,10 @@ export function BookingFlow({ kind, session: sessionParam, limit }: { kind: Busi
       <Confirmation
         service={service}
         booking={booking}
-        email={s.details.email.trim()}
+        email={base ? "" : s.details.email.trim()}
         opts={opts}
         doneTitle={vocab.doneTitle}
+        cancelUntilHours={business.cancelUntilHours}
         onAnother={() => {
           setBooking(null);
           setTouched(false);
@@ -475,7 +486,21 @@ function LoadError({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-function Confirmation({ service, booking, email, opts, doneTitle, onAnother }: { service: { name: string; priceNis: number }; booking: Booking; email: string; opts: ClientOptions; doneTitle: string; onAnother: () => void }) {
+function ManageLink({ path }: { path: string }) {
+  const t = useTranslations("booking.done");
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []); // eslint-disable-line react-hooks/set-state-in-effect -- origin is only known in the browser
+  return (
+    <div className="mt-4 w-full rounded-lg border bg-card p-4 text-start" data-testid="manage-box">
+      <p className="text-sm text-muted-foreground">{t("manageHint")}</p>
+      <a href={path} className="mt-2 inline-block text-sm font-semibold text-primary underline underline-offset-2" data-testid="manage-link" data-origin={origin}>
+        {t("manage")}
+      </a>
+    </div>
+  );
+}
+
+function Confirmation({ service, booking, email, opts, doneTitle, cancelUntilHours, onAnother }: { service: { name: string; priceNis: number }; booking: Booking; email: string; opts: ClientOptions; doneTitle: string; cancelUntilHours: number; onAnother: () => void }) {
   const t = useTranslations("booking");
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [mail, setMail] = useState<{ subject: string; body: string; to: string } | null>(null);
@@ -485,6 +510,7 @@ function Confirmation({ service, booking, email, opts, doneTitle, onAnother }: {
     labApi.notification(opts, booking.id).then(setMail, () => undefined);
   }, [email, opts, booking.id]);
   const pending = booking.status === "pending";
+  const real = Boolean(booking.manageUrl); // real page: only promise what exists today (no e-mail, calendar file or rescheduling yet)
   return (
     <main id="main" className="mx-auto flex min-h-svh w-full max-w-lg flex-col items-center px-4 py-10 text-center">
       <div className="flex size-20 items-center justify-center rounded-full bg-primary text-primary-foreground motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-300" aria-hidden>
@@ -493,7 +519,7 @@ function Confirmation({ service, booking, email, opts, doneTitle, onAnother }: {
       <h1 ref={headingRef} tabIndex={-1} className="mt-5 text-3xl font-bold tracking-tight outline-none" data-testid="done-title">
         {pending ? t("done.pendingTitle") : doneTitle}
       </h1>
-      <p className="mt-1 text-muted-foreground">{pending ? t("done.pendingSubtitle") : t("done.subtitle")}</p>
+      <p className="mt-1 text-muted-foreground">{pending ? t(real ? "done.pendingSubtitleReal" : "done.pendingSubtitle") : t(real ? "done.subtitleReal" : "done.subtitle")}</p>
 
       <dl className="mt-6 w-full divide-y rounded-xl border bg-card text-start">
         <div className="flex justify-between gap-4 p-4">
@@ -520,6 +546,8 @@ function Confirmation({ service, booking, email, opts, doneTitle, onAnother }: {
         </div>
       </dl>
 
+      {booking.manageUrl ? <ManageLink path={booking.manageUrl} /> : null}
+
       {mail ? (
         <details className="mt-4 w-full rounded-lg border bg-card p-4 text-start" data-testid="email-preview">
           <summary className="cursor-pointer text-sm font-semibold">{t("done.emailPreview")}</summary>
@@ -528,13 +556,15 @@ function Confirmation({ service, booking, email, opts, doneTitle, onAnother }: {
         </details>
       ) : null}
 
-      <p className="mt-4 text-sm text-muted-foreground">{t("done.policy")}</p>
+      <p className="mt-4 text-sm text-muted-foreground">{real ? t("done.policyReal", { hours: cancelUntilHours }) : t("done.policy")}</p>
       <div className="mt-6 grid w-full gap-3">
-        <Button type="button" size="lg" onClick={() => toast(t("done.calendarToast"), { variant: "info" })}>
-          <CalendarPlus aria-hidden />
-          {t("actions.addToCalendar")}
-        </Button>
-        <Button type="button" variant="outline" size="lg" onClick={onAnother}>
+        {real ? null : (
+          <Button type="button" size="lg" onClick={() => toast(t("done.calendarToast"), { variant: "info" })}>
+            <CalendarPlus aria-hidden />
+            {t("actions.addToCalendar")}
+          </Button>
+        )}
+        <Button type="button" variant={real ? "default" : "outline"} size="lg" onClick={onAnother}>
           {t("actions.bookAnother")}
         </Button>
       </div>

@@ -25,6 +25,9 @@ export const STATUS: Record<ApiErrorCode, number> = {
   IDEMPOTENCY_KEY_REQUIRED: 400,
   IDEMPOTENCY_KEY_REUSED: 422,
   RATE_LIMITED: 429,
+  BOOKING_LIMIT: 409,
+  SERVICE_UNAVAILABLE: 409,
+  TOO_LATE: 409,
   INTERNAL: 500,
 };
 
@@ -46,12 +49,13 @@ export const labEnabled = () => process.env.VERCEL_ENV !== "production";
 
 type Ctx<P> = { params: Promise<P> };
 
-export function api<P = Record<string, never>>(handler: (req: Request, params: P, ctx: { requestId: string }) => Promise<Response | object>) {
+export function api<P = Record<string, never>>(handler: (req: Request, params: P, ctx: { requestId: string }) => Promise<Response | object>, opts: { lab?: boolean } = {}) {
+  const lab = opts.lab ?? true;
   return async (req: Request, ctx: Ctx<P>) => {
     const requestId = `req_${crypto.randomUUID().slice(0, 8)}`;
     const base = { "Cache-Control": "no-store", "x-request-id": requestId };
     try {
-      if (!labEnabled()) throw fail("NOT_FOUND", "לא נמצא.");
+      if (lab && !labEnabled()) throw fail("NOT_FOUND", "לא נמצא."); // lab routes only; public routes are always on
       const out = await handler(req, await ctx.params, { requestId });
       if (out instanceof Response) {
         Object.entries(base).forEach(([k, v]) => out.headers.set(k, v));
