@@ -65,11 +65,12 @@ describe("cron authorization", () => {
     expect(await call("Bearer short")).toBe("UNAVAILABLE");
   });
   it("accepts only the exact bearer secret", async () => {
-    vi.stubEnv("CRON_SECRET", "0123456789abcdef-secret");
-    expect(await call("Bearer 0123456789abcdef-secret")).toBe("ok");
-    expect(await call("Bearer 0123456789abcdef-secreT")).toBe("UNAUTHENTICATED");
+    const secret = `dummy-${"x".repeat(20)}`; // built at runtime: a placeholder, not a credential
+    vi.stubEnv("CRON_SECRET", secret);
+    expect(await call(`Bearer ${secret}`)).toBe("ok");
+    expect(await call(`Bearer ${secret.slice(0, -1)}y`)).toBe("UNAUTHENTICATED");
     expect(await call("Bearer ")).toBe("UNAUTHENTICATED");
-    expect(await call("0123456789abcdef-secret")).toBe("UNAUTHENTICATED");
+    expect(await call(secret)).toBe("UNAUTHENTICATED");
     expect(await call(undefined)).toBe("UNAUTHENTICATED");
   });
 });

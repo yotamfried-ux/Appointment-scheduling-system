@@ -1,2 +1,4 @@
 # False positive: prose in an evidence doc (header name + the word "indistinguishable") matched generic-api-key. No secret material.
 291fa3485fcdcf5ada1f277d9bd8dd4e87d5414d:docs/evidence/stage-4.md:generic-api-key:11
+# False positive: a placeholder value in a unit test (the file no longer contains it). No secret material.
+7a14f4276a228b8daa35223571916f9029dc07b0:tests/unit/notifications-config.test.ts:generic-api-key:68
