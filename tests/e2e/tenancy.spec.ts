@@ -133,7 +133,7 @@ test.describe("tenant isolation with real JWTs (SEC-01, SEC-02)", () => {
     // anonymous callers get nothing
     const anon = createClient(URL_, KEY, { auth: { persistSession: false } });
     expect((await anon.from("businesses").select("*")).error?.code).toBe("42501");
-    expect((await anon.rpc("create_business", { p_name: "אנונימי", p_kind: "other", p_phone: null, p_slug: "anon-biz" })).error?.code).toBe("42501");
+    expect((await anon.rpc("create_business", { p_name: "אנונימי", p_kind: "other", p_phone: null, p_slug: "anon-biz", p_services: [{ name: "שירות", durationMinutes: 30, priceNis: 80 }], p_hours: [] })).error?.code).toBe("42501");
 
     // A still owns and sees exactly their own data
     expect((await a.from("businesses").select("id")).data).toEqual([{ id: aId }]);

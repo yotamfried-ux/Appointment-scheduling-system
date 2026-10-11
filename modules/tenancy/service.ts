@@ -3,7 +3,7 @@ import "server-only";
 // Writes go through the RPCs (supabase/migrations/*_tenancy_core.sql); the system-db (secret key) path is never used here.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { mapRpcError, type TenancyErrorCode } from "@/modules/tenancy/errors";
-import { slugCandidates, toSettings, type CreateBusinessInput } from "@/modules/tenancy/schema";
+import { slugCandidates, type CreateBusinessInput } from "@/modules/tenancy/schema";
 
 export type Result<T> = { ok: true; value: T } | { ok: false; code: TenancyErrorCode };
 
@@ -22,7 +22,8 @@ export async function createBusiness(supabase: SupabaseClient, input: CreateBusi
       p_kind: input.kind,
       p_phone: input.phone,
       p_slug: slug,
-      p_settings: toSettings(input),
+      p_services: input.services,
+      p_hours: input.hours,
     });
     if (!error) return { ok: true, value: data as BusinessSummary };
     const code = mapRpcError(error);

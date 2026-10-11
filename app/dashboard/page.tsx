@@ -35,7 +35,11 @@ export default async function DashboardPage() {
         </div>
       </dl>
       {b.published_at ? null : <PublishButton businessId={b.id} />}
-      <Link href="/settings/security" className="inline-block text-sm font-medium text-primary underline-offset-4 hover:underline">{t("security")}</Link>
+      <nav aria-label={t("settingsNav")} className="flex flex-wrap gap-x-5 gap-y-1 text-sm font-medium">
+        {[["/settings/services", t("settingsServices")], ["/settings/hours", t("settingsHours")], ["/settings/security", t("security")]].map(([href, label]) => (
+          <Link key={href} href={href} className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline">{label}</Link>
+        ))}
+      </nav>
     </AppShell>
   );
 }

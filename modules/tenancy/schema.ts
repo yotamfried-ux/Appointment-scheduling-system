@@ -53,6 +53,3 @@ export function slugCandidates(name: string, rand: () => number = Math.random): 
   return [base, ...numbered, ...random].map(pad);
 }
 
-export function toSettings(input: CreateBusinessInput) {
-  return { onboarding: { services: input.services, hours: input.hours } };
-}

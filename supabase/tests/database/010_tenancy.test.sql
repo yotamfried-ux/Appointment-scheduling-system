@@ -31,7 +31,7 @@ end $$;
 
 -- Business A (owner a1) created through the real RPC; then members added by the system.
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000a1');
-select lives_ok($$ select public.create_business('מספרת אלפא', 'barber', '+972501234567', 'alpha-salon', '{"hours":"x"}') $$, 'ACC-01: owner creates a business through the RPC');
+select lives_ok($$ select public.create_business('מספרת אלפא', 'barber', '+972501234567', 'alpha-salon', '[{"name":"שירות","durationMinutes":30,"priceNis":80}]', '[{"weekday":0,"open":true,"windows":[{"from":"09:00","to":"17:00"}]}]') $$, 'ACC-01: owner creates a business through the RPC');
 select pg_temp.as_system();
 insert into public.business_members (business_id, user_id, role)
 select id, '00000000-0000-0000-0000-0000000000a2', 'admin' from public.businesses where slug = 'alpha-salon';
@@ -39,7 +39,7 @@ insert into public.business_members (business_id, user_id, role)
 select id, '00000000-0000-0000-0000-0000000000a3', 'staff' from public.businesses where slug = 'alpha-salon';
 
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000b1');
-select lives_ok($$ select public.create_business('בטא', 'clinic', null, 'beta-clinic') $$, 'owner B creates business B');
+select lives_ok($$ select public.create_business('בטא', 'clinic', null, 'beta-clinic', '[{"name":"שירות","durationMinutes":30,"priceNis":80}]', '[{"weekday":0,"open":true,"windows":[{"from":"09:00","to":"17:00"}]}]') $$, 'owner B creates business B');
 select pg_temp.as_system();
 
 create temp table ids as
@@ -54,27 +54,27 @@ select is((select count(*)::int from public.profiles where id = '00000000-0000-0
 
 -- failure leaves nothing behind (no half-created business)
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000d1');
-select throws_ok($$ select public.create_business('x', 'barber', null, 'bad-name') $$, '23514', null, 'name shorter than 2 characters is rejected');
-select throws_ok($$ select public.create_business('עסק', 'plumber', null, 'okay-slug') $$, '23514', null, 'unknown business kind is rejected');
-select throws_ok($$ select public.create_business('עסק', 'barber', '050-123', 'okay-slug') $$, '23514', null, 'ACC-03: phone must be E.164');
-select throws_ok($$ select public.create_business('עסק', 'barber', null, 'admin') $$, '23514', null, 'ACC-06: reserved slug rejected');
-select throws_ok($$ select public.create_business('עסק', 'barber', null, 'שלום') $$, '23514', null, 'ACC-06: non-ASCII slug rejected');
-select throws_ok($$ select public.create_business('עסק', 'barber', null, 'a--b') $$, '23514', null, 'ACC-06: malformed slug rejected');
-select throws_ok($$ select public.create_business('עסק', 'barber', null, 'Alpha-Salon') $$, 'P0001', 'slug_taken', 'ACC-06: slug uniqueness is case-insensitive');
+select throws_ok($$ select public.create_business('x', 'barber', null, 'bad-name', '[{"name":"שירות","durationMinutes":30,"priceNis":80}]', '[{"weekday":0,"open":true,"windows":[{"from":"09:00","to":"17:00"}]}]') $$, '23514', null, 'name shorter than 2 characters is rejected');
+select throws_ok($$ select public.create_business('עסק', 'plumber', null, 'okay-slug', '[{"name":"שירות","durationMinutes":30,"priceNis":80}]', '[{"weekday":0,"open":true,"windows":[{"from":"09:00","to":"17:00"}]}]') $$, '23514', null, 'unknown business kind is rejected');
+select throws_ok($$ select public.create_business('עסק', 'barber', '050-123', 'okay-slug', '[{"name":"שירות","durationMinutes":30,"priceNis":80}]', '[{"weekday":0,"open":true,"windows":[{"from":"09:00","to":"17:00"}]}]') $$, '23514', null, 'ACC-03: phone must be E.164');
+select throws_ok($$ select public.create_business('עסק', 'barber', null, 'admin', '[{"name":"שירות","durationMinutes":30,"priceNis":80}]', '[{"weekday":0,"open":true,"windows":[{"from":"09:00","to":"17:00"}]}]') $$, '23514', null, 'ACC-06: reserved slug rejected');
+select throws_ok($$ select public.create_business('עסק', 'barber', null, 'שלום', '[{"name":"שירות","durationMinutes":30,"priceNis":80}]', '[{"weekday":0,"open":true,"windows":[{"from":"09:00","to":"17:00"}]}]') $$, '23514', null, 'ACC-06: non-ASCII slug rejected');
+select throws_ok($$ select public.create_business('עסק', 'barber', null, 'a--b', '[{"name":"שירות","durationMinutes":30,"priceNis":80}]', '[{"weekday":0,"open":true,"windows":[{"from":"09:00","to":"17:00"}]}]') $$, '23514', null, 'ACC-06: malformed slug rejected');
+select throws_ok($$ select public.create_business('עסק', 'barber', null, 'Alpha-Salon', '[{"name":"שירות","durationMinutes":30,"priceNis":80}]', '[{"weekday":0,"open":true,"windows":[{"from":"09:00","to":"17:00"}]}]') $$, 'P0001', 'slug_taken', 'ACC-06: slug uniqueness is case-insensitive');
 select pg_temp.as_system();
 select is((select count(*)::int from public.business_members where user_id = '00000000-0000-0000-0000-0000000000d1'), 0, 'rollback: failed creations left no membership');
 select is((select count(*)::int from public.audit_log where actor_id = '00000000-0000-0000-0000-0000000000d1'), 0, 'rollback: failed creations left no audit rows');
 
 select pg_temp.as_anon();
-select throws_ok($$ select public.create_business('עסק', 'barber', null, 'anon-try') $$, '42501', null, 'anon cannot call create_business');
+select throws_ok($$ select public.create_business('עסק', 'barber', null, 'anon-try', '[{"name":"שירות","durationMinutes":30,"priceNis":80}]', '[{"weekday":0,"open":true,"windows":[{"from":"09:00","to":"17:00"}]}]') $$, '42501', null, 'anon cannot call create_business');
 select pg_temp.as_system();
 
 -- limit of 3 businesses per owner
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000d1');
-select lives_ok($$ select public.create_business('אחד', 'other', null, 'one-biz') $$, 'first business');
-select lives_ok($$ select public.create_business('שניים', 'other', null, 'two-biz') $$, 'second business');
-select lives_ok($$ select public.create_business('שלושה', 'other', null, 'three-biz') $$, 'third business');
-select throws_ok($$ select public.create_business('ארבעה', 'other', null, 'four-biz') $$, 'P0001', 'business_limit', 'fourth business is refused');
+select lives_ok($$ select public.create_business('אחד', 'other', null, 'one-biz', '[{"name":"שירות","durationMinutes":30,"priceNis":80}]', '[{"weekday":0,"open":true,"windows":[{"from":"09:00","to":"17:00"}]}]') $$, 'first business');
+select lives_ok($$ select public.create_business('שניים', 'other', null, 'two-biz', '[{"name":"שירות","durationMinutes":30,"priceNis":80}]', '[{"weekday":0,"open":true,"windows":[{"from":"09:00","to":"17:00"}]}]') $$, 'second business');
+select lives_ok($$ select public.create_business('שלושה', 'other', null, 'three-biz', '[{"name":"שירות","durationMinutes":30,"priceNis":80}]', '[{"weekday":0,"open":true,"windows":[{"from":"09:00","to":"17:00"}]}]') $$, 'third business');
+select throws_ok($$ select public.create_business('ארבעה', 'other', null, 'four-biz', '[{"name":"שירות","durationMinutes":30,"priceNis":80}]', '[{"weekday":0,"open":true,"windows":[{"from":"09:00","to":"17:00"}]}]') $$, 'P0001', 'business_limit', 'fourth business is refused');
 select pg_temp.as_system();
 delete from public.businesses where slug in ('one-biz', 'two-biz', 'three-biz');
 
@@ -195,7 +195,7 @@ select pg_temp.as_system();
 
 -- ---------- ACC-04: publish needs a verified email ----------
 select pg_temp.as_user('00000000-0000-0000-0000-0000000000c1');
-select lives_ok($$ select public.create_business('לא מאומת', 'other', null, 'unverified-biz') $$, 'an unverified user can create (onboard) a business');
+select lives_ok($$ select public.create_business('לא מאומת', 'other', null, 'unverified-biz', '[{"name":"שירות","durationMinutes":30,"priceNis":80}]', '[{"weekday":0,"open":true,"windows":[{"from":"09:00","to":"17:00"}]}]') $$, 'an unverified user can create (onboard) a business');
 select throws_ok($$ select public.publish_business((select id from public.businesses where slug = 'unverified-biz')) $$, 'P0001', 'email_not_verified', 'ACC-04: unverified owner cannot publish');
 select pg_temp.as_system();
 select is((select published_at from public.businesses where slug = 'unverified-biz'), null, 'still unpublished');

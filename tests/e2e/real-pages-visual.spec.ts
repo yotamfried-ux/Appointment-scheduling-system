@@ -27,9 +27,21 @@ async function expectCentered(page: Page, selector: string, where: string, tol =
   expect(Math.abs(gaps!.left - gaps!.right), `${where}: ${selector} off-center (left ${gaps!.left}, right ${gaps!.right})`).toBeLessThanOrEqual(tol);
 }
 
+/** No visible text is silently cut off (ellipsis/overflow:hidden with content wider than the box). The header e-mail is allowed to truncate. */
+async function expectNoClippedText(page: Page, where: string) {
+  const clipped = await page.evaluate(() =>
+    [...document.querySelectorAll<HTMLElement>("main *, header *")]
+      .filter((e) => !e.closest("[data-testid=whoami]") && !e.closest(".sr-only") && e.scrollWidth > e.clientWidth + 1 && ["hidden", "clip"].includes(getComputedStyle(e).overflowX) && (e.textContent ?? "").trim().length > 0 && !e.querySelector("svg, [role=img]"))
+      .slice(0, 5)
+      .map((e) => `${e.tagName}.${(e.getAttribute("class") || "").slice(0, 50)}: "${(e.textContent ?? "").trim().slice(0, 40)}"`),
+  );
+  expect(clipped, `${where}: clipped text`).toEqual([]);
+}
+
 async function check(page: Page, where: string, centered: string[] = []) {
   await page.waitForTimeout(450); // let entrance animations settle before measuring
   await expectNoOverflow(page, where);
+  await expectNoClippedText(page, where);
   for (const sel of centered) await expectCentered(page, sel, where);
   expect((await axe(page)).violations.map((v) => `${v.id} (${v.nodes.length})`), `${where}: axe`).toEqual([]);
 }
@@ -68,6 +80,13 @@ test("real pages: no overflow, no axe violations, balanced layout (mobile + desk
   await page.getByRole("link", { name: "לדשבורד" }).click();
   await page.getByTestId("biz-link").waitFor();
   await check(page, "dashboard", ["main#main"]);
+
+  await page.goto("/settings/services");
+  await check(page, "settings / services", ["main#main"]);
+  await page.getByTestId("add-service").click();
+  await check(page, "settings / services (form open)", ["main#main"]);
+  await page.goto("/settings/hours");
+  await check(page, "settings / hours (+ exceptions + preview)", ["main#main"]);
 
   await page.goto("/settings/security");
   await check(page, "security", ["main#main"]);

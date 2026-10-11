@@ -5,12 +5,11 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { Logo } from "@/components/brand/logo";
-import { TimeRibbon } from "@/components/brand/time-ribbon";
 import { FormField } from "@/components/patterns/form-field";
+import { HoursEditor } from "@/components/patterns/hours-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
 import { normalizePhone } from "@/lib/phone";
 import { KIND_IDS, type BusinessKindId } from "@/modules/tenancy/business-kind";
@@ -18,8 +17,6 @@ import {
   BUSINESS_TYPES,
   canContinueOnboarding,
   kindServices,
-  windowProblem,
-  onboardingToMinutes as toMin,
   initialOnboarding,
   onboardingReducer,
   suggestSlug,
@@ -29,10 +26,7 @@ import { cn } from "@/lib/utils";
 
 const VISIBLE = ONBOARDING_STEPS.slice(0, 3) as ("business" | "services" | "hours")[];
 const DURATIONS = [15, 20, 30, 45, 60, 90, 120];
-const TIMES = Array.from({ length: 37 }, (_, i) => {
-  const m = 6 * 60 + i * 30;
-  return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-});
+
 
 type FinishResult = { ok: true; slug: string } | { ok: false; code: string };
 
@@ -213,56 +207,14 @@ export function OnboardingWizard({ onFinish, email }: { onFinish?: (payload: unk
         )}
 
         {s.step === "hours" && (
-          <ul className="mt-6 divide-y rounded-lg border bg-card">
-            {s.hours.map((h) => {
-              const day = t(`hours.days.${h.weekday}`);
-              const all = h.windows;
-              const bounds = { from: Math.min(...all.map((w) => toMin(w.from))), to: Math.max(...all.map((w) => toMin(w.to))) };
-              const valid = all.every((_, i) => windowProblem(all, i) === null);
-              return (
-                <li key={h.weekday} className="grid gap-3 px-4 py-4" data-testid={`hours-${h.weekday}`}>
-                  <div className="flex items-center justify-between gap-3">
-                    <span className={cn("font-semibold", !h.open && "text-muted-foreground")}>{day}</span>
-                    {h.open ? null : <span className="text-sm text-muted-foreground">{t("hours.closed")}</span>}
-                    <Switch className="ms-auto" checked={h.open} onCheckedChange={() => dispatch({ type: "toggleDay", weekday: h.weekday })} aria-label={t("hours.toggle", { day })} />
-                  </div>
-                  {h.open ? (
-                    <>
-                      {all.map((w, i) => {
-                        const problem = windowProblem(all, i);
-                        const suffix = all.length > 1 ? ` ${t("hours.window", { n: i + 1 })}` : "";
-                        return (
-                          <div key={i} className="grid gap-2" data-testid={`window-${h.weekday}-${i}`}>
-                            <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-3">
-                              <NativeSelect aria-label={`${t("hours.from")} ${day}${suffix}`} value={w.from} onChange={(e) => dispatch({ type: "setHours", weekday: h.weekday, index: i, from: e.target.value, to: w.to })}>{TIMES.map((x) => <option key={x}>{x}</option>)}</NativeSelect>
-                              <NativeSelect aria-label={`${t("hours.to")} ${day}${suffix}`} aria-invalid={problem ? true : undefined} value={w.to} onChange={(e) => dispatch({ type: "setHours", weekday: h.weekday, index: i, from: w.from, to: e.target.value })}>{TIMES.map((x) => <option key={x}>{x}</option>)}</NativeSelect>
-                              {all.length > 1 ? (
-                                <Button type="button" variant="ghost" size="icon" aria-label={`${t("hours.removeWindow")} ${day}${suffix}`} onClick={() => dispatch({ type: "removeWindow", weekday: h.weekday, index: i })}><Trash2 aria-hidden /></Button>
-                              ) : null}
-                            </div>
-                            {problem ? <p role="alert" className="text-sm font-medium text-destructive">{problem === "order" ? t("hours.error") : t("hours.overlap")}</p> : null}
-                          </div>
-                        );
-                      })}
-                      {valid ? (
-                        <TimeRibbon
-                          from={Math.min(bounds.from, 6 * 60)}
-                          to={Math.max(bounds.to, 22 * 60)}
-                          segments={all.map((w) => ({ start: toMin(w.from), end: toMin(w.to), state: "free" as const }))}
-                          height="sm"
-                          ticks={false}
-                          label={`${day} ${all.map((w) => `${w.from}–${w.to}`).join(", ")}`}
-                        />
-                      ) : null}
-                      {all.length < 3 ? (
-                        <Button type="button" variant="ghost" size="sm" className="justify-self-start text-muted-foreground" onClick={() => dispatch({ type: "addWindow", weekday: h.weekday })}><Plus aria-hidden />{t("hours.addWindow")}</Button>
-                      ) : null}
-                    </>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
+          <HoursEditor
+            className="mt-6"
+            hours={s.hours}
+            onToggle={(weekday) => dispatch({ type: "toggleDay", weekday })}
+            onSet={(weekday, index, from, to) => dispatch({ type: "setHours", weekday, index, from, to })}
+            onAdd={(weekday) => dispatch({ type: "addWindow", weekday })}
+            onRemove={(weekday, index) => dispatch({ type: "removeWindow", weekday, index })}
+          />
         )}
       </main>
 

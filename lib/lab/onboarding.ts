@@ -122,6 +122,20 @@ export function canContinueOnboarding(s: OnboardingState): boolean {
   }
 }
 
+// Pure hours edits, shared by the onboarding reducer and the settings page.
+export const toggleDay = (hours: DayHours[], weekday: number): DayHours[] => hours.map((h) => (h.weekday === weekday ? { ...h, open: !h.open } : h));
+export const setWindow = (hours: DayHours[], weekday: number, index: number, from: string, to: string): DayHours[] =>
+  hours.map((h) => (h.weekday === weekday ? { ...h, windows: h.windows.map((w, i) => (i === index ? { from, to } : w)) } : h));
+export const addWindow = (hours: DayHours[], weekday: number): DayHours[] =>
+  hours.map((h) => {
+    if (h.weekday !== weekday || h.windows.length >= 3) return h;
+    const last = h.windows.at(-1)!;
+    const from = hhmm(Math.min(toMin(last.to) + 60, 22 * 60));
+    return { ...h, windows: [...h.windows, { from, to: hhmm(Math.min(toMin(from) + 120, 24 * 60 - 1)) }] };
+  });
+export const removeWindow = (hours: DayHours[], weekday: number, index: number): DayHours[] =>
+  hours.map((h) => (h.weekday === weekday && h.windows.length > 1 ? { ...h, windows: h.windows.filter((_, i) => i !== index) } : h));
+
 export type OnboardingAction =
   | { type: "setBusiness"; business: OnboardingState["business"] }
   | { type: "setType"; kind: BusinessKindId }
@@ -154,21 +168,13 @@ export function onboardingReducer(s: OnboardingState, a: OnboardingAction): Onbo
     case "updateService":
       return { ...s, services: s.services.map((x) => (x.id === a.id ? { ...x, ...a.patch } : x)) };
     case "toggleDay":
-      return { ...s, hours: s.hours.map((h) => (h.weekday === a.weekday ? { ...h, open: !h.open } : h)) };
+      return { ...s, hours: toggleDay(s.hours, a.weekday) };
     case "setHours":
-      return { ...s, hours: s.hours.map((h) => (h.weekday === a.weekday ? { ...h, windows: h.windows.map((w, i) => (i === a.index ? { from: a.from, to: a.to } : w)) } : h)) };
+      return { ...s, hours: setWindow(s.hours, a.weekday, a.index, a.from, a.to) };
     case "addWindow":
-      return {
-        ...s,
-        hours: s.hours.map((h) => {
-          if (h.weekday !== a.weekday || h.windows.length >= 3) return h;
-          const last = h.windows.at(-1)!;
-          const from = hhmm(Math.min(toMin(last.to) + 60, 22 * 60));
-          return { ...h, windows: [...h.windows, { from, to: hhmm(Math.min(toMin(from) + 120, 24 * 60 - 1)) }] };
-        }),
-      };
+      return { ...s, hours: addWindow(s.hours, a.weekday) };
     case "removeWindow":
-      return { ...s, hours: s.hours.map((h) => (h.weekday === a.weekday && h.windows.length > 1 ? { ...h, windows: h.windows.filter((_, i) => i !== a.index) } : h)) };
+      return { ...s, hours: removeWindow(s.hours, a.weekday, a.index) };
     case "next": {
       if (!canContinueOnboarding(s)) return s;
       return { ...s, step: ONBOARDING_STEPS[ONBOARDING_STEPS.indexOf(s.step) + 1] };
