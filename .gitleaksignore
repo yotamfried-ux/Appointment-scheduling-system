@@ -1,0 +1,2 @@
+# False positive: prose in an evidence doc (header name + the word "indistinguishable") matched generic-api-key. No secret material.
+291fa3485fcdcf5ada1f277d9bd8dd4e87d5414d:docs/evidence/stage-4.md:generic-api-key:11
