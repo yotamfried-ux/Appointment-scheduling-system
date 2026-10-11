@@ -1,51 +1,20 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Suspense } from "react";
+import Link from "next/link";
+import { getTranslations } from "next-intl/server";
+import { AuthCard } from "@/components/auth/auth-card";
+import { Button } from "@/components/ui/button";
 
-async function ErrorContent({
-  searchParams,
-}: {
-  searchParams: Promise<{ error: string }>;
-}) {
-  const params = await searchParams;
+// Only a fixed set of reasons is rendered — never reflect arbitrary query text (docs/05 §5.5).
+const REASONS = new Set(["expired"]);
 
+export default async function Page({ searchParams }: { searchParams: Promise<{ reason?: string }> }) {
+  const t = await getTranslations("auth.error");
+  const { reason } = await searchParams;
+  const body = reason && REASONS.has(reason) ? t("linkExpired") : t("unspecified");
   return (
-    <>
-      {params?.error ? (
-        <p className="text-sm text-muted-foreground">
-          Code error: {params.error}
-        </p>
-      ) : (
-        <p className="text-sm text-muted-foreground">
-          An unspecified error occurred.
-        </p>
-      )}
-    </>
-  );
-}
-
-export default function Page({
-  searchParams,
-}: {
-  searchParams: Promise<{ error: string }>;
-}) {
-  return (
-    <div className="flex min-h-svh w-full items-center justify-center p-6 md:p-10">
-      <div className="w-full max-w-sm">
-        <div className="flex flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-2xl">
-                Sorry, something went wrong.
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Suspense>
-                <ErrorContent searchParams={searchParams} />
-              </Suspense>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
+    <AuthCard title={t("title")} description={body}>
+      <Button asChild size="lg">
+        <Link href="/auth/login">{t("toLogin")}</Link>
+      </Button>
+    </AuthCard>
   );
 }

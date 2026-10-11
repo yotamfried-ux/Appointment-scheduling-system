@@ -1,14 +1,13 @@
 # Scoped, time-boxed risk acceptances for OSV-Scanner (docs/05 §7). Review before the expiry date.
-# Both packages arrive ONLY via tailwindcss@3 (a devDependency used at build time on trusted source):
-#   npm ls braces postcss-selector-parser  →  tailwindcss → chokidar/micromatch → braces ; tailwindcss/postcss-nested → postcss-selector-parser
-# Neither is bundled into the app or reachable from user input. Removal path: Tailwind 4 migration in stage 1 (design system).
+#
+# braces <= 3.0.3 (GHSA-vfj7-8cjw-p6xm): recursion DoS when attacker-controlled, deeply nested brace patterns are expanded.
+# Reached ONLY through the lint toolchain (npm ls braces: eslint-config-next -> fast-glob -> micromatch -> braces), a devDependency
+# that globs trusted repository paths. Not bundled into the app, never fed user input. No patched version exists upstream.
+# Re-check when eslint-config-next / fast-glob drop braces 3.x, or at the expiry date.
+#
+# (GHSA-rj75-hqrm-r3gf postcss-selector-parser was removed by the stage-1 Tailwind 4 migration and no longer needs an exception.)
 
 [[IgnoredVulns]]
 id = "GHSA-vfj7-8cjw-p6xm"
 ignoreUntil = 2026-12-31
-reason = "braces <=3.0.3 recursion DoS needs attacker-controlled brace patterns; dev/build-time only (tailwind file watching). No patched version exists upstream."
-
-[[IgnoredVulns]]
-id = "GHSA-rj75-hqrm-r3gf"
-ignoreUntil = 2026-12-31
-reason = "postcss-selector-parser <7.1.6 quadratic parse needs attacker-supplied selectors parsed in a request path; advisory states ordinary build-time use is not affected. Fixed by leaving Tailwind 3 (stage 1)."
+reason = "braces <=3.0.3 recursion DoS needs attacker-controlled brace patterns; lint toolchain only (eslint-config-next > fast-glob > micromatch), devDependency, no upstream fix."

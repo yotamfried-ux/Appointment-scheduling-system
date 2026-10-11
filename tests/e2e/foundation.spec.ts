@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type ConsoleMessage } from "@playwright/test";
 
-const PAGES = ["/", "/auth/login", "/auth/sign-up", "/auth/forgot-password"];
+const PAGES = ["/", "/auth/login", "/auth/sign-up", "/auth/forgot-password", "/auth/sign-up-success", "/auth/error"];
 
 test.describe("security headers (docs/05 §5.5)", () => {
   test("health endpoint is live, uncached, and not leaking the framework", async ({ request }) => {
