@@ -64,18 +64,25 @@ export async function loginAs(page: import("@playwright/test").Page, email: stri
 export const fakeIp = () => `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
 
 /** A customer books through the real public API (own IP so the per-IP limits never interfere). */
-export async function publicBook(request: APIRequestContext, b: TestBusiness, date: string, time: string, n: number, serviceIndex = 0) {
+export async function publicBook(request: APIRequestContext, b: TestBusiness, date: string, time: string, n: number, serviceIndex = 0, email?: string | null) {
   const r = await request.post(`/api/public/${b.slug}/bookings`, {
-    data: { serviceId: b.services[serviceIndex].id, date, time, location: "business", customer: customer(n), intake: {} },
+    data: { serviceId: b.services[serviceIndex].id, date, time, location: "business", customer: email === null ? { fullName: customer(n).fullName, phone: customer(n).phone } : { ...customer(n), ...(email ? { email } : {}) }, intake: {} },
     headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `idem-${Math.random().toString(36).slice(2)}-${n}` },
   });
   expect(r.status(), await r.text()).toBe(201);
   return (await r.json()).booking as { id: string; date: string; time: string };
 }
 
-export async function firstDayWithSlots(request: APIRequestContext, b: TestBusiness) {
-  const av = C.AvailabilityResponse.parse(await (await request.get(`/api/public/${b.slug}/availability?service=${b.services[0].id}&from=${todayLocal(2)}&days=14`)).json());
-  const date = av.days.find((d) => d.freeSlots > 0)!.date;
+/** The `nth` bookable day (0 = first). Specs that depend on global jobs pick distinct days, two or more apart, so their time windows never overlap. */
+export async function firstDayWithSlots(request: APIRequestContext, b: TestBusiness, nth = 0) {
+  const av = C.AvailabilityResponse.parse(await (await request.get(`/api/public/${b.slug}/availability?service=${b.services[0].id}&from=${todayLocal(2)}&days=30`)).json());
+  const date = av.days.filter((d) => d.freeSlots > 0)[nth].date;
   const sl = C.SlotsResponse.parse(await (await request.get(`/api/public/${b.slug}/slots?service=${b.services[0].id}&date=${date}`)).json());
   return { date, times: sl.slots.map((s) => s.time) };
+}
+
+import { execFileSync } from "node:child_process";
+/** Time-travel and inspection against the local database (the same container the app uses). Test-only. */
+export function sql(query: string): string {
+  return execFileSync("docker", ["exec", "supabase_db_appointment-scheduling-system", "psql", "-U", "postgres", "-At", "-c", query], { encoding: "utf8" }).trim();
 }

@@ -140,6 +140,8 @@ export const OwnerAgendaResponse = z.object({
   appointments: z.array(OwnerAppointmentDto),
   /** Everything awaiting a decision from today onwards (any day) — the approvals inbox. */
   inbox: z.array(OwnerAppointmentDto),
+  /** Messages that could not be delivered after all retries in the last 7 days (NTF-04): the owner should reach those customers another way. */
+  undelivered: z.number().int().nonnegative(),
   services: z.array(z.object({ id: z.string(), name: z.string(), durationMinutes: z.number().int().positive() })),
   business: z.object({ name: z.string(), kind: KindSchema }),
 });
@@ -177,6 +179,7 @@ export const ERROR_CODES = [
   "TOO_EARLY",
   "UNAUTHENTICATED",
   "FORBIDDEN",
+  "UNAVAILABLE",
   "INTERNAL",
 ] as const;
 export const ApiErrorBody = z.object({

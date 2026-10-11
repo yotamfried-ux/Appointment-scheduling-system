@@ -149,6 +149,12 @@ export function OwnerAgenda() {
         </div>
       </div>
 
+      {agenda.undelivered > 0 ? (
+        <p role="status" className="rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm font-medium text-warning-soft-foreground" data-testid="undelivered">
+          {t("agenda.undelivered", { count: agenda.undelivered })}
+        </p>
+      ) : null}
+
       <StatStrip
         stats={[
           { label: t("stats.appointments"), value: String(stats.total), hint: t("stats.confirmedHint", { count: appts.filter((a) => a.status === "confirmed" || a.status === "completed").length }) },

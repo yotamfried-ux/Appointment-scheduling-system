@@ -1,8 +1,10 @@
 "use server";
 
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { enforce } from "@/modules/booking/public/rate-limit";
 import { cancelWithToken, type CancelOutcome } from "@/modules/booking/public/service";
+import { kickOutbox } from "@/modules/notifications/service";
 
 // POST (Server Action: Origin-checked, SEC-05). A link GET never changes state; this does, once per token (single-use jti).
 export async function cancelAppointmentAction(cancelToken: unknown): Promise<CancelOutcome | "rate_limited"> {
@@ -14,5 +16,7 @@ export async function cancelAppointmentAction(cancelToken: unknown): Promise<Can
   } catch {
     return "rate_limited";
   }
-  return cancelWithToken(cancelToken);
+  const outcome = await cancelWithToken(cancelToken);
+  if (outcome === "cancelled") after(kickOutbox);
+  return outcome;
 }

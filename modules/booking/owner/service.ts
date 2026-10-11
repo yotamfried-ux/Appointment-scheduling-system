@@ -52,7 +52,7 @@ export async function agenda(ctx: OwnerCtx, date: string): Promise<z.infer<typeo
   const tz = ctx.business.timezone;
   const from = zonedTimeToUtc(date, 0, tz);
   const to = zonedTimeToUtc(addDaysIso(date, 1), 0, tz);
-  const [appts, av, svcs, inbox] = await Promise.all([
+  const [appts, av, svcs, inbox, dead] = await Promise.all([
     ctx.supabase
       .from("appointments")
       .select(COLUMNS)
@@ -71,8 +71,14 @@ export async function agenda(ctx: OwnerCtx, date: string): Promise<z.infer<typeo
       .gte("starts_at", new Date(systemClock.now().getTime() - 86_400_000).toISOString())
       .order("starts_at")
       .limit(50),
+    ctx.supabase
+      .from("notification_log")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", ctx.business.id)
+      .eq("status", "dead")
+      .gte("created_at", new Date(systemClock.now().getTime() - 7 * 86_400_000).toISOString()),
   ]);
-  if (appts.error || svcs.error || inbox.error) throw new Error("agenda unavailable");
+  if (appts.error || svcs.error || inbox.error || dead.error) throw new Error("agenda unavailable");
   const dto = (r: Row) => ({
     id: r.id,
     date: zonedParts(new Date(r.starts_at), tz).date,
@@ -95,6 +101,7 @@ export async function agenda(ctx: OwnerCtx, date: string): Promise<z.infer<typeo
     now: today.date === date ? today.minutes : null,
     appointments: (appts.data as unknown as Row[]).map(dto),
     inbox: (inbox.data as unknown as Row[]).map(dto),
+    undelivered: dead.count ?? 0,
     services: (svcs.data ?? []).map((s) => ({ id: s.id as string, name: s.name as string, durationMinutes: s.duration_minutes as number })),
     business: { name: ctx.business.name, kind: ctx.business.kind },
   };

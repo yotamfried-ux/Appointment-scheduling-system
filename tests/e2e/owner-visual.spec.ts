@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { firstDayWithSlots, loginAs, makeBusiness, publicBook } from "./helpers/business";
+import { firstDayWithSlots, loginAs, makeBusiness, publicBook, sql } from "./helpers/business";
 
 // Visual integrity of the real owner dashboard with realistic data (long names, pending requests, manual + out-of-hours rows).
 const axe = (page: Page) => new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
@@ -63,4 +63,15 @@ test("the manual-appointment form stays reachable on a short phone (dialog scrol
   expect(box.y + box.height).toBeLessThanOrEqual(520); // never taller than the screen
   await page.getByTestId("manual-submit").scrollIntoViewIfNeeded();
   await expect(page.getByTestId("manual-submit")).toBeInViewport();
+});
+
+test("the undelivered-messages banner is balanced (NTF-04)", async ({ page }) => {
+  const b = await makeBusiness("clinic");
+  const f = await firstDayWithSlots(page.request, b);
+  const a = await publicBook(page.request, b, f.date, f.times[0], 1);
+  sql(`insert into public.notification_log (business_id, appointment_id, type, recipient, status, attempts, error) values ('${b.id}', '${a.id}', 'booking_received', 'customer', 'dead', 7, 'injected')`);
+  await loginAs(page, b.ownerEmail);
+  await page.goto("/dashboard");
+  await expect(page.getByTestId("undelivered")).toContainText("הודעה אחת ללקוח לא נשלחה");
+  await check(page, "dashboard with banner", "5-banner");
 });

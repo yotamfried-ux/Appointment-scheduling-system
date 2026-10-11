@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { CreateBookingRequest } from "@/lib/api/contracts";
 import { api, fail, parse, readJson } from "@/lib/api/http";
 import { normalizePhone } from "@/lib/phone";
 import { clientIp, enforce, limitFromHeader } from "@/modules/booking/public/rate-limit";
 import { catalogOr404 } from "@/modules/booking/public/resolve";
 import { createBooking } from "@/modules/booking/public/service";
+import { kickOutbox } from "@/modules/notifications/service";
 
 // Public booking (no session). Order matters: cheap limits first, then body validation, then the database decides conflicts.
 export const POST = api<{ slug: string }>(async (req, { slug }) => {
@@ -20,5 +21,6 @@ export const POST = api<{ slug: string }>(async (req, { slug }) => {
   const phone = normalizePhone(input.customer.phone);
   if (phone) await enforce([{ scope: "book-phone", value: `${phone}|${catalog.business.id}`, windowSeconds: 3600, max: 6 }]); // one customer cannot flood a business
   const { booking, replay } = await createBooking(catalog, input, key);
+  if (!replay) after(kickOutbox); // the e-mail goes out now; the cron is only the safety net
   return NextResponse.json({ booking }, { status: replay ? 200 : 201, headers: replay ? { "Idempotent-Replay": "true" } : {} });
 }, { lab: false });

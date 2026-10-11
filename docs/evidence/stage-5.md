@@ -10,7 +10,7 @@ Plan: `docs/plans/stage-5-owner-dashboard.md`. Evidence is for the commit that c
 | Owner API E2E (`owner-api.spec.ts`) | PASS — 401 JSON without session, approve/reject (+ slot returns to public), double approve → 409, CSRF (no / foreign Origin → 403, nothing changes), tenant isolation (other owner sees nothing, "not yours" = 404, unknown field refused, foreign service refused), manual appointments (confirmed, out-of-hours flag computed by the server, overlap 409, field-level validation), complete / no-show only after start, owner cancel frees the slot |
 | Browser "Dana" (`owner-dashboard.spec.ts`) | PASS — inbox across days, approve / reject, double click acts once, add from a free gap, conflict explained in the dialog and nothing lost, out-of-hours tag, two-step cancel, closing out a started visit as no-show, day navigation, failed load → retry, stale tab rolls back to server truth |
 | Visual (`owner-visual.spec.ts`) | PASS at 360 and 1280: no overflow, no clipped text, axe WCAG 2.2 AA (agenda, dialog, empty day); dialog reachable on a 520px-tall phone. Screenshots reviewed by eye. |
-| Full Playwright suite | PASS — 293 |
+| Full Playwright suite | **CORRECTION:** the commit that first contained this file reported "PASS — 293", but that run actually had one failing test (an older tenant-isolation test completed a future appointment, which the new `too_early` rule forbids). My output filter hid the failure and CI caught it; fixed in the next commit. The suite is green from `d06d93e` on. |
 | Build / bundle secret scan | PASS |
 
 ## Found and fixed while verifying

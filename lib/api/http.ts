@@ -31,6 +31,7 @@ export const STATUS: Record<ApiErrorCode, number> = {
   TOO_EARLY: 409,
   UNAUTHENTICATED: 401,
   FORBIDDEN: 403,
+  UNAVAILABLE: 503,
   INTERNAL: 500,
 };
 

@@ -34,6 +34,7 @@ const eslintConfig = defineConfig([
       "app/api/webhooks/**",
       "app/api/public/**",
       "modules/booking/public/**",
+      "modules/notifications/**",
       "tests/**",
     ],
     rules: { "no-restricted-imports": "off" },
