@@ -34,10 +34,19 @@ const TIMES = Array.from({ length: 37 }, (_, i) => {
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 });
 
-export function OnboardingWizard() {
+type FinishResult = { ok: true; slug: string } | { ok: false; code: string };
+
+/**
+ * Lab mode (no props): prototype, nothing is saved. Real mode (`onFinish`): the last step saves through a Server Action
+ * and the done screen shows the slug the server actually assigned.
+ */
+export function OnboardingWizard({ onFinish, email }: { onFinish?: (payload: unknown) => Promise<FinishResult>; email?: string } = {}) {
   const t = useTranslations("onboarding");
   const [s, dispatch] = useReducer(onboardingReducer, initialOnboarding);
   const [touched, setTouched] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [savedSlug, setSavedSlug] = useState<string | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const first = useRef(true);
   useEffect(() => {
@@ -47,28 +56,51 @@ export function OnboardingWizard() {
   }, [s.step]);
 
   const stepIndex = VISIBLE.indexOf(s.step as (typeof VISIBLE)[number]);
-  const slug = suggestSlug(s.business.name);
-  const link = `tori.example/book/${slug}`;
-  const next = () => {
+  const slug = savedSlug ?? suggestSlug(s.business.name);
+  const link = `${process.env.NEXT_PUBLIC_SITE_HOST ?? "tori.example"}/book/${slug}`;
+  const next = async () => {
+    if (saving) return;
     setTouched(true);
-    if (canContinueOnboarding(s)) {
-      setTouched(false);
-      dispatch({ type: "next" });
+    if (!canContinueOnboarding(s)) return;
+    if (s.step === "hours" && onFinish) {
+      setSaving(true);
+      setSaveError(null);
+      try {
+        const r = await onFinish({
+          name: s.business.name,
+          kind: s.business.type,
+          phone: s.business.phone,
+          services: s.services.map(({ name, durationMinutes, priceNis }) => ({ name, durationMinutes, priceNis })),
+          hours: s.hours,
+        });
+        if (!r.ok) {
+          setSaveError(r.code === "BUSINESS_LIMIT" ? t("submit.errors.limit") : r.code === "NOT_AUTHENTICATED" ? t("submit.errors.session") : r.code === "VALIDATION" || r.code === "SLUG_INVALID" ? t("submit.errors.validation") : r.code === "SLUG_TAKEN" ? t("submit.errors.slug") : t("submit.errors.generic"));
+          return;
+        }
+        setSavedSlug(r.slug);
+      } catch {
+        setSaveError(t("submit.errors.generic"));
+        return;
+      } finally {
+        setSaving(false);
+      }
     }
+    setTouched(false);
+    dispatch({ type: "next" });
   };
 
   if (s.step === "done") {
     return (
-      <Shell>
+      <Shell email={email}>
         <main id="main" className="mx-auto w-full max-w-xl px-4 py-12 text-center sm:py-16">
           <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground motion-safe:animate-in motion-safe:zoom-in-50" aria-hidden><Check className="size-8" strokeWidth={3} /></div>
           <h1 ref={heading} tabIndex={-1} className="mt-5 text-3xl font-bold outline-none" data-testid="done-title">{t("done.title")}</h1>
-          <p className="mt-1 text-muted-foreground">{t("done.subtitle")}</p>
+          <p className="mt-1 text-balance text-muted-foreground">{t("done.subtitle")}</p>
           <div className="mt-8 rounded-lg border bg-card p-4 text-start">
             <p className="text-sm text-muted-foreground">{t("done.link")}</p>
-            <div className="mt-1 flex items-center justify-between gap-3">
-              <bdi className="min-w-0 truncate text-lg font-semibold" data-testid="share-link">{link}</bdi>
-              <Button variant="outline" onClick={() => toast(t("done.copied"), { variant: "success" })}><Copy aria-hidden />{t("done.copy")}</Button>
+            <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="min-w-0 text-lg font-semibold [overflow-wrap:anywhere]"><bdi data-testid="share-link">{link}</bdi></p>
+              <Button variant="outline" className="w-full sm:w-auto" onClick={() => toast(t("done.copied"), { variant: "success" })}><Copy aria-hidden />{t("done.copy")}</Button>
             </div>
           </div>
           <div className="mt-8 text-start">
@@ -82,14 +114,14 @@ export function OnboardingWizard() {
               ))}
             </ul>
           </div>
-          <Button asChild size="lg" className="mt-8 w-full"><Link href="/design/dashboard">{t("done.toDashboard")}</Link></Button>
+          <Button asChild size="lg" className="mt-8 w-full"><Link href={onFinish ? "/dashboard" : "/design/dashboard"}>{t("done.toDashboard")}</Link></Button>
         </main>
       </Shell>
     );
   }
 
   return (
-    <Shell>
+    <Shell email={email}>
       <div className="mx-auto w-full max-w-xl px-4 pt-6">
         <nav aria-label={t("stepper")}>
           <p className="mb-3 text-sm font-medium text-muted-foreground">{t("stepOf", { current: stepIndex + 1, total: VISIBLE.length })}</p>
@@ -123,9 +155,9 @@ export function OnboardingWizard() {
             <FormField label={t("business.phone")} hint={t("business.phoneHint")} error={touched && normalizePhone(s.business.phone) === null ? "מספר הטלפון אינו תקין." : undefined}>
               {(a) => <Input {...a} type="tel" inputMode="tel" autoComplete="tel" value={s.business.phone} onChange={(e) => dispatch({ type: "setBusiness", business: { ...s.business, phone: e.target.value } })} />}
             </FormField>
-            <div className="rounded-lg border bg-card p-4">
+            <div className="min-w-0 rounded-lg border bg-card p-4">
               <p className="text-sm text-muted-foreground">{t("business.link")}</p>
-              <bdi className="mt-1 block truncate font-semibold" data-testid="link-preview">{link}</bdi>
+              <p className="mt-1 font-semibold [overflow-wrap:anywhere]"><bdi data-testid="link-preview">{link}</bdi></p>
               <p className="mt-1 text-xs text-muted-foreground">{t("business.linkHint")}</p>
             </div>
           </div>
@@ -223,7 +255,7 @@ export function OnboardingWizard() {
                         />
                       ) : null}
                       {all.length < 3 ? (
-                        <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={() => dispatch({ type: "addWindow", weekday: h.weekday })}><Plus aria-hidden />{t("hours.addWindow")}</Button>
+                        <Button type="button" variant="ghost" size="sm" className="justify-self-start text-muted-foreground" onClick={() => dispatch({ type: "addWindow", weekday: h.weekday })}><Plus aria-hidden />{t("hours.addWindow")}</Button>
                       ) : null}
                     </>
                   ) : null}
@@ -239,19 +271,22 @@ export function OnboardingWizard() {
           {s.step !== "business" ? (
             <Button type="button" variant="outline" size="lg" onClick={() => dispatch({ type: "back" })} aria-label={t("actions.back")}><ArrowRight aria-hidden /><span className="hidden sm:inline">{t("actions.back")}</span></Button>
           ) : null}
-          <Button type="button" size="lg" className="flex-1" onClick={next} data-testid="continue">
-            {s.step === "hours" ? t("actions.finish") : t("actions.continue")}
-          </Button>
+          <div className="grid min-w-0 flex-1 gap-2">
+            {saveError ? <p role="alert" data-testid="save-error" className="text-sm font-medium text-destructive">{saveError}</p> : null}
+            <Button type="button" size="lg" className="w-full" disabled={saving} onClick={next} data-testid="continue">
+              {saving ? t("submit.saving") : s.step === "hours" ? t("actions.finish") : t("actions.continue")}
+            </Button>
+          </div>
         </div>
       </div>
     </Shell>
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, email }: { children: React.ReactNode; email?: string }) {
   return (
     <div className="min-h-svh">
-      <header className="border-b bg-card/60"><div className="mx-auto flex h-14 max-w-xl items-center px-4"><Logo /></div></header>
+      <header className="border-b bg-card/60"><div className="mx-auto flex h-14 max-w-xl items-center justify-between px-4"><Logo />{email ? <bdi className="min-w-0 truncate text-sm text-muted-foreground" data-testid="whoami">{email}</bdi> : null}</div></header>
       {children}
     </div>
   );

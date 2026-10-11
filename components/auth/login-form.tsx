@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authErrorKey } from "@/lib/auth/errors";
 import { loginSchema } from "@/lib/auth/schemas";
-import { createClient } from "@/lib/supabase/client";
+import { loginAction } from "@/app/auth/actions";
 
 export function LoginForm() {
   const t = useTranslations("auth");
@@ -32,9 +32,9 @@ export function LoginForm() {
   const onSubmit = handleSubmit(async ({ email, password }) => {
     setServerError(null);
     try {
-      const { error } = await createClient().auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      router.push("/dashboard");
+      const r = await loginAction({ email, password });
+      if (!r.ok) return setServerError(t(`errors.${r.errorKey}`));
+      router.push(r.mfaRequired ? "/auth/mfa" : "/dashboard");
       router.refresh();
     } catch (e) {
       setServerError(t(`errors.${authErrorKey(e)}`));

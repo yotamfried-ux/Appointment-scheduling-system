@@ -129,3 +129,22 @@ test.describe("design lab · onboarding adapts to the business kind", () => {
   });
 });
 
+test.describe("design lab · onboarding layout with long values", () => {
+  test("a very long business name never widens the page at 320px (link card wraps)", async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 640 });
+    await page.goto("/design/onboarding");
+    await page.getByLabel("שם העסק").fill("Same Name Studio With A Really Long Business Name kpxzaxqwe");
+    await page.getByLabel("טלפון ליצירת קשר").fill("050-1234567");
+    await expect(page.getByTestId("link-preview")).toContainText("same-name-studio");
+    await noOverflow(page);
+    const box = await page.getByTestId("continue").boundingBox();
+    expect(box!.x).toBeGreaterThanOrEqual(0);
+    expect(box!.x + box!.width).toBeLessThanOrEqual(320);
+    await page.getByTestId("continue").click();
+    await page.getByTestId("continue").click();
+    await page.getByTestId("continue").click();
+    await expect(page.getByTestId("share-link")).toBeVisible();
+    await noOverflow(page);
+  });
+});
+

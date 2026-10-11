@@ -22,7 +22,7 @@ async function signUpAndVerify(page: Page, email: string) {
   await expect(page).toHaveURL(/\/auth\/sign-up-success/);
   const mail = await waitForMail(email);
   await page.goto(extractLink(mail.html, "/auth/confirm"));
-  await expect(page).toHaveURL(/\/dashboard/);
+  await expect(page).toHaveURL(/\/onboarding/); // verified, but no business yet → onboarding
   return mail;
 }
 
@@ -43,7 +43,7 @@ test.describe("owner authentication journey (scenarios ACC-01, ACC-02, ACC-04, S
     await expect(page).toHaveURL(/\/auth\/login/);
 
     await page.goto(extractLink(mail.html, "/auth/confirm"));
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page).toHaveURL(/\/onboarding/);
     await expect(page.getByTestId("whoami")).toHaveText(email);
   });
 
@@ -105,7 +105,7 @@ test.describe("owner authentication journey (scenarios ACC-01, ACC-02, ACC-04, S
     await page.getByLabel("אימייל").fill(email);
     await page.getByLabel("סיסמה", { exact: true }).fill(PASSWORD);
     await page.getByRole("button", { name: "כניסה", exact: true }).click();
-    await expect(page).toHaveURL(/\/dashboard/);
+    await expect(page).toHaveURL(/\/onboarding/);
   });
 
   test("an invalid/expired confirmation link lands on a safe error page (no reflected text)", async ({ page }) => {
@@ -117,10 +117,27 @@ test.describe("owner authentication journey (scenarios ACC-01, ACC-02, ACC-04, S
     expect(await page.content()).not.toContain("<script>alert(1)</script>");
   });
 
-  // KNOWN GAP (docs/05 §5.2): the vendor template signs in from the browser client, so the
-  // session cookie is readable by JS. Fix in stage 2: move auth to Server Actions + httpOnly.
-  test.fixme("session cookie is HttpOnly", async ({ page, context }) => {
+  test("session cookie is HttpOnly and invisible to page scripts (docs/05 §5.2)", async ({ page, context }) => {
     await signUpAndVerify(page, unique());
+    const auth = (await context.cookies()).filter((c) => c.name.includes("auth-token"));
+    expect(auth.length).toBeGreaterThan(0);
+    for (const c of auth) {
+      expect(c.httpOnly, c.name).toBe(true);
+      expect(c.sameSite, c.name).toBe("Lax");
+    }
+    expect(await page.evaluate(() => document.cookie)).not.toContain("auth-token");
+    expect(await page.evaluate(() => JSON.stringify({ ...localStorage }))).not.toContain("access_token");
+  });
+
+  test("login through the server also yields an HttpOnly session", async ({ page, context }) => {
+    const email = unique();
+    await signUpAndVerify(page, email);
+    await context.clearCookies();
+    await page.goto("/auth/login");
+    await page.getByLabel("אימייל").fill(email);
+    await page.getByLabel("סיסמה", { exact: true }).fill(PASSWORD);
+    await page.getByRole("button", { name: "כניסה", exact: true }).click();
+    await expect(page).toHaveURL(/\/onboarding/);
     const auth = (await context.cookies()).filter((c) => c.name.includes("auth-token"));
     expect(auth.length).toBeGreaterThan(0);
     for (const c of auth) expect(c.httpOnly).toBe(true);

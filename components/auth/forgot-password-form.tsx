@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authErrorKey } from "@/lib/auth/errors";
 import { forgotSchema } from "@/lib/auth/schemas";
-import { createClient } from "@/lib/supabase/client";
+import { forgotPasswordAction } from "@/app/auth/actions";
 
 export function ForgotPasswordForm() {
   const t = useTranslations("auth");
@@ -30,10 +30,8 @@ export function ForgotPasswordForm() {
   const onSubmit = handleSubmit(async ({ email }) => {
     setServerError(null);
     try {
-      const { error } = await createClient().auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/update-password`,
-      });
-      if (error) throw error;
+      const r = await forgotPasswordAction({ email });
+      if (!r.ok) return setServerError(t(`errors.${r.errorKey}`));
       setSent(true); // same message whether or not the account exists (no enumeration, ACC-02)
     } catch (e) {
       setServerError(t(`errors.${authErrorKey(e)}`));

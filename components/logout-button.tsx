@@ -3,13 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
+import { logoutAction } from "@/app/auth/actions";
 
 export function LogoutButton() {
   const t = useTranslations("nav");
   const router = useRouter();
   const logout = async () => {
-    await createClient().auth.signOut();
+    await logoutAction();
     router.push("/auth/login");
     router.refresh();
   };

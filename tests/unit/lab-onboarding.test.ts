@@ -13,6 +13,17 @@ import {
   type OnboardingState,
 } from "@/lib/lab/onboarding";
 
+describe("suggestSlug word boundaries", () => {
+  it("shortens long names at a hyphen, never mid-word", () => {
+    const slug = suggestSlug("Same Name Studio With A Really Long Business Name kpxzaxqwe");
+    expect(slug).toBe("same-name-studio-with-a-really-long");
+    expect(slug.length).toBeLessThanOrEqual(40);
+  });
+  it("falls back to a hard cut for one very long word", () => {
+    expect(suggestSlug("a".repeat(80))).toBe("a".repeat(40));
+  });
+});
+
 describe("suggestSlug (ACC-06)", () => {
   it.each(["מספרת הדר", "Hadar's Barber & Co.", "  ***  ", "admin", "api", "ד"])("%j yields a safe, ASCII, URL-friendly slug", (name) => {
     const slug = suggestSlug(name);

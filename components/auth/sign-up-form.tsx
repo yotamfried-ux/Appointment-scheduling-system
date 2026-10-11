@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authErrorKey } from "@/lib/auth/errors";
 import { signUpSchema } from "@/lib/auth/schemas";
-import { createClient } from "@/lib/supabase/client";
+import { signUpAction } from "@/app/auth/actions";
 
 export function SignUpForm() {
   const t = useTranslations("auth");
@@ -32,12 +32,8 @@ export function SignUpForm() {
   const onSubmit = handleSubmit(async ({ email, password }) => {
     setServerError(null);
     try {
-      const { error } = await createClient().auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: `${window.location.origin}/auth/confirm?next=/dashboard` },
-      });
-      if (error) throw error;
+      const r = await signUpAction({ email, password });
+      if (!r.ok) return setServerError(t(`errors.${r.errorKey}`));
       router.push("/auth/sign-up-success");
     } catch (e) {
       setServerError(t(`errors.${authErrorKey(e)}`));

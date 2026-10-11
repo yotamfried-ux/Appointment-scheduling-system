@@ -64,16 +64,23 @@ const HE: Record<string, string> = {
   נ: "n", ן: "n", ס: "s", ע: "a", פ: "p", ף: "f", צ: "tz", ץ: "tz", ק: "k", ר: "r", ש: "sh", ת: "t",
 };
 
+/** Cuts to `max` chars at the last hyphen (never mid-word) unless that would leave fewer than 3 characters. */
+function cutAtWord(s: string, max: number): string {
+  if (s.length <= max) return s;
+  const head = s.slice(0, max);
+  const i = head.lastIndexOf("-");
+  return (i >= 3 ? head.slice(0, i) : head).replace(/-+$/g, "");
+}
+
 /** ASCII, URL-safe, ≤40 chars, never a reserved route (ACC-06). Final uniqueness is enforced by the DB. */
 export function suggestSlug(name: string): string {
   const latin = Array.from(name.trim().toLowerCase())
     .map((c) => HE[c] ?? c)
     .join("")
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40)
-    .replace(/-+$/g, "");
-  const slug = latin || "business";
+    .replace(/^-+|-+$/g, "");
+  const slug0 = cutAtWord(latin, 40);
+  const slug = slug0 || "business";
   return RESERVED.has(slug) ? `${slug}-1` : slug;
 }
 

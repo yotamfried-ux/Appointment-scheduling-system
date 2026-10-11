@@ -12,7 +12,7 @@ import { PasswordInput } from "@/components/patterns/password-input";
 import { Button } from "@/components/ui/button";
 import { authErrorKey } from "@/lib/auth/errors";
 import { updatePasswordSchema } from "@/lib/auth/schemas";
-import { createClient } from "@/lib/supabase/client";
+import { updatePasswordAction } from "@/app/auth/actions";
 
 export function UpdatePasswordForm() {
   const t = useTranslations("auth");
@@ -30,8 +30,8 @@ export function UpdatePasswordForm() {
   const onSubmit = handleSubmit(async ({ password }) => {
     setServerError(null);
     try {
-      const { error } = await createClient().auth.updateUser({ password });
-      if (error) throw error;
+      const r = await updatePasswordAction({ password });
+      if (!r.ok) return setServerError(t(`errors.${r.errorKey}`));
       router.push("/dashboard");
       router.refresh();
     } catch (e) {

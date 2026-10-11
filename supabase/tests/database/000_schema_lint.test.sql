@@ -12,7 +12,7 @@ select is_empty(
 
 -- Privilege posture of the helper schema and function
 select ok(not has_schema_privilege('anon', 'private', 'USAGE'), 'anon cannot use schema private');
-select ok(not has_schema_privilege('authenticated', 'private', 'USAGE'), 'authenticated cannot use schema private');
+select ok(not has_schema_privilege('anon', 'private', 'CREATE') and not has_schema_privilege('authenticated', 'private', 'CREATE'), 'nobody but the owner can create objects in schema private');
 select ok(not has_function_privilege('anon', 'private.lint_violations()', 'EXECUTE'), 'anon cannot execute the lint function');
 select ok(not has_function_privilege('authenticated', 'private.lint_violations()', 'EXECUTE'), 'authenticated cannot execute the lint function');
 

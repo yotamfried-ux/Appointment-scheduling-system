@@ -20,7 +20,7 @@ export async function createClient() {
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options),
+              cookieStore.set(name, value, { ...options, httpOnly: true }), // JS must never read session tokens (docs/05 §5.2)
             );
           } catch {
             // The `setAll` method was called from a Server Component.

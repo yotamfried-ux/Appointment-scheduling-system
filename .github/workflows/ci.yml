@@ -25,6 +25,7 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      - run: npm run check:bundle # SEC-04: no secret key in the client bundle (with a planted-secret negative control)
 
   e2e:
     name: E2E (Playwright · mobile + desktop · axe)
