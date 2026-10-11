@@ -139,7 +139,11 @@ EmailPort / SmsPort / WhatsAppPort / CalendarPort (Google, Outlook, ICS)
 | 11 | **הקשחה ושחרור** | ביצועים, אבטחה, Lighthouse, נגישות, runbook, ניטור | דוח qualification מלא |
 | ∞ | הגירת נתונים מ-Project 8 (אם קיימים משתמשים אמיתיים) | סקריפט ETL SQL Server→Postgres | **להחלטה** |
 
-## 9. החלטות שנדרשות ממך
+## 9. החלטות
+
+> **עודכן:** נענו לפי ההמלצות ב-[יומן ההחלטות](00-decisions.md). בגרסה 1 ההודעות הן **אימייל בלבד (Resend)**; ממשקי SMS/WhatsApp נשארים כ-port בלי מימוש. דרישות האבטחה מפורטות ב-[מסמך 05](05-security-architecture.md).
+
+(הרשימה המקורית נשמרה לתיעוד:)
 
 1. **פרויקט Supabase חדש** (לאשר יצירה — כרוכה בעלות; אזור מוצע `eu-central-1` כמו הקיימים). האם לבנות תחילה על local/branch?
 2. **ספק לחיוב המנויים:** Stripe (זמינות/התאמה לעסק ישראלי **טרם נבדקה**), Paddle/Lemon Squeezy (Merchant of Record — מפשט מע"מ), או שער ישראלי (Cardcom/PayPlus/Tranzila…). ההמלצה: להתחיל ב-`manual`+`fake`, ולבחור ספק אחרי בדיקת התאמה משפטית/מיסויית. הארכיטקטורה לא תלויה בבחירה.

@@ -7,3 +7,6 @@
 2. [Engineering-OS — מה ניקח](docs/02-engineering-os-leverage.md)
 3. [ארכיטקטורה, תוכנית שלבים והחלטות פתוחות](docs/03-architecture-and-plan.md)
 4. [קטלוג תרחישים (133) ומיפוי לבדיקות ושלבים](docs/04-scenarios-catalog.md)
+5. [ארכיטקטורת סייבר ואבטחת מידע](docs/05-security-architecture.md)
+
+[יומן החלטות](docs/00-decisions.md)
