@@ -298,8 +298,10 @@ test.describe("tenant isolation of bookings (SEC-01)", () => {
     expect((await other.db.rpc("transition_appointment", { p_id: id, p_action: "complete" })).error?.code).toBe("42501");
     expect((await other.db.from("appointments").update({ status: "no_show" }).eq("id", id).select()).error?.code).toBe("42501");
     expect((await a.db.from("appointments").select("status").eq("id", id).single()).data!.status).toBe("confirmed");
-    // the real owner can transition (stage-5 dashboard uses this), and the state machine guards it
-    expect((await a.db.rpc("transition_appointment", { p_id: id, p_action: "complete" })).data).toMatchObject({ status: "completed" });
+    // the real owner can transition (the dashboard uses this), and the state machine guards it.
+    // (A future appointment cannot be marked completed — that rule is tested in 040_owner_ops; cancelling is valid.)
+    expect((await a.db.rpc("transition_appointment", { p_id: id, p_action: "complete" })).error?.message).toContain("too_early");
+    expect((await a.db.rpc("transition_appointment", { p_id: id, p_action: "cancel" })).data).toMatchObject({ status: "cancelled_by_business" });
     expect((await a.db.rpc("transition_appointment", { p_id: id, p_action: "approve" })).error?.message).toContain("invalid_transition");
   });
 });
