@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { expect } from "@playwright/test";
+import { expect, type APIRequestContext } from "@playwright/test";
+import * as C from "../../../lib/api/contracts";
 import { kindHours } from "../../../lib/lab/onboarding";
 import { BUSINESS_KINDS, type BusinessKindId } from "../../../modules/tenancy/business-kind";
 
@@ -29,6 +30,7 @@ export interface TestBusiness {
   id: string;
   kind: BusinessKindId;
   db: SupabaseClient;
+  ownerEmail: string;
   services: { id: string; name: string; duration_minutes: number; buffer_minutes: number }[];
 }
 
@@ -42,10 +44,38 @@ export async function makeBusiness(kind: BusinessKindId = "barber", opts: { publ
   const id = (created.data as { id: string }).id;
   if (opts.publish !== false) expect((await owner.db.rpc("publish_business", { p_business: id })).error).toBeNull();
   const svc = (await owner.db.from("services").select("id, name, duration_minutes, buffer_minutes").eq("business_id", id).order("position")).data!;
-  return { slug, id, kind, db: owner.db, services: svc };
+  return { slug, id, kind, db: owner.db, ownerEmail: owner.email, services: svc };
 }
 
 export const todayLocal = (offsetDays = 0, tz = "Asia/Jerusalem") =>
   new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(Date.now() + offsetDays * 86_400_000));
 
 export const customer = (n = 1, over: Record<string, unknown> = {}) => ({ fullName: `לקוח בדיקה ${n}`, phone: `+97250${String(1000000 + n).slice(-7)}`, email: `c${n}@example.com`, ...over });
+
+/** Sign the owner in through the real login form (cookies are set by the app, exactly as for a person). */
+export async function loginAs(page: import("@playwright/test").Page, email: string) {
+  await page.goto("/auth/login");
+  await page.getByLabel("אימייל").fill(email);
+  await page.getByLabel("סיסמה", { exact: true }).fill(PASSWORD);
+  await page.getByRole("button", { name: "כניסה", exact: true }).click();
+  await page.waitForURL(/\/(dashboard|onboarding)/);
+}
+
+export const fakeIp = () => `10.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`;
+
+/** A customer books through the real public API (own IP so the per-IP limits never interfere). */
+export async function publicBook(request: APIRequestContext, b: TestBusiness, date: string, time: string, n: number, serviceIndex = 0) {
+  const r = await request.post(`/api/public/${b.slug}/bookings`, {
+    data: { serviceId: b.services[serviceIndex].id, date, time, location: "business", customer: customer(n), intake: {} },
+    headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `idem-${Math.random().toString(36).slice(2)}-${n}` },
+  });
+  expect(r.status(), await r.text()).toBe(201);
+  return (await r.json()).booking as { id: string; date: string; time: string };
+}
+
+export async function firstDayWithSlots(request: APIRequestContext, b: TestBusiness) {
+  const av = C.AvailabilityResponse.parse(await (await request.get(`/api/public/${b.slug}/availability?service=${b.services[0].id}&from=${todayLocal(2)}&days=14`)).json());
+  const date = av.days.find((d) => d.freeSlots > 0)!.date;
+  const sl = C.SlotsResponse.parse(await (await request.get(`/api/public/${b.slug}/slots?service=${b.services[0].id}&date=${date}`)).json());
+  return { date, times: sl.slots.map((s) => s.time) };
+}

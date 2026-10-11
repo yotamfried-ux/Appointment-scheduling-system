@@ -3,12 +3,13 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { AppShell } from "@/components/app-shell";
 import { PublishButton } from "@/app/dashboard/publish-button";
+import { OwnerAgenda } from "@/components/owner/agenda";
 import { PageHeader } from "@/components/patterns/page-header";
 import { requireUser } from "@/lib/auth/session";
 import { BUSINESS_KINDS, type BusinessKindId } from "@/modules/tenancy/business-kind";
 import { listMyBusinesses } from "@/modules/tenancy/service";
 
-// Auth is enforced in proxy.ts AND re-checked here (defense in depth, docs/05 §4.2). The real dashboard arrives in stage 5.
+// Auth is enforced in proxy.ts AND re-checked here (defense in depth, docs/05 §4.2). The agenda itself is fetched from /api/owner (RLS as the signed-in user).
 export default async function DashboardPage() {
   const t = await getTranslations("dashboard");
   const { supabase, claims } = await requireUser();
@@ -18,8 +19,10 @@ export default async function DashboardPage() {
   const host = process.env.NEXT_PUBLIC_SITE_HOST ?? "tori.example";
 
   return (
-    <AppShell email={String(claims.email ?? "")}>
-      <PageHeader title={t("welcome", { name: `\u2068${b.name}\u2069` })} description={t("placeholder")} />
+    <AppShell email={String(claims.email ?? "")} width="max-w-6xl">
+      <PageHeader title={t("welcome", { name: `\u2068${b.name}\u2069` })} />
+      {b.published_at ? null : <PublishButton businessId={b.id} />}
+      <OwnerAgenda />
       <dl className="divide-y rounded-lg border bg-card">
         <div className="flex flex-col gap-1 p-4 sm:flex-row sm:justify-between sm:gap-4">
           <dt className="text-muted-foreground">{t("kind")}</dt>
@@ -34,7 +37,6 @@ export default async function DashboardPage() {
           <dd className="font-semibold" data-testid="biz-status">{b.published_at ? t("published") : t("draft")}</dd>
         </div>
       </dl>
-      {b.published_at ? null : <PublishButton businessId={b.id} />}
       <nav aria-label={t("settingsNav")} className="flex flex-wrap gap-x-5 gap-y-1 text-sm font-medium">
         {[["/settings/services", t("settingsServices")], ["/settings/hours", t("settingsHours")], ["/settings/security", t("security")]].map(([href, label]) => (
           <Link key={href} href={href} className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline">{label}</Link>

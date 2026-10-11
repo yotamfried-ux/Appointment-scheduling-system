@@ -5,6 +5,7 @@ import {
   initialDashboard,
   todayStats,
   toRibbon,
+  type DashboardState,
   type LabAppointment,
 } from "@/lib/lab/dashboard-data";
 
@@ -96,4 +97,26 @@ describe("formatDuration (Hebrew)", () => {
     [150, "שעתיים ו-30 דק׳"],
     [180, "3 שעות"],
   ])("%i minutes → %s", (m, text) => expect(formatDuration(m)).toBe(text));
+});
+
+describe("owner actions on the same state machine (stage 5)", () => {
+  const mk = (status: LabAppointment["status"]): DashboardState => ({ appointments: [{ id: "x", start: 600, end: 630, customer: "ד", service: "ש", status }] });
+  const st = (s: DashboardState) => s.appointments[0].status;
+  it("cancel works from confirmed and pending only", () => {
+    expect(st(dashboardReducer(mk("confirmed"), { type: "cancel", id: "x" }))).toBe("cancelled");
+    expect(st(dashboardReducer(mk("pending"), { type: "cancel", id: "x" }))).toBe("cancelled");
+    for (const s of ["completed", "noShow", "cancelled", "cancellationRequested"] as const) expect(st(dashboardReducer(mk(s), { type: "cancel", id: "x" }))).toBe(s);
+  });
+  it("complete and noShow only from confirmed", () => {
+    expect(st(dashboardReducer(mk("confirmed"), { type: "complete", id: "x" }))).toBe("completed");
+    expect(st(dashboardReducer(mk("confirmed"), { type: "noShow", id: "x" }))).toBe("noShow");
+    for (const s of ["pending", "completed", "noShow", "cancelled"] as const) {
+      expect(st(dashboardReducer(mk(s), { type: "complete", id: "x" }))).toBe(s);
+      expect(st(dashboardReducer(mk(s), { type: "noShow", id: "x" }))).toBe(s);
+    }
+  });
+  it("an unknown id changes nothing", () => {
+    const s = mk("confirmed");
+    expect(dashboardReducer(s, { type: "complete", id: "nope" })).toBe(s);
+  });
 });

@@ -210,7 +210,8 @@ select pg_temp.as_user('00000000-0000-0000-0000-0000000002d1');
 select is((select public.transition_appointment((select id from pend), 'approve')->>'status'), 'confirmed', 'the clinic owner approves a pending appointment');
 select throws_ok($$ select public.transition_appointment((select id from pend), 'approve') $$, 'P0001', 'invalid_transition', 'approving twice is refused by the state machine');
 select throws_ok($$ select public.transition_appointment((select id from pend), 'explode') $$, '23514', null, 'an unknown action is refused');
-select is((select public.transition_appointment((select id from pend), 'complete')->>'status'), 'completed', 'confirmed → completed');
+select throws_ok($$ select public.transition_appointment((select id from pend), 'complete') $$, 'P0001', 'too_early', 'a future appointment cannot be completed yet (see 040 for started ones)');
+select is((select public.transition_appointment((select id from pend), 'cancel')->>'status'), 'cancelled_by_business', 'confirmed → cancelled by the business');
 select pg_temp.as_system();
 select is((select count(*)::int from public.audit_log where business_id = (select c from ids) and action like 'appointment.%'), 2, 'owner transitions are audited');
 

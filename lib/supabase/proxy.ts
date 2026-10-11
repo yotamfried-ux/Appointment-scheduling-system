@@ -56,7 +56,13 @@ export async function updateSession(request: NextRequest) {
   const user = data?.claims;
 
   if (!user && !isPublicPath(request.nextUrl.pathname)) {
-    // no user, potentially respond by redirecting the user to the login page
+    // API clients get the same JSON error contract as every other endpoint, never an HTML login page.
+    if (request.nextUrl.pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: { code: "UNAUTHENTICATED", message: "יש להתחבר מחדש.", requestId: `req_${crypto.randomUUID().slice(0, 8)}` } },
+        { status: 401, headers: { "Cache-Control": "no-store" } },
+      );
+    }
     const url = request.nextUrl.clone();
     url.pathname = "/auth/login";
     return NextResponse.redirect(url);

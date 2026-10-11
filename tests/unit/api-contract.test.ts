@@ -349,3 +349,23 @@ describe("owner transitions", () => {
     expect((await find("pending")).id).toBe(a.id);
   });
 });
+
+describe("IsoDate accepts only real calendar dates", () => {
+  it.each(["2026-10-11", "2028-02-29", "2026-12-31"])("accepts %s", (d) => expect(C.IsoDate.safeParse(d).success).toBe(true));
+  it.each(["2026-13-45", "2026-02-31", "2027-02-29", "2026-00-10", "2026-10-00", "26-10-11", "2026-10-11T00:00", "", "abc"])("rejects %s", (d) => expect(C.IsoDate.safeParse(d).success).toBe(false));
+});
+
+describe("owner contracts", () => {
+  it("manual appointment refuses unknown fields (tenant spoofing) and bad input", () => {
+    const ok = { serviceId: "s", date: "2026-10-14", time: "10:00", customer: { fullName: "נועם", phone: "050-1234567" } };
+    expect(C.CreateManualRequest.safeParse(ok).success).toBe(true);
+    expect(C.CreateManualRequest.safeParse({ ...ok, businessId: "x" }).success).toBe(false);
+    expect(C.CreateManualRequest.safeParse({ ...ok, customer: { ...ok.customer, email: "a@b.co" } }).success).toBe(false);
+    expect(C.CreateManualRequest.safeParse({ ...ok, note: "x".repeat(201) }).success).toBe(false);
+  });
+  it("transition accepts only the known actions", () => {
+    for (const a of ["approve", "reject", "cancel", "complete", "noShow", "approveCancellation", "declineCancellation"]) expect(C.OwnerTransitionRequest.safeParse({ action: a }).success).toBe(true);
+    expect(C.OwnerTransitionRequest.safeParse({ action: "delete" }).success).toBe(false);
+    expect(C.OwnerTransitionRequest.safeParse({ action: "approve", id: "x" }).success).toBe(false);
+  });
+});

@@ -5,7 +5,8 @@ import { KIND_IDS } from "@/modules/tenancy/business-kind";
 import { normalizePhone } from "@/lib/phone";
 
 export const KindSchema = z.enum(KIND_IDS);
-export const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "invalid date");
+const isRealDate = (v: string) => new Date(`${v}T12:00:00Z`).toISOString().slice(0, 10) === v; // rejects 2026-13-45 and 2026-02-31
+export const IsoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "invalid date").refine((v) => !Number.isNaN(Date.parse(`${v}T12:00:00Z`)) && isRealDate(v), "invalid date");
 export const HHmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "invalid time");
 
 export const LocationSchema = z.enum(["business", "customer", "online"]);
@@ -116,6 +117,50 @@ export const AppointmentsResponse = z.object({
 export const TransitionRequest = z.object({ action: z.enum(["approve", "reject", "approveCancellation", "declineCancellation"]) }).strict();
 export const TransitionResponse = z.object({ appointment: AppointmentDto });
 
+// ---- owner API (session-authenticated; tenant always comes from the session, never from the request) ----
+export const OwnerStatus = z.enum(["confirmed", "pending", "cancelled", "completed", "noShow", "cancellationRequested"]);
+export const OwnerAppointmentDto = z.object({
+  id: z.string(),
+  date: IsoDate,
+  start: z.number().int(),
+  end: z.number().int(),
+  customer: z.string(),
+  phone: z.string(),
+  service: z.string(),
+  status: OwnerStatus,
+  manual: z.boolean(),
+  outOfHours: z.boolean(),
+  note: z.string().optional(),
+});
+export const OwnerAgendaResponse = z.object({
+  date: IsoDate,
+  today: IsoDate,
+  windows: z.array(z.object({ from: z.number().int(), to: z.number().int() })),
+  now: z.number().int().nullable(),
+  appointments: z.array(OwnerAppointmentDto),
+  /** Everything awaiting a decision from today onwards (any day) — the approvals inbox. */
+  inbox: z.array(OwnerAppointmentDto),
+  services: z.array(z.object({ id: z.string(), name: z.string(), durationMinutes: z.number().int().positive() })),
+  business: z.object({ name: z.string(), kind: KindSchema }),
+});
+export const OwnerAction = z.enum(["approve", "reject", "cancel", "complete", "noShow", "approveCancellation", "declineCancellation"]);
+export const OwnerTransitionRequest = z.object({ action: OwnerAction }).strict();
+export const OwnerTransitionResponse = z.object({ id: z.string(), status: OwnerStatus });
+export const CreateManualRequest = z
+  .object({
+    serviceId: z.string().min(1),
+    date: IsoDate,
+    time: HHmm,
+    customer: z.object({
+      fullName: z.string().trim().min(2, "יש להזין שם (לפחות 2 תווים).").max(80, "השם ארוך מדי."),
+      phone: z.string().min(1, "יש להזין מספר טלפון.").refine((v) => normalizePhone(v) !== null, "מספר הטלפון אינו תקין."),
+    }).strict(),
+    note: z.string().trim().max(200, "ההערה ארוכה מדי.").optional(),
+  })
+  .strict();
+export type CreateManualInput = z.infer<typeof CreateManualRequest>;
+export const CreateManualResponse = z.object({ id: z.string(), reference: z.string(), outOfHours: z.boolean() });
+
 export const ERROR_CODES = [
   "BAD_REQUEST",
   "VALIDATION_FAILED",
@@ -129,6 +174,9 @@ export const ERROR_CODES = [
   "BOOKING_LIMIT",
   "SERVICE_UNAVAILABLE",
   "TOO_LATE",
+  "TOO_EARLY",
+  "UNAUTHENTICATED",
+  "FORBIDDEN",
   "INTERNAL",
 ] as const;
 export const ApiErrorBody = z.object({

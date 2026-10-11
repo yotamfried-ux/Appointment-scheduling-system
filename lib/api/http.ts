@@ -28,6 +28,9 @@ export const STATUS: Record<ApiErrorCode, number> = {
   BOOKING_LIMIT: 409,
   SERVICE_UNAVAILABLE: 409,
   TOO_LATE: 409,
+  TOO_EARLY: 409,
+  UNAUTHENTICATED: 401,
+  FORBIDDEN: 403,
   INTERNAL: 500,
 };
 
@@ -82,3 +85,16 @@ export async function readJson(req: Request): Promise<unknown> {
 }
 
 export const sessionOf = (req: Request) => (req.headers.get("x-lab-session") ?? "default").replace(/[^\w-]/g, "").slice(0, 64) || "default";
+
+/** CSRF for cookie-authenticated JSON endpoints: a state-changing request must come from this very site (browsers always send Origin on fetch POST). */
+export function assertSameOrigin(req: Request) {
+  const origin = req.headers.get("origin");
+  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+  let ok = false;
+  try {
+    ok = Boolean(origin && host && new URL(origin).host === host);
+  } catch {
+    ok = false;
+  }
+  if (!ok) throw fail("FORBIDDEN", "הבקשה נדחתה.");
+}

@@ -26,6 +26,11 @@ export function toast(title: string, opts: { description?: string; variant?: Var
   items = [...items, { id: nextId++, title, description: opts.description, variant: opts.variant ?? "info", duration: opts.duration ?? 5000 }];
   emit();
 }
+/** A modal opening should not sit under an old notification that covers its title. */
+export function dismissAllToasts() {
+  items = [];
+  emit();
+}
 const dismiss = (id: number) => {
   items = items.filter((i) => i.id !== id);
   emit();

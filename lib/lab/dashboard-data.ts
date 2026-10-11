@@ -3,7 +3,7 @@ import type { RibbonSegment } from "@/lib/ribbon";
 // Prototype data + pure logic for the owner dashboard (stage 1 design lab).
 // Real data arrives with the booking module (stage 5); the helpers below are reusable as-is.
 
-export type LabStatus = "confirmed" | "pending" | "cancelled" | "completed" | "cancellationRequested";
+export type LabStatus = "confirmed" | "pending" | "cancelled" | "completed" | "noShow" | "cancellationRequested";
 
 export interface LabAppointment {
   id: string;
@@ -13,6 +13,11 @@ export interface LabAppointment {
   service: string;
   status: LabStatus;
   note?: string;
+  /** Real owner agenda only. */
+  date?: string;
+  phone?: string;
+  manual?: boolean;
+  outOfHours?: boolean;
 }
 
 const H = (h: number, m = 0) => h * 60 + m;
@@ -40,7 +45,10 @@ export type DashboardAction =
   | { type: "approve"; id: string }
   | { type: "reject"; id: string }
   | { type: "approveCancellation"; id: string }
-  | { type: "declineCancellation"; id: string };
+  | { type: "declineCancellation"; id: string }
+  | { type: "cancel"; id: string }
+  | { type: "complete"; id: string }
+  | { type: "noShow"; id: string };
 
 function transition(s: DashboardState, id: string, from: LabStatus, to: LabStatus): DashboardState {
   const target = s.appointments.find((a) => a.id === id);
@@ -61,6 +69,14 @@ export function dashboardReducer(s: DashboardState, a: DashboardAction): Dashboa
       return transition(s, a.id, "cancellationRequested", "cancelled");
     case "declineCancellation":
       return transition(s, a.id, "cancellationRequested", "confirmed");
+    case "cancel": {
+      const t = s.appointments.find((x) => x.id === a.id);
+      return t && (t.status === "confirmed" || t.status === "pending") ? transition(s, a.id, t.status, "cancelled") : s;
+    }
+    case "complete":
+      return transition(s, a.id, "confirmed", "completed");
+    case "noShow":
+      return transition(s, a.id, "confirmed", "noShow");
   }
 }
 

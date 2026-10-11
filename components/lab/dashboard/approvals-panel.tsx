@@ -3,11 +3,13 @@
 import { Check, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { formatDayLabel } from "@/lib/lab/booking-data";
 import { fmt, type DashboardAction, type LabAppointment } from "@/lib/lab/dashboard-data";
 
-export type ApprovalAction = Exclude<DashboardAction["type"], "replace">;
+export type ApprovalAction = Exclude<DashboardAction["type"], "replace" | "cancel" | "complete" | "noShow">;
 
 export function ApprovalsPanel({ appointments, onAction, busyIds }: { appointments: LabAppointment[]; onAction: (action: ApprovalAction, a: LabAppointment) => void; busyIds: ReadonlySet<string> }) {
+  const when = (a: LabAppointment) => (a.date ? <>{formatDayLabel(a.date, "short")} · <bdi>{fmt(a.start)}</bdi></> : <bdi>{fmt(a.start)}</bdi>);
   const t = useTranslations("owner.approvals");
   const pending = appointments.filter((a) => a.status === "pending");
   const requests = appointments.filter((a) => a.status === "cancellationRequested");
@@ -27,11 +29,11 @@ export function ApprovalsPanel({ appointments, onAction, busyIds }: { appointmen
       ) : (
         <ul className="divide-y">
           {pending.map((a) => (
-            <li key={a.id} className="grid gap-3 px-4 py-4" data-testid={`approval-${a.id}`}>
+            <li key={a.id} className="grid min-w-0 gap-3 px-4 py-4" data-testid={`approval-${a.id}`}>
               <div>
-                <p className="font-medium">{a.customer}</p>
-                <p className="text-sm text-muted-foreground">
-                  {a.service} · <bdi>{fmt(a.start)}</bdi>
+                <p className="font-medium [overflow-wrap:anywhere]">{a.customer}</p>
+                <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                  {a.service} · {when(a)}
                   {a.note ? <> · {a.note}</> : null}
                 </p>
               </div>
@@ -46,12 +48,12 @@ export function ApprovalsPanel({ appointments, onAction, busyIds }: { appointmen
             </li>
           ))}
           {requests.map((a) => (
-            <li key={a.id} className="grid gap-3 bg-warning-soft/40 px-4 py-4" data-testid={`approval-${a.id}`}>
+            <li key={a.id} className="grid min-w-0 gap-3 bg-warning-soft/40 px-4 py-4" data-testid={`approval-${a.id}`}>
               <div>
                 <p className="text-xs font-semibold text-warning">{t("cancelRequest")}</p>
-                <p className="font-medium">{a.customer}</p>
-                <p className="text-sm text-muted-foreground">
-                  {a.service} · <bdi>{fmt(a.start)}</bdi>
+                <p className="font-medium [overflow-wrap:anywhere]">{a.customer}</p>
+                <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                  {a.service} · {when(a)}
                   {a.note ? <> · {a.note}</> : null}
                 </p>
               </div>
