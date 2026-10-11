@@ -13,9 +13,13 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/toast";
 import { normalizePhone } from "@/lib/phone";
+import { KIND_IDS, type BusinessKindId } from "@/modules/tenancy/business-kind";
 import {
   BUSINESS_TYPES,
   canContinueOnboarding,
+  kindServices,
+  windowProblem,
+  onboardingToMinutes as toMin,
   initialOnboarding,
   onboardingReducer,
   suggestSlug,
@@ -29,16 +33,6 @@ const TIMES = Array.from({ length: 37 }, (_, i) => {
   const m = 6 * 60 + i * 30;
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 });
-const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
-
-const PRESETS: Record<string, { name: string; durationMinutes: number; priceNis: number }[]> = {
-  barber: [{ name: "תספורת גברים", durationMinutes: 30, priceNis: 80 }, { name: "עיצוב זקן", durationMinutes: 20, priceNis: 40 }],
-  beauty: [{ name: "טיפול פנים", durationMinutes: 60, priceNis: 220 }, { name: "הרמת ריסים", durationMinutes: 90, priceNis: 250 }],
-  trainer: [{ name: "אימון אישי", durationMinutes: 60, priceNis: 200 }],
-  teacher: [{ name: "שיעור פרטי", durationMinutes: 60, priceNis: 150 }],
-  clinic: [{ name: "טיפול ראשון", durationMinutes: 60, priceNis: 300 }],
-  other: [],
-};
 
 export function OnboardingWizard() {
   const t = useTranslations("onboarding");
@@ -119,10 +113,10 @@ export function OnboardingWizard() {
             <FormField label={t("business.name")} error={touched && s.business.name.trim().length < 2 ? t("services.errors.name") : undefined}>
               {(a) => <Input {...a} autoComplete="organization" value={s.business.name} onChange={(e) => dispatch({ type: "setBusiness", business: { ...s.business, name: e.target.value } })} />}
             </FormField>
-            <FormField label={t("business.type")}>
+            <FormField label={t("business.type")} hint={t("business.typeHint")}>
               {(a) => (
-                <NativeSelect {...a} value={s.business.type} onChange={(e) => dispatch({ type: "setBusiness", business: { ...s.business, type: e.target.value } })}>
-                  {BUSINESS_TYPES.map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
+                <NativeSelect {...a} value={s.business.type} onChange={(e) => dispatch({ type: "setType", kind: e.target.value as BusinessKindId })}>
+                  {BUSINESS_TYPES.filter((b) => KIND_IDS.includes(b.id)).map((b) => <option key={b.id} value={b.id}>{b.label}</option>)}
                 </NativeSelect>
               )}
             </FormField>
@@ -139,12 +133,12 @@ export function OnboardingWizard() {
 
         {s.step === "services" && (
           <div className="mt-6 grid gap-5">
-            {(PRESETS[s.business.type] ?? []).length > 0 ? (
+            {kindServices(s.business.type as BusinessKindId).filter((p) => !s.services.some((x) => x.name === p.name)).length > 0 ? (
               <div>
                 <p className="mb-2 text-sm font-semibold text-muted-foreground">{t("services.suggestions")}</p>
                 <div className="flex flex-wrap gap-2">
-                  {PRESETS[s.business.type].map((p) => (
-                    <Button key={p.name} type="button" variant="outline" size="sm" disabled={s.services.some((x) => x.name === p.name)} onClick={() => {
+                  {kindServices(s.business.type as BusinessKindId).filter((p) => !s.services.some((x) => x.name === p.name)).map((p) => (
+                    <Button key={p.name} type="button" variant="outline" size="sm" onClick={() => {
                       const empty = s.services.find((x) => x.name === "" && x.priceNis === 0);
                       if (empty) dispatch({ type: "updateService", id: empty.id, patch: p });
                       else dispatch({ type: "addService", service: p });
@@ -190,7 +184,9 @@ export function OnboardingWizard() {
           <ul className="mt-6 divide-y rounded-lg border bg-card">
             {s.hours.map((h) => {
               const day = t(`hours.days.${h.weekday}`);
-              const invalid = h.open && !(h.from < h.to);
+              const all = h.windows;
+              const bounds = { from: Math.min(...all.map((w) => toMin(w.from))), to: Math.max(...all.map((w) => toMin(w.to))) };
+              const valid = all.every((_, i) => windowProblem(all, i) === null);
               return (
                 <li key={h.weekday} className="grid gap-3 px-4 py-4" data-testid={`hours-${h.weekday}`}>
                   <div className="flex items-center justify-between gap-3">
@@ -200,11 +196,35 @@ export function OnboardingWizard() {
                   </div>
                   {h.open ? (
                     <>
-                      <div className="grid grid-cols-2 gap-3">
-                        <NativeSelect aria-label={`${t("hours.from")} ${day}`} value={h.from} onChange={(e) => dispatch({ type: "setHours", weekday: h.weekday, from: e.target.value, to: h.to })}>{TIMES.map((x) => <option key={x}>{x}</option>)}</NativeSelect>
-                        <NativeSelect aria-label={`${t("hours.to")} ${day}`} aria-invalid={invalid || undefined} value={h.to} onChange={(e) => dispatch({ type: "setHours", weekday: h.weekday, from: h.from, to: e.target.value })}>{TIMES.map((x) => <option key={x}>{x}</option>)}</NativeSelect>
-                      </div>
-                      {invalid ? <p role="alert" className="text-sm font-medium text-destructive">{t("hours.error")}</p> : <TimeRibbon from={6 * 60} to={24 * 60} segments={[{ start: toMin(h.from), end: toMin(h.to), state: "free" }]} height="sm" ticks={false} label={`${day} ${h.from}–${h.to}`} />}
+                      {all.map((w, i) => {
+                        const problem = windowProblem(all, i);
+                        const suffix = all.length > 1 ? ` ${t("hours.window", { n: i + 1 })}` : "";
+                        return (
+                          <div key={i} className="grid gap-2" data-testid={`window-${h.weekday}-${i}`}>
+                            <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-3">
+                              <NativeSelect aria-label={`${t("hours.from")} ${day}${suffix}`} value={w.from} onChange={(e) => dispatch({ type: "setHours", weekday: h.weekday, index: i, from: e.target.value, to: w.to })}>{TIMES.map((x) => <option key={x}>{x}</option>)}</NativeSelect>
+                              <NativeSelect aria-label={`${t("hours.to")} ${day}${suffix}`} aria-invalid={problem ? true : undefined} value={w.to} onChange={(e) => dispatch({ type: "setHours", weekday: h.weekday, index: i, from: w.from, to: e.target.value })}>{TIMES.map((x) => <option key={x}>{x}</option>)}</NativeSelect>
+                              {all.length > 1 ? (
+                                <Button type="button" variant="ghost" size="icon" aria-label={`${t("hours.removeWindow")} ${day}${suffix}`} onClick={() => dispatch({ type: "removeWindow", weekday: h.weekday, index: i })}><Trash2 aria-hidden /></Button>
+                              ) : null}
+                            </div>
+                            {problem ? <p role="alert" className="text-sm font-medium text-destructive">{problem === "order" ? t("hours.error") : t("hours.overlap")}</p> : null}
+                          </div>
+                        );
+                      })}
+                      {valid ? (
+                        <TimeRibbon
+                          from={Math.min(bounds.from, 6 * 60)}
+                          to={Math.max(bounds.to, 22 * 60)}
+                          segments={all.map((w) => ({ start: toMin(w.from), end: toMin(w.to), state: "free" as const }))}
+                          height="sm"
+                          ticks={false}
+                          label={`${day} ${all.map((w) => `${w.from}–${w.to}`).join(", ")}`}
+                        />
+                      ) : null}
+                      {all.length < 3 ? (
+                        <Button type="button" variant="outline" size="sm" className="justify-self-start" onClick={() => dispatch({ type: "addWindow", weekday: h.weekday })}><Plus aria-hidden />{t("hours.addWindow")}</Button>
+                      ) : null}
                     </>
                   ) : null}
                 </li>

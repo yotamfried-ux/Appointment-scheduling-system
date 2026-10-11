@@ -36,6 +36,7 @@ export interface DashboardState {
 export const initialDashboard: DashboardState = { appointments: LAB_APPOINTMENTS };
 
 export type DashboardAction =
+  | { type: "replace"; appointments: LabAppointment[] }
   | { type: "approve"; id: string }
   | { type: "reject"; id: string }
   | { type: "approveCancellation"; id: string }
@@ -50,6 +51,8 @@ function transition(s: DashboardState, id: string, from: LabStatus, to: LabStatu
 
 export function dashboardReducer(s: DashboardState, a: DashboardAction): DashboardState {
   switch (a.type) {
+    case "replace":
+      return { appointments: a.appointments };
     case "approve":
       return transition(s, a.id, "pending", "confirmed");
     case "reject":
@@ -62,6 +65,16 @@ export function dashboardReducer(s: DashboardState, a: DashboardAction): Dashboa
 }
 
 const isBusy = (a: LabAppointment) => a.status !== "cancelled";
+
+export interface Window {
+  from: number;
+  to: number;
+}
+
+/** Free time inside each working window (a split day never reports its closed middle as free). */
+export function gapsIn(appts: LabAppointment[], windows: Window[], minLength: number): { start: number; end: number }[] {
+  return windows.flatMap((w) => computeGaps(appts, w.from, w.to, minLength));
+}
 
 export function computeGaps(appts: LabAppointment[], from: number, to: number, minLength: number): { start: number; end: number }[] {
   const busy = appts
@@ -79,24 +92,32 @@ export function computeGaps(appts: LabAppointment[], from: number, to: number, m
   return gaps;
 }
 
-export function todayStats(appts: LabAppointment[], from: number, to: number) {
+export function statsIn(appts: LabAppointment[], windows: Window[]) {
   const active = appts.filter(isBusy);
-  const booked = active.reduce((sum, a) => sum + (Math.min(a.end, to) - Math.max(a.start, from)), 0);
+  const capacity = windows.reduce((sum, w) => sum + (w.to - w.from), 0);
+  const booked = windows.reduce((sum, w) => sum + active.reduce((acc, a) => acc + Math.max(0, Math.min(a.end, w.to) - Math.max(a.start, w.from)), 0), 0);
   return {
     total: active.length,
     pending: active.filter((a) => a.status === "pending").length,
     cancellationRequests: active.filter((a) => a.status === "cancellationRequested").length,
-    occupancyPct: Math.round((booked / (to - from)) * 100),
+    occupancyPct: capacity === 0 ? 0 : Math.round((booked / capacity) * 100),
   };
 }
 
-export function toRibbon(appts: LabAppointment[], from: number, to: number): RibbonSegment[] {
+export const todayStats = (appts: LabAppointment[], from: number, to: number) => statsIn(appts, [{ from, to }]);
+
+export function ribbonIn(appts: LabAppointment[], windows: Window[]): RibbonSegment[] {
   const segs: RibbonSegment[] = appts
     .filter(isBusy)
     .map((a) => ({ start: a.start, end: a.end, state: a.status === "pending" || a.status === "cancellationRequested" ? ("pending" as const) : ("booked" as const) }));
-  for (const g of computeGaps(appts, from, to, 1)) segs.push({ start: g.start, end: g.end, state: "free" });
+  for (const g of gapsIn(appts, windows, 1)) segs.push({ start: g.start, end: g.end, state: "free" });
+  windows.forEach((w, i) => {
+    if (i > 0 && w.from > windows[i - 1].to) segs.push({ start: windows[i - 1].to, end: w.from, state: "closed" });
+  });
   return segs.sort((x, y) => x.start - y.start);
 }
+
+export const toRibbon = (appts: LabAppointment[], from: number, to: number) => ribbonIn(appts, [{ from, to }]);
 
 export const fmt = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 

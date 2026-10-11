@@ -5,7 +5,9 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { fmt, type DashboardAction, type LabAppointment } from "@/lib/lab/dashboard-data";
 
-export function ApprovalsPanel({ appointments, dispatch, notify }: { appointments: LabAppointment[]; dispatch: (a: DashboardAction) => void; notify: (title: string, desc: string, variant: "success" | "info" | "warning") => void }) {
+export type ApprovalAction = Exclude<DashboardAction["type"], "replace">;
+
+export function ApprovalsPanel({ appointments, onAction, busyIds }: { appointments: LabAppointment[]; onAction: (action: ApprovalAction, a: LabAppointment) => void; busyIds: ReadonlySet<string> }) {
   const t = useTranslations("owner.approvals");
   const pending = appointments.filter((a) => a.status === "pending");
   const requests = appointments.filter((a) => a.status === "cancellationRequested");
@@ -34,10 +36,10 @@ export function ApprovalsPanel({ appointments, dispatch, notify }: { appointment
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button size="sm" aria-label={`${t("approve")} · ${a.customer}`} onClick={() => { dispatch({ type: "approve", id: a.id }); notify(t("approved"), t("approvedDesc", { name: a.customer }), "success"); }}>
+                <Button size="sm" aria-label={`${t("approve")} · ${a.customer}`} disabled={busyIds.size > 0} onClick={() => onAction("approve", a)}>
                   <Check aria-hidden />{t("approve")}
                 </Button>
-                <Button size="sm" variant="outline" aria-label={`${t("reject")} · ${a.customer}`} onClick={() => { dispatch({ type: "reject", id: a.id }); notify(t("rejected"), t("rejectedDesc", { time: fmt(a.start) }), "info"); }}>
+                <Button size="sm" variant="outline" aria-label={`${t("reject")} · ${a.customer}`} disabled={busyIds.size > 0} onClick={() => onAction("reject", a)}>
                   <X aria-hidden />{t("reject")}
                 </Button>
               </div>
@@ -54,10 +56,10 @@ export function ApprovalsPanel({ appointments, dispatch, notify }: { appointment
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Button size="sm" variant="destructive" aria-label={`${t("approveCancel")} · ${a.customer}`} onClick={() => { dispatch({ type: "approveCancellation", id: a.id }); notify(t("cancelled"), t("cancelledDesc", { time: fmt(a.start) }), "warning"); }}>
+                <Button size="sm" variant="destructive" aria-label={`${t("approveCancel")} · ${a.customer}`} disabled={busyIds.size > 0} onClick={() => onAction("approveCancellation", a)}>
                   {t("approveCancel")}
                 </Button>
-                <Button size="sm" variant="outline" aria-label={`${t("keep")} · ${a.customer}`} onClick={() => { dispatch({ type: "declineCancellation", id: a.id }); notify(t("kept"), t("keptDesc", { name: a.customer }), "info"); }}>
+                <Button size="sm" variant="outline" aria-label={`${t("keep")} · ${a.customer}`} disabled={busyIds.size > 0} onClick={() => onAction("declineCancellation", a)}>
                   {t("keep")}
                 </Button>
               </div>

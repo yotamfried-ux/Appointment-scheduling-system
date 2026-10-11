@@ -28,11 +28,13 @@ test.describe("design lab · onboarding wizard", () => {
     await expect(page.getByTestId("link-preview")).toHaveText(/^tori\.example\/book\/[a-z0-9-]+$/);
     await page.getByTestId("continue").click();
 
-    // 2 · services: a suggestion fills the empty row; a price is required
+    // 2 · services: pre-filled from the business kind; a removed one comes back as a suggestion; a price is required
     await expect(h1).toHaveText("מה אתם מציעים?");
     await expect(h1).toBeFocused();
-    await page.getByRole("button", { name: "תספורת גברים" }).click();
     await expect(page.getByTestId("service-row-0").getByLabel("שם השירות")).toHaveValue("תספורת גברים");
+    await page.getByRole("button", { name: "הסרת השירות 2" }).click();
+    await page.getByRole("button", { name: "צבע שיער" }).click();
+    await expect(page.getByLabel("שם השירות").last()).toHaveValue("צבע שיער");
     await noOverflow(page);
     expect((await axe(page)).violations).toEqual([]);
     await page.getByTestId("service-row-0").getByLabel("מחיר (₪)").fill("0");
@@ -81,3 +83,49 @@ test.describe("design lab · onboarding wizard", () => {
     await noOverflow(page);
   });
 });
+
+test.describe("design lab · onboarding adapts to the business kind", () => {
+  test("choosing a trainer seeds trainer services and a split day; windows can be edited, overlap is rejected", async ({ page }) => {
+    await page.goto("/design/onboarding");
+    await page.getByLabel("שם העסק").fill("בלנס");
+    await page.getByLabel("טלפון ליצירת קשר").fill("050-1234567");
+    await page.getByLabel("סוג העסק").selectOption("trainer");
+    await page.getByTestId("continue").click();
+    await expect(page.getByTestId("service-row-0").getByLabel("שם השירות")).toHaveValue("אימון אישי");
+    await expect(page.getByTestId("service-row-2").getByLabel("שם השירות")).toHaveValue("אימון קבוצתי");
+    await page.getByTestId("continue").click();
+
+    // Sunday is a split day: two windows, each editable, with a ribbon text alternative listing both.
+    await expect(page.getByTestId("window-0-0")).toBeVisible();
+    await expect(page.getByTestId("window-0-1")).toBeVisible();
+    await expect(page.getByTestId("hours-0").getByRole("img")).toHaveAttribute("aria-label", /06:00–10:00, 17:00–21:00/);
+    await noOverflow(page);
+    expect((await axe(page)).violations).toEqual([]);
+
+    // Make the evening window overlap the morning one → explained, blocks.
+    await page.getByLabel("משעה ראשון טווח 2").selectOption("09:00");
+    await expect(page.getByTestId("hours-0").getByText("הטווחים חופפים.").first()).toBeVisible();
+    await page.getByTestId("continue").click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("מתי אתם פתוחים?");
+    await page.getByRole("button", { name: "הסרת טווח ראשון טווח 2" }).click();
+    await expect(page.getByTestId("window-0-1")).toHaveCount(0);
+    await page.getByTestId("hours-0").getByRole("button", { name: "הוספת טווח שעות" }).click();
+    await expect(page.getByTestId("window-0-1")).toBeVisible();
+    await page.getByTestId("continue").click();
+    await expect(page.getByTestId("done-title")).toBeVisible();
+  });
+
+  test("every kind's setup is completable with the defaults it seeds", async ({ page }) => {
+    for (const kind of ["barber", "beauty", "trainer", "teacher", "clinic", "other"]) {
+      await page.goto("/design/onboarding");
+      await page.getByLabel("שם העסק").fill("עסק לדוגמה");
+      await page.getByLabel("טלפון ליצירת קשר").fill("050-1234567");
+      await page.getByLabel("סוג העסק").selectOption(kind);
+      await page.getByTestId("continue").click();
+      await page.getByTestId("continue").click();
+      await page.getByTestId("continue").click();
+      await expect(page.getByTestId("done-title"), kind).toBeVisible();
+    }
+  });
+});
+

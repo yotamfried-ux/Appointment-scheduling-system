@@ -4,7 +4,7 @@ import { hasEnvVars } from "../utils";
 
 // Routes reachable without a session. Everything else requires one.
 // /book (public booking) and /api/public are added with their modules.
-const PUBLIC_PREFIXES = ["/auth", "/login", "/api/health", "/api/ready", "/book", "/api/public", "/privacy", "/terms", "/design"];
+const PUBLIC_PREFIXES = ["/auth", "/login", "/api/health", "/api/ready", "/book", "/api/public", "/api/lab", "/privacy", "/terms", "/design"];
 
 function isPublicPath(pathname: string) {
   return pathname === "/" || PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));

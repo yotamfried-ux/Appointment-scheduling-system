@@ -5,6 +5,8 @@ import { LabGate } from "@/components/lab/lab-gate";
 import { StyleguideDemos } from "@/components/lab/styleguide-demos";
 import { PageHeader } from "@/components/patterns/page-header";
 import { ThemeSwitcher } from "@/components/theme-switcher";
+import { BUSINESS_KINDS, KIND_IDS, kindFromParam } from "@/modules/tenancy/business-kind";
+import { cn } from "@/lib/utils";
 
 export const metadata = { title: "מעבדת עיצוב", robots: { index: false, follow: false } };
 
@@ -18,11 +20,12 @@ const TYPE = [
   ["text-base", "טקסט גוף — הוא קריא ומרווח, 16px לפחות."], ["text-sm text-muted-foreground", "טקסט משני ותיאורים"],
 ] as const;
 
-export default async function DesignLab() {
+export default async function DesignLab({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {
   const t = await getTranslations("lab");
+  const kind = kindFromParam((await searchParams).kind);
   const screens = [
-    { href: "/design/booking", title: t("booking"), desc: t("bookingDesc"), icon: CalendarDays },
-    { href: "/design/dashboard", title: t("dashboard"), desc: t("dashboardDesc"), icon: LayoutDashboard },
+    { href: `/design/booking?kind=${kind}`, title: t("booking"), desc: t("bookingDesc"), icon: CalendarDays },
+    { href: `/design/dashboard?kind=${kind}`, title: t("dashboard"), desc: t("dashboardDesc"), icon: LayoutDashboard },
     { href: "/design/onboarding", title: t("onboarding"), desc: t("onboardingDesc"), icon: Rocket },
   ];
   return (
@@ -35,6 +38,23 @@ export default async function DesignLab() {
 
         <section aria-labelledby="lab-screens" className="grid gap-4">
           <h2 id="lab-screens" className="text-xl font-bold">{t("screens")}</h2>
+          <nav aria-label={t("kind")} className="grid gap-2">
+            <p className="text-sm text-muted-foreground">{t("kind")} · {t("kindHint")}</p>
+            <ul className="flex flex-wrap gap-2">
+              {KIND_IDS.map((k) => (
+                <li key={k}>
+                  <Link
+                    href={`/design?kind=${k}`}
+                    aria-current={k === kind ? "true" : undefined}
+                    data-testid={`kind-${k}`}
+                    className={cn("inline-flex min-h-11 items-center rounded-md border px-4 text-sm font-medium transition-colors", k === kind ? "border-primary bg-primary text-primary-foreground" : "bg-card hover:border-foreground/40")}
+                  >
+                    {BUSINESS_KINDS[k].label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
           <div className="grid gap-4 sm:grid-cols-3">
             {screens.map(({ href, title, desc, icon: Icon }) => (
               <Link key={href} href={href} className="group rounded-xl border bg-card p-5 shadow-card transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-pop">

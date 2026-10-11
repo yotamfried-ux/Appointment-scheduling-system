@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { StatusBadge, type AppointmentStatus } from "@/components/patterns/status-badge";
 import { Button } from "@/components/ui/button";
-import { computeGaps, fmt, formatDuration, LAB_DAY, type LabAppointment } from "@/lib/lab/dashboard-data";
+import { fmt, formatDuration, gapsIn, type LabAppointment, type Window } from "@/lib/lab/dashboard-data";
 import { cn } from "@/lib/utils";
 
 const STATUS_MAP: Record<LabAppointment["status"], { badge: AppointmentStatus; key: string }> = {
@@ -17,11 +17,11 @@ const STATUS_MAP: Record<LabAppointment["status"], { badge: AppointmentStatus; k
 
 type Row = { kind: "appt"; start: number; a: LabAppointment } | { kind: "gap"; start: number; end: number };
 
-export function DaySchedule({ appointments, onAddInGap }: { appointments: LabAppointment[]; onAddInGap: (start: number) => void }) {
+export function DaySchedule({ appointments, windows, now, onAddInGap }: { appointments: LabAppointment[]; windows: Window[]; now: number; onAddInGap: (start: number) => void }) {
   const t = useTranslations();
   const rows: Row[] = [
     ...appointments.filter((a) => a.status !== "cancelled").map((a): Row => ({ kind: "appt", start: a.start, a })),
-    ...computeGaps(appointments, LAB_DAY.from, LAB_DAY.to, 30).map((g): Row => ({ kind: "gap", start: g.start, end: g.end })),
+    ...gapsIn(appointments, windows, 30).map((g): Row => ({ kind: "gap", start: g.start, end: g.end })),
   ].sort((x, y) => x.start - y.start);
 
   return (
@@ -36,7 +36,7 @@ export function DaySchedule({ appointments, onAddInGap }: { appointments: LabApp
             <div className="min-w-0">
               <p className="flex items-center gap-2 truncate font-medium">
                 <span className="truncate">{r.a.customer}</span>
-                {r.a.start <= LAB_DAY.now && LAB_DAY.now < r.a.end ? (
+                {r.a.start <= now && now < r.a.end ? (
                   <span className="shrink-0 rounded-full bg-destructive px-2 py-0.5 text-[11px] font-semibold text-destructive-foreground">{t("owner.today.now")}</span>
                 ) : null}
               </p>

@@ -7,6 +7,9 @@ export interface BookingDetails {
   fullName: string;
   phone: string;
   email: string;
+  /** Kind-specific (stage 1 kinds): where the service happens and answers to the kind's intake questions. */
+  location?: string;
+  intake?: Record<string, string>;
 }
 
 export interface BookingState {
@@ -36,11 +39,17 @@ export type BookingAction =
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export function detailsValid(d: BookingDetails): boolean {
+export interface IntakeRule {
+  id: string;
+  required: boolean;
+}
+
+export function detailsValid(d: BookingDetails, required: IntakeRule[] = []): boolean {
+  if (required.some((r) => r.required && !(d.intake?.[r.id] ?? "").trim())) return false;
   return d.fullName.trim().length >= 2 && normalizePhone(d.phone) !== null && (d.email.trim() === "" || EMAIL.test(d.email.trim()));
 }
 
-export function canContinue(s: BookingState): boolean {
+export function canContinue(s: BookingState, required: IntakeRule[] = []): boolean {
   switch (s.step) {
     case "service":
       return s.serviceId !== null;
@@ -49,7 +58,7 @@ export function canContinue(s: BookingState): boolean {
     case "time":
       return s.time !== null;
     case "details":
-      return detailsValid(s.details);
+      return detailsValid(s.details, required);
     default:
       return false;
   }

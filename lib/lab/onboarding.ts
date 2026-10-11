@@ -1,4 +1,5 @@
 import { normalizePhone } from "@/lib/phone";
+import { BUSINESS_KINDS, KIND_IDS, type BusinessKindId } from "@/modules/tenancy/business-kind";
 
 // Prototype logic for the onboarding wizard (stage 1). Pure, unit-tested; reused when the real
 // onboarding is wired to the database in stage 2.
@@ -6,14 +7,7 @@ import { normalizePhone } from "@/lib/phone";
 export type OnboardingStep = "business" | "services" | "hours" | "done";
 export const ONBOARDING_STEPS: OnboardingStep[] = ["business", "services", "hours", "done"];
 
-export const BUSINESS_TYPES = [
-  { id: "barber", label: "מספרה" },
-  { id: "beauty", label: "קוסמטיקה" },
-  { id: "trainer", label: "מאמן אישי" },
-  { id: "teacher", label: "הוראה" },
-  { id: "clinic", label: "טיפול ורפואה" },
-  { id: "other", label: "אחר" },
-] as const;
+export const BUSINESS_TYPES = KIND_IDS.map((id) => ({ id, label: BUSINESS_KINDS[id].label }));
 
 export interface OnboardingService {
   id: string;
@@ -21,11 +15,15 @@ export interface OnboardingService {
   durationMinutes: number;
   priceNis: number;
 }
+export interface HoursWindow {
+  from: string; // HH:mm
+  to: string;
+}
 export interface DayHours {
   weekday: number; // 0 = Sunday
   open: boolean;
-  from: string;
-  to: string;
+  /** Several windows = a split day (e.g. a trainer: early morning + evening). Kept even while the day is closed. */
+  windows: HoursWindow[];
 }
 
 export interface OnboardingState {
@@ -35,17 +33,27 @@ export interface OnboardingState {
   hours: DayHours[];
 }
 
-export const DEFAULT_HOURS: DayHours[] = Array.from({ length: 7 }, (_, weekday) => ({
-  weekday,
-  open: weekday <= 4,
-  from: "09:00",
-  to: weekday === 5 ? "13:00" : "18:00",
-})).map((h) => (h.weekday === 5 ? { ...h, open: true } : h));
+const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
+const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+
+/** Working hours and starter services for a business kind (docs/03 §5: kinds are data, not forks). */
+export function kindHours(kind: BusinessKindId): DayHours[] {
+  const k = BUSINESS_KINDS[kind];
+  return k.hours.map((w, weekday) => ({
+    weekday,
+    open: w.length > 0,
+    windows: (w.length ? w : [{ from: 9 * 60, to: 17 * 60 }]).map((x) => ({ from: hhmm(x.from), to: hhmm(x.to) })),
+  }));
+}
+export const kindServices = (kind: BusinessKindId): Omit<OnboardingService, "id">[] =>
+  BUSINESS_KINDS[kind].presets.map((p) => ({ name: p.name, durationMinutes: p.durationMinutes, priceNis: p.priceNis }));
+
+export const DEFAULT_HOURS: DayHours[] = kindHours("barber");
 
 export const initialOnboarding: OnboardingState = {
   step: "business",
   business: { name: "", type: "barber", phone: "" },
-  services: [{ id: "s1", name: "", durationMinutes: 30, priceNis: 0 }],
+  services: kindServices("barber").map((x, i) => ({ id: `k${i + 1}`, ...x })),
   hours: DEFAULT_HOURS,
 };
 
@@ -73,10 +81,26 @@ export function serviceValid(s: OnboardingService): boolean {
   return s.name.trim().length >= 2 && s.durationMinutes > 0 && s.priceNis > 0;
 }
 
+/** A window is valid when it ends after it starts; windows of one day must not overlap (touching is fine). */
+export function windowsValid(windows: HoursWindow[]): boolean {
+  if (windows.length === 0 || windows.some((w) => !(w.from < w.to))) return false;
+  const sorted = [...windows].sort((a, b) => a.from.localeCompare(b.from));
+  return sorted.every((w, i) => i === 0 || sorted[i - 1].to <= w.from);
+}
+
 export function hoursValid(hours: DayHours[]): boolean {
   const open = hours.filter((h) => h.open);
-  return open.length > 0 && open.every((h) => h.from < h.to);
+  return open.length > 0 && open.every((h) => windowsValid(h.windows));
 }
+
+/** Per-day problem for inline messages. */
+export function windowProblem(windows: HoursWindow[], index: number): "order" | "overlap" | null {
+  const w = windows[index];
+  if (!(w.from < w.to)) return "order";
+  return windows.some((o, i) => i !== index && o.from < w.to && w.from < o.to) ? "overlap" : null;
+}
+
+export { toMin as onboardingToMinutes };
 
 export function canContinueOnboarding(s: OnboardingState): boolean {
   switch (s.step) {
@@ -93,11 +117,14 @@ export function canContinueOnboarding(s: OnboardingState): boolean {
 
 export type OnboardingAction =
   | { type: "setBusiness"; business: OnboardingState["business"] }
+  | { type: "setType"; kind: BusinessKindId }
   | { type: "addService"; service?: Omit<OnboardingService, "id"> }
   | { type: "removeService"; id: string }
   | { type: "updateService"; id: string; patch: Partial<Omit<OnboardingService, "id">> }
   | { type: "toggleDay"; weekday: number }
-  | { type: "setHours"; weekday: number; from: string; to: string }
+  | { type: "setHours"; weekday: number; index: number; from: string; to: string }
+  | { type: "addWindow"; weekday: number }
+  | { type: "removeWindow"; weekday: number; index: number }
   | { type: "next" }
   | { type: "back" };
 
@@ -108,6 +135,11 @@ export function onboardingReducer(s: OnboardingState, a: OnboardingAction): Onbo
   switch (a.type) {
     case "setBusiness":
       return { ...s, business: a.business };
+    case "setType": {
+      if (s.business.type === a.kind) return s;
+      // Switching kind re-seeds services and hours with that kind's defaults (nothing else has been entered after step 1).
+      return { ...s, business: { ...s.business, type: a.kind }, services: kindServices(a.kind).map((x, i) => ({ id: `k${i + 1}`, ...x })), hours: kindHours(a.kind) };
+    }
     case "addService":
       return { ...s, services: [...s.services, { id: newId(), ...(a.service ?? { name: "", durationMinutes: 30, priceNis: 0 }) }] };
     case "removeService":
@@ -117,7 +149,19 @@ export function onboardingReducer(s: OnboardingState, a: OnboardingAction): Onbo
     case "toggleDay":
       return { ...s, hours: s.hours.map((h) => (h.weekday === a.weekday ? { ...h, open: !h.open } : h)) };
     case "setHours":
-      return { ...s, hours: s.hours.map((h) => (h.weekday === a.weekday ? { ...h, from: a.from, to: a.to } : h)) };
+      return { ...s, hours: s.hours.map((h) => (h.weekday === a.weekday ? { ...h, windows: h.windows.map((w, i) => (i === a.index ? { from: a.from, to: a.to } : w)) } : h)) };
+    case "addWindow":
+      return {
+        ...s,
+        hours: s.hours.map((h) => {
+          if (h.weekday !== a.weekday || h.windows.length >= 3) return h;
+          const last = h.windows.at(-1)!;
+          const from = hhmm(Math.min(toMin(last.to) + 60, 22 * 60));
+          return { ...h, windows: [...h.windows, { from, to: hhmm(Math.min(toMin(from) + 120, 24 * 60 - 1)) }] };
+        }),
+      };
+    case "removeWindow":
+      return { ...s, hours: s.hours.map((h) => (h.weekday === a.weekday && h.windows.length > 1 ? { ...h, windows: h.windows.filter((_, i) => i !== a.index) } : h)) };
     case "next": {
       if (!canContinueOnboarding(s)) return s;
       return { ...s, step: ONBOARDING_STEPS[ONBOARDING_STEPS.indexOf(s.step) + 1] };
