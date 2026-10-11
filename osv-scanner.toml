@@ -1,0 +1,14 @@
+# Scoped, time-boxed risk acceptances for OSV-Scanner (docs/05 §7). Review before the expiry date.
+# Both packages arrive ONLY via tailwindcss@3 (a devDependency used at build time on trusted source):
+#   npm ls braces postcss-selector-parser  →  tailwindcss → chokidar/micromatch → braces ; tailwindcss/postcss-nested → postcss-selector-parser
+# Neither is bundled into the app or reachable from user input. Removal path: Tailwind 4 migration in stage 1 (design system).
+
+[[IgnoredVulns]]
+id = "GHSA-vfj7-8cjw-p6xm"
+ignoreUntil = 2026-12-31
+reason = "braces <=3.0.3 recursion DoS needs attacker-controlled brace patterns; dev/build-time only (tailwind file watching). No patched version exists upstream."
+
+[[IgnoredVulns]]
+id = "GHSA-rj75-hqrm-r3gf"
+ignoreUntil = 2026-12-31
+reason = "postcss-selector-parser <7.1.6 quadratic parse needs attacker-supplied selectors parsed in a request path; advisory states ordinary build-time use is not affected. Fixed by leaving Tailwind 3 (stage 1)."
