@@ -76,6 +76,11 @@ export function staleReason(type: NotificationType, status: string, startsAtIso:
       return ok(status === "confirmed" && new Date(startsAtIso) > now);
     case "owner_digest":
       return null;
+    case "owner_trial_ending": // `status` is the subscription status here
+    case "owner_trial_last_day":
+      return status === "trialing" ? null : "subscription_changed";
+    case "owner_payment_failed":
+      return status === "past_due" ? null : "subscription_changed";
     case "booking_rescheduled":
     case "owner_customer_rescheduled":
       return ok(status === "confirmed" || status === "pending");

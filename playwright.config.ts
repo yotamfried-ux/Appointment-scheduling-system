@@ -40,7 +40,7 @@ export default defineConfig({
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: "npm run start",
+        command: "npm run start -- --keepAliveTimeout 65000", // the test client reuses connections; Node closes idle ones after 5 s by default, which showed up as ECONNRESET / "socket hang up" in otherwise passing tests
         url: `${baseURL}/api/health`,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,

@@ -54,7 +54,7 @@ A review of the whole system was run as a separate pass. Each finding was **veri
 | Restore drill: dump → scratch database → counts and invariants equal; sabotage control detected | PASS (`scripts/drills/restore.sh`) — **a drill against the local stack, not against Supabase PITR** |
 | `/api/ready`, `/api/jobs/health` (secret-protected) | PASS |
 | Load smoke (local, one DB; **a smoke, not a capacity claim**) | PASS — 300 public reads at c=30: all 200 (p50 ≈1.7 s, p95 ≈2.3 s on a shared 4-core box); 60 customers racing for 12 slots: exactly 12 × 201, 48 × 409, no overlap, no 5xx |
-| Lighthouse (mobile, booking page) | PARTIAL — performance 77, LCP 4.2 s simulated: the first step renders after client JS. Listed as B4 |
+| Lighthouse (mobile, booking page) | PARTIAL — after the stage-14 fix: performance 96–98, LCP 2.0–2.5 s (local, simulated throttling; before: 72–86 and 3.8–4.3 s). Not measured on a real device or the production domain |
 | External penetration test | **BLOCKED** (needs a third party; B1) |
 | Real Supabase PITR restore, real Resend delivery/DMARC, real payment provider | **BLOCKED / NOT TESTED** (accounts needed) |
 | Accessibility audit by a person (screen reader) | **NOT TESTED** (B10); axe automation only |

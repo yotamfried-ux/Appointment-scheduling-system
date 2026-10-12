@@ -25,11 +25,11 @@ Run last, with the production values in the environment: `VERCEL_ENV=production 
 | B1 | **External penetration test**, focused on tenant isolation, capability tokens and billing (docs/05 §12.7) | the automated matrix and four independent code reviews are inputs, not a substitute |
 | B2 | **Billing provider** decision (Stripe/Paddle/…): one adapter file; invoices and Israeli VAT (BIL-10) come with it | `manual` works until then |
 | B3 | **CAPTCHA** (docs/05 D16): the public booking has per-IP and per-phone limits but no bot challenge. Turnstile needs a Cloudflare account and a CSP exception | decision |
-| B4 | **Booking page speed on slow phones:** the page renders its first screen only after the client script runs (Lighthouse mobile 77, LCP 4.2 s simulated). Server-render the first step | measured in `qualification.md` |
+| B4 | ~~Booking page speed~~ **Done in stage 14:** the first step is server-rendered. Lighthouse mobile (local, simulated): 72–86 → 96–98, LCP 3.8–4.3 s → 2.0–2.5 s. Measure again on the real domain after deploy | `docs/evidence/stage-14.md` |
 | B5 | **Monitoring**: external uptime checks on `/api/ready` and `/api/jobs/health` (bearer), error tracking (Sentry or logs drain) with `request_id`, no PII (OPS-09) | hooks exist, the service does not |
 | B6 | **Dependabot** backlog (8 open PRs, 2 with real failures) and enabling the AI review workflow (secret + variable) | `ci-audit-and-gaps.md` G1, G2 |
 | B7 | **Retention**: the housekeeping job removes only operational data; customer data is kept until a business erases it. Agree the retention periods stated in the privacy text (docs/05 §14.4) | legal |
-| B8 | **Trial e-mails** (T-7 / T-1 days) and payment-failure e-mails: only in-app banners exist | small build |
+| B8 | ~~Trial e-mails~~ **Done in stage 14:** trial ending (≤7 days), last day, and payment failed, each once per milestone, skipped if the state changed | `docs/evidence/stage-14.md` |
 | B9 | **Supabase Auth settings** in the dashboard: confirm-email on, password policy, MFA enabled, redirect URLs limited to the production domain, SMTP via Resend, rate limits reviewed | not in code |
 | B10 | **Accessibility audit** by a person (screen reader on the calendar and slot picker, UX-08); the statement says no external audit has happened | |
 

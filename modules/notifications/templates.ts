@@ -16,6 +16,9 @@ export type NotificationType =
   | "owner_unconfirmed"
   | "owner_digest"
   | "booking_moved_by_business"
+  | "owner_trial_ending"
+  | "owner_trial_last_day"
+  | "owner_payment_failed"
   | "waitlist_offer"
   | "waitlist_offer_expired";
 
@@ -25,6 +28,8 @@ export interface NotifContext {
   /** Set for booking messages; null for waitlist messages. */
   appointment: { id: string; status: string; startsAt: string; endsAt: string; reference: string; serviceName: string } | null;
   /** Set for the owner's daily digest only. */
+  /** Set for the owner's subscription notices only. */
+  billing?: { status: string; trialEndsAt: string | null; graceUntil: string | null } | null;
   digest?: { date: string; cancelledYesterday: number; unmarked: number; tomorrow: number } | null;
   /** Set for waitlist messages; null for booking messages. */
   offer: { id: string; status: string; slotStartsAt: string; expiresAt: string; serviceName: string; entryId: string } | null;
@@ -60,6 +65,9 @@ const SUBJECT: Record<NotificationType, (b: string) => string> = {
   owner_unconfirmed: () => "לקוח עוד לא אישר הגעה",
   owner_digest: () => "סיכום יומי מהיומן",
   booking_moved_by_business: (b) => `העסק העביר את התור שלך · ${b}`,
+  owner_trial_ending: () => "תקופת הניסיון שלך מסתיימת בקרוב",
+  owner_trial_last_day: () => "היום האחרון של תקופת הניסיון",
+  owner_payment_failed: () => "התשלום על המנוי לא עבר",
   waitlist_offer: (b) => `התפנה תור בשבילך · ${b}`,
   waitlist_offer_expired: (b) => `ההצעה לתור פגה · ${b}`,
 };
@@ -77,6 +85,9 @@ const LEAD: Record<NotificationType, (name: string) => string> = {
   owner_customer_rescheduled: (n) => `${n} העביר/ה תור למועד אחר.`,
   owner_unconfirmed: (n) => `${n} עדיין לא אישר/ה הגעה לתור הקרוב. אולי כדאי לשלוח הודעה.`,
   owner_digest: () => "מה חשוב לדעת היום:",
+  owner_trial_ending: () => "תקופת הניסיון מסתיימת בקרוב. כדי שדף ההזמנות ימשיך לקבל תורים חדשים צריך לבחור חבילה.",
+  owner_trial_last_day: () => "היום תקופת הניסיון מסתיימת. אחרי זה דף ההזמנות לא יקבל תורים חדשים עד שתבחרו חבילה (התורים הקיימים והמידע נשמרים).",
+  owner_payment_failed: () => "לא הצלחנו לגבות את התשלום האחרון. הכול ממשיך לעבוד בתקופת חסד, אבל כדאי לעדכן את אמצעי התשלום.",
   booking_moved_by_business: () => "העסק העביר את התור שלך למועד אחר (המועד החדש למטה). אם המועד לא מתאים, אפשר לבטל בקישור בלי שום תנאי.",
   waitlist_offer: () => "התפנה תור בזמן שביקשת. התור שמור לך לזמן קצר, ואחר כך עובר לממתין הבא.",
   waitlist_offer_expired: () => "ההצעה לא נענתה בזמן והתור עבר לממתין הבא. נשארת ברשימת ההמתנה ונשלח הצעה נוספת כשיתפנה תור אחר.",
@@ -106,8 +117,38 @@ ${rows.map(([l, v]) => `<tr><td style="padding:10px 14px;color:#5b6b66;width:65%
   return { subject, html, text };
 }
 
-export function render(ctx: NotifContext, opts: { appUrl: string; manageToken?: string }): Rendered {
+const dayLabel = (iso: string, tz: string) => new Intl.DateTimeFormat("he-IL", { timeZone: tz, day: "numeric", month: "long" }).format(new Date(iso));
+
+function renderBilling(ctx: NotifContext, opts: { appUrl: string }, now: Date): Rendered {
+  const b = ctx.billing!;
+  const biz = clean(ctx.business.name);
+  const rows: [string, string][] = [];
+  if (ctx.type !== "owner_payment_failed" && b.trialEndsAt) {
+    const days = Math.max(0, Math.ceil((new Date(b.trialEndsAt).getTime() - now.getTime()) / 86_400_000));
+    rows.push(["סיום הניסיון", dayLabel(b.trialEndsAt, ctx.business.timezone)]);
+    if (ctx.type === "owner_trial_ending") rows.push(["ימים שנותרו", String(days)]);
+  }
+  if (ctx.type === "owner_payment_failed" && b.graceUntil) rows.push(["תקופת החסד עד", dayLabel(b.graceUntil, ctx.business.timezone)]);
+  const subject = clean(SUBJECT[ctx.type](biz));
+  const lead = LEAD[ctx.type]("");
+  const link = `${opts.appUrl}/settings/billing`;
+  const html = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head>
+<body style="margin:0;background:#f4f6f5;font-family:'IBM Plex Sans Hebrew',Arial,sans-serif;color:#10201d;direction:rtl;text-align:right">
+<div style="max-width:520px;margin:0 auto;padding:24px 16px">
+<p style="font-size:18px;font-weight:600;margin:0 0 12px"><bdi>${esc(biz)}</bdi></p>
+<p style="font-size:16px;line-height:1.6;margin:0 0 16px">${esc(lead)}</p>
+${rows.length ? `<table role="presentation" style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #dde4e1;border-radius:8px">
+${rows.map(([l, v]) => `<tr><td style="padding:10px 14px;color:#5b6b66;width:50%">${esc(l)}</td><td style="padding:10px 14px;font-weight:600"><bdi>${esc(v)}</bdi></td></tr>`).join("\n")}
+</table>` : ""}
+<p style="margin:20px 0"><a href="${esc(link)}" style="display:inline-block;background:#0b6b5d;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600">למנוי ולחיוב</a></p>
+</div></body></html>`;
+  const text = [biz, "", lead, "", ...rows.map(([l, v]) => `${l}: ${v}`), "", `למנוי ולחיוב: ${link}`].join("\n");
+  return { subject, html, text };
+}
+
+export function render(ctx: NotifContext, opts: { appUrl: string; manageToken?: string }, now: Date = new Date()): Rendered {
   if (ctx.digest) return renderDigest(ctx, opts);
+  if (ctx.billing) return renderBilling(ctx, opts, now);
   const k = BUSINESS_KINDS[ctx.business.kind];
   const biz = clean(ctx.business.name);
   const name = clean(ctx.customer.name);
