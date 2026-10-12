@@ -13,6 +13,8 @@ export type NotificationType =
   | "owner_customer_cancelled"
   | "booking_rescheduled"
   | "owner_customer_rescheduled"
+  | "owner_unconfirmed"
+  | "owner_digest"
   | "waitlist_offer"
   | "waitlist_offer_expired";
 
@@ -21,6 +23,8 @@ export interface NotifContext {
   recipient: "customer" | "owner";
   /** Set for booking messages; null for waitlist messages. */
   appointment: { id: string; status: string; startsAt: string; endsAt: string; reference: string; serviceName: string } | null;
+  /** Set for the owner's daily digest only. */
+  digest?: { date: string; cancelledYesterday: number; unmarked: number; tomorrow: number } | null;
   /** Set for waitlist messages; null for booking messages. */
   offer: { id: string; status: string; slotStartsAt: string; expiresAt: string; serviceName: string; entryId: string } | null;
   business: { name: string; slug: string; kind: BusinessKindId; timezone: string; phone: string | null };
@@ -52,6 +56,8 @@ const SUBJECT: Record<NotificationType, (b: string) => string> = {
   owner_customer_cancelled: () => "לקוח ביטל תור",
   booking_rescheduled: (b) => `התור שלך הועבר · ${b}`,
   owner_customer_rescheduled: () => "לקוח העביר תור",
+  owner_unconfirmed: () => "לקוח עוד לא אישר הגעה",
+  owner_digest: () => "סיכום יומי מהיומן",
   waitlist_offer: (b) => `התפנה תור בשבילך · ${b}`,
   waitlist_offer_expired: (b) => `ההצעה לתור פגה · ${b}`,
 };
@@ -67,11 +73,38 @@ const LEAD: Record<NotificationType, (name: string) => string> = {
   owner_customer_cancelled: (n) => `${n} ביטל/ה תור.`,
   booking_rescheduled: () => "התור הועבר למועד החדש. המועד המעודכן מופיע למטה.",
   owner_customer_rescheduled: (n) => `${n} העביר/ה תור למועד אחר.`,
+  owner_unconfirmed: (n) => `${n} עדיין לא אישר/ה הגעה לתור הקרוב. אולי כדאי לשלוח הודעה.`,
+  owner_digest: () => "מה חשוב לדעת היום:",
   waitlist_offer: () => "התפנה תור בזמן שביקשת. התור שמור לך לזמן קצר, ואחר כך עובר לממתין הבא.",
   waitlist_offer_expired: () => "ההצעה לא נענתה בזמן והתור עבר לממתין הבא. נשארת ברשימת ההמתנה ונשלח הצעה נוספת כשיתפנה תור אחר.",
 };
 
+function renderDigest(ctx: NotifContext, opts: { appUrl: string }): Rendered {
+  const d = ctx.digest!;
+  const biz = clean(ctx.business.name);
+  const rows: [string, string][] = [];
+  if (d.tomorrow > 0) rows.push(["תורים מחר", String(d.tomorrow)]);
+  if (d.cancelledYesterday > 0) rows.push(["ביטולים אתמול", String(d.cancelledYesterday)]);
+  if (d.unmarked > 0) rows.push(["תורים שעברו וממתינים לסימון", String(d.unmarked)]);
+  const subject = clean(SUBJECT.owner_digest(biz));
+  const lead = LEAD.owner_digest("");
+  const link = `${opts.appUrl}/dashboard`;
+  const html = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head>
+<body style="margin:0;background:#f4f6f5;font-family:'IBM Plex Sans Hebrew',Arial,sans-serif;color:#10201d;direction:rtl;text-align:right">
+<div style="max-width:520px;margin:0 auto;padding:24px 16px">
+<p style="font-size:18px;font-weight:600;margin:0 0 12px"><bdi>${esc(biz)}</bdi></p>
+<p style="font-size:16px;line-height:1.6;margin:0 0 16px">${esc(lead)}</p>
+<table role="presentation" style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #dde4e1;border-radius:8px">
+${rows.map(([l, v]) => `<tr><td style="padding:10px 14px;color:#5b6b66;width:65%">${esc(l)}</td><td style="padding:10px 14px;font-weight:600"><bdi>${esc(v)}</bdi></td></tr>`).join("\n")}
+</table>
+<p style="margin:20px 0"><a href="${esc(link)}" style="display:inline-block;background:#0b6b5d;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600">פתיחת היומן</a></p>
+</div></body></html>`;
+  const text = [biz, "", lead, "", ...rows.map(([l, v]) => `${l}: ${v}`), "", `פתיחת היומן: ${link}`].join("\n");
+  return { subject, html, text };
+}
+
 export function render(ctx: NotifContext, opts: { appUrl: string; manageToken?: string }): Rendered {
+  if (ctx.digest) return renderDigest(ctx, opts);
   const k = BUSINESS_KINDS[ctx.business.kind];
   const biz = clean(ctx.business.name);
   const name = clean(ctx.customer.name);

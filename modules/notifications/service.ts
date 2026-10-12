@@ -71,7 +71,7 @@ async function sendOne(row: Claimed, provider: EmailPort, s: RunSummary, now: Da
     return finish(row.id, "skipped", { skip: "missing" });
   }
   // NTF-03: the world may have changed since this was queued.
-  const subject = ctx.offer ? { status: ctx.offer.status, startsAt: ctx.offer.slotStartsAt } : { status: ctx.appointment!.status, startsAt: ctx.appointment!.startsAt };
+  const subject = ctx.digest ? { status: "digest", startsAt: now.toISOString() } : ctx.offer ? { status: ctx.offer.status, startsAt: ctx.offer.slotStartsAt } : { status: ctx.appointment!.status, startsAt: ctx.appointment!.startsAt };
   const stale = staleReason(ctx.type, subject.status, subject.startsAt, now);
   if (stale) {
     s.skipped++;
@@ -89,7 +89,7 @@ async function sendOne(row: Claimed, provider: EmailPort, s: RunSummary, now: Da
   }
   const ttl = Math.max(3600, Math.floor((new Date(subject.startsAt).getTime() - now.getTime()) / 1000) + 7 * 86_400);
   const manageToken =
-    ctx.recipient !== "customer"
+    ctx.recipient !== "customer" || ctx.digest
       ? undefined
       : ctx.offer
         ? signToken({ appointmentId: ctx.offer.entryId, scope: "wl_view", ttlSeconds: ttl })
@@ -142,9 +142,10 @@ export async function processOutbox(opts: { maxEvents?: number; maxSends?: numbe
 }
 
 /** Reminder job body: queue what is due for `now`, then send. */
-export async function runReminders(now: Date): Promise<RunSummary & { queued: number }> {
+export async function runReminders(now: Date): Promise<RunSummary & { queued: number; owner: { alerts: number; autoCompleted: number; digests: number } }> {
   const queued = await rpc<number>("enqueue_reminders", { p_now: now.toISOString() });
-  return { ...(await processOutbox()), queued };
+  const owner = await rpc<{ alerts: number; autoCompleted: number; digests: number }>("owner_housekeeping", { p_now: now.toISOString() }); // NSH-02/06, NTF-09/11
+  return { ...(await processOutbox()), queued, owner };
 }
 
 /** Best-effort "kick" after a booking or a decision, so the e-mail does not wait for the next cron tick. Never throws, never blocks the response. */

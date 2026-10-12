@@ -68,6 +68,10 @@ export function staleReason(type: NotificationType, status: string, startsAtIso:
     case "booking_cancelled_by_customer":
     case "owner_customer_cancelled":
       return ok(status === "cancelled_by_customer");
+    case "owner_unconfirmed": // the visit is still ahead and still unconfirmed by the customer
+      return ok(status === "confirmed" && new Date(startsAtIso) > now);
+    case "owner_digest":
+      return null;
     case "booking_rescheduled":
     case "owner_customer_rescheduled":
       return ok(status === "confirmed" || status === "pending");

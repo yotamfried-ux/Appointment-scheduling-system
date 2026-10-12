@@ -72,6 +72,24 @@ export function BookingRulesForm({ initial }: { initial: BookingRules }) {
         ) : null}
       </fieldset>
 
+      <fieldset className="grid gap-4">
+        <legend className="mb-1 text-lg font-semibold">{t("daily")}</legend>
+        <FormField label={t("alertMinutes")} hint={t("alertMinutesHint")}>
+          {(a) => <Input {...a} type="number" inputMode="numeric" min={0} max={1440} value={Number.isNaN(f.attendanceAlertMinutes) ? "" : f.attendanceAlertMinutes} onChange={(e) => setF({ ...f, attendanceAlertMinutes: num(e.target.value) })} data-testid="rules-alert-minutes" />}
+        </FormField>
+        <FormField label={t("autoComplete")} hint={t("autoCompleteHint")}>
+          {(a) => <Input {...a} type="number" inputMode="numeric" min={1} max={168} placeholder={t("never")} value={f.autoCompleteHours === null || Number.isNaN(f.autoCompleteHours) ? "" : f.autoCompleteHours} onChange={(e) => setF({ ...f, autoCompleteHours: e.target.value === "" ? null : num(e.target.value) })} data-testid="rules-auto-complete" />}
+        </FormField>
+        <FormField label={t("digest")} hint={t("digestHint")}>
+          {(a) => (
+            <NativeSelect {...a} value={f.digestFrequency} onChange={(e) => setF({ ...f, digestFrequency: e.target.value as BookingRules["digestFrequency"] })} data-testid="rules-digest">
+              <option value="off">{t("digestOff")}</option>
+              <option value="daily">{t("digestDaily")}</option>
+            </NativeSelect>
+          )}
+        </FormField>
+      </fieldset>
+
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" size="lg" disabled={pending} data-testid="rules-save">{pending ? t("saving") : t("save")}</Button>
         <p role="status" aria-live="polite" className="text-sm font-medium" data-testid="rules-status">

@@ -13,7 +13,7 @@ export default async function BookingSettingsPage() {
   const { supabase, claims } = await requireUser();
   const business = (await listMyBusinesses(supabase))[0];
   if (!business) redirect("/onboarding");
-  const { data } = await supabase.from("businesses").select("requires_approval, cancel_until_hours, min_notice_minutes, booking_horizon_days, address, no_show_policy, no_show_threshold, block_message").eq("id", business.id).single();
+  const { data } = await supabase.from("businesses").select("requires_approval, cancel_until_hours, min_notice_minutes, booking_horizon_days, address, no_show_policy, no_show_threshold, block_message, attendance_alert_minutes, auto_complete_hours, digest_frequency").eq("id", business.id).single();
   const initial: BookingRules = {
     requiresApproval: Boolean(data?.requires_approval),
     cancelUntilHours: data?.cancel_until_hours ?? 12,
@@ -23,6 +23,9 @@ export default async function BookingSettingsPage() {
     noShowPolicy: (data?.no_show_policy ?? "off") as BookingRules["noShowPolicy"],
     noShowThreshold: data?.no_show_threshold ?? 3,
     blockMessage: data?.block_message ?? "",
+    attendanceAlertMinutes: data?.attendance_alert_minutes ?? 0,
+    autoCompleteHours: data?.auto_complete_hours ?? null,
+    digestFrequency: (data?.digest_frequency ?? "off") as BookingRules["digestFrequency"],
   };
   return (
     <SettingsPage email={String(claims.email ?? "")} title={t("title")} description={t("subtitle")}>

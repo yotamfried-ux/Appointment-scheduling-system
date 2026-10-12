@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { AttendButton } from "@/app/booking/[token]/attend-button";
 import { CancelButton } from "@/app/booking/[token]/cancel-button";
 import { Logo } from "@/components/brand/logo";
 import { LegalFooter } from "@/components/legal/legal-footer";
@@ -49,6 +50,7 @@ export default async function ManagePage({ params }: { params: Promise<{ token: 
             </div>
           ))}
         </dl>
+        {a.attendToken ? <AttendButton attendToken={a.attendToken} /> : active && a.attendanceConfirmedAt ? <p className="rounded-lg border bg-card p-3 text-sm font-medium" data-testid="attend-confirmed">{t("attendConfirmed")}</p> : null}
         {active ? (
           <div className="grid gap-1">
             <a href={`/booking/${token}/calendar`} download className="inline-flex min-h-11 w-full items-center justify-center rounded-md border px-4 text-sm font-semibold hover:bg-accent" data-testid="manage-add-to-calendar">{t("addToCalendar")}</a>

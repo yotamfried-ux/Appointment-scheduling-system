@@ -202,6 +202,8 @@ export interface AppointmentView {
   cancelToken: string | null;
   canReschedule: boolean;
   rescheduleToken: string | null;
+  attendanceConfirmedAt: string | null;
+  attendToken: string | null;
 }
 
 export async function viewAppointment(token: string): Promise<AppointmentView | null> {
@@ -209,12 +211,14 @@ export async function viewAppointment(token: string): Promise<AppointmentView | 
   if (!v.ok) return null;
   const { data, error } = await systemDb().rpc("public_get_appointment", { p_id: v.payload.a });
   if (error || !data) return null;
-  const a = data as Omit<AppointmentView, "canCancel" | "cancelToken" | "canReschedule" | "rescheduleToken">;
+  const a = data as Omit<AppointmentView, "canCancel" | "cancelToken" | "canReschedule" | "rescheduleToken" | "attendToken">;
   const canCancel = (a.status === "pending" || a.status === "confirmed") && Date.now() < Date.parse(a.cancelUntil);
   const canReschedule = canCancel && a.rescheduledCount < 3; // RSC-02: same window as cancelling
   return {
     ...a, canCancel, cancelToken: canCancel ? signToken({ appointmentId: a.id, scope: "cancel", ttlSeconds: 3600 }) : null,
     canReschedule, rescheduleToken: canReschedule ? signToken({ appointmentId: a.id, scope: "reschedule", ttlSeconds: 3600 }) : null,
+    // NSH-01: offered while the appointment is still ahead and not yet confirmed
+    attendToken: (a.status === "pending" || a.status === "confirmed") && !a.attendanceConfirmedAt && Date.parse(a.endsAt) > Date.now() ? signToken({ appointmentId: a.id, scope: "attend", ttlSeconds: 3600 }) : null,
   };
 }
 
@@ -263,4 +267,16 @@ export async function rescheduleWithToken(rescheduleToken: string, date: string,
   if (m.includes("slot_in_past") || m.includes("slot_too_far") || m.includes("same_slot")) return "invalid_slot";
   if (m.includes("service_unavailable")) return "unavailable";
   return "invalid";
+}
+
+// ---------------------------------------------------------------- NSH-01: "I am coming"
+export type AttendOutcome = "confirmed" | "already" | "not_active" | "invalid";
+
+export async function confirmAttendanceWithToken(attendToken: string): Promise<AttendOutcome> {
+  const v = verifyToken(attendToken, "attend");
+  if (!v.ok) return "invalid";
+  const { data, error } = await systemDb().rpc("public_confirm_attendance", { p_id: v.payload.a }); // idempotent in the database: no single-use bookkeeping needed
+  if (error) return "invalid";
+  const o = (data as { outcome?: string } | null)?.outcome;
+  return o === "confirmed" || o === "already" || o === "not_active" ? o : "invalid";
 }

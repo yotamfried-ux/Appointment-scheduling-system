@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { enforce } from "@/modules/booking/public/rate-limit";
-import { cancelWithToken, rescheduleWithToken, type CancelOutcome, type RescheduleOutcome } from "@/modules/booking/public/service";
+import { cancelWithToken, confirmAttendanceWithToken, rescheduleWithToken, type AttendOutcome, type CancelOutcome, type RescheduleOutcome } from "@/modules/booking/public/service";
 import { signToken, verifyToken } from "@/modules/booking/token";
 import { kickOutbox } from "@/modules/notifications/service";
 
@@ -37,4 +37,17 @@ export async function rescheduleAppointmentAction(rescheduleToken: unknown, date
   const v = verifyToken(rescheduleToken, "reschedule");
   const retryable = outcome === "slot_taken" || outcome === "invalid_slot";
   return { outcome, ...(retryable && v.ok ? { nextToken: signToken({ appointmentId: v.payload.a, scope: "reschedule", ttlSeconds: 3600 }) } : {}) };
+}
+
+/** NSH-01: POST (Server Action: Origin-checked). Never changes the appointment's status. */
+export async function confirmAttendanceAction(attendToken: unknown): Promise<AttendOutcome | "rate_limited"> {
+  if (typeof attendToken !== "string") return "invalid";
+  const h = await headers();
+  const ip = (h.get("x-forwarded-for")?.split(",")[0] ?? h.get("x-real-ip") ?? "unknown").trim();
+  try {
+    await enforce([{ scope: "attend-ip", value: ip, windowSeconds: 60, max: 20 }]);
+  } catch {
+    return "rate_limited";
+  }
+  return confirmAttendanceWithToken(attendToken);
 }

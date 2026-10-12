@@ -95,6 +95,23 @@ describe("templates (NTF-08, docs/05 §2)", () => {
     expect(staleReason("owner_customer_rescheduled", "pending", "2026-10-20T10:00:00Z", now)).toBeNull();
     expect(staleReason("booking_rescheduled", "cancelled_by_customer", "2026-10-20T10:00:00Z", now)).toBe("appointment_inactive");
   });
+  it("NSH-02: the owner alert is only worth sending while the visit is still ahead and confirmed; NTF-11: the digest never goes stale", () => {
+    const now = new Date("2026-10-14T10:00:00Z");
+    expect(staleReason("owner_unconfirmed", "confirmed", "2026-10-14T11:00:00Z", now)).toBeNull();
+    expect(staleReason("owner_unconfirmed", "confirmed", "2026-10-14T09:00:00Z", now)).toBe("appointment_inactive");
+    expect(staleReason("owner_unconfirmed", "cancelled_by_customer", "2026-10-14T11:00:00Z", now)).toBe("appointment_inactive");
+    expect(staleReason("owner_digest", "digest", now.toISOString(), now)).toBeNull();
+  });
+  it("NTF-11: the digest lists only what there is, escapes names, links to the calendar and never names a customer", () => {
+    const ctx = { type: "owner_digest", recipient: "owner", appointment: null, offer: null, digest: { date: "2026-10-14", cancelledYesterday: 0, unmarked: 2, tomorrow: 5 }, business: { name: "<b>סלון</b>", slug: "x", kind: "barber", timezone: "Asia/Jerusalem", phone: null }, customer: { name: "", email: null }, owner: { email: "o@example.com" } } as unknown as NotifContext;
+    const r = render(ctx, { appUrl: "https://tori.example" });
+    expect(r.text).toContain("תורים מחר: 5");
+    expect(r.text).toContain("תורים שעברו וממתינים לסימון: 2");
+    expect(r.text).not.toContain("ביטולים אתמול"); // a zero row is left out
+    expect(r.html).not.toContain("<b>סלון</b>");
+    expect(r.html).toContain("https://tori.example/dashboard");
+    expect(r.subject).not.toMatch(/https?:/);
+  });
   it("the subject never names the service or the customer, and never carries a link or token", () => {
     for (const type of ["booking_received", "booking_confirmed", "booking_declined", "booking_cancelled_by_business", "booking_cancelled_by_customer", "reminder", "owner_new_request", "owner_customer_cancelled", "booking_rescheduled", "owner_customer_rescheduled"] as const) {
       const r = render(ctx({ type, recipient: type.startsWith("owner") ? "owner" : "customer" }), opts);
