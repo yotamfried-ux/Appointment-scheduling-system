@@ -3,7 +3,8 @@
 import { headers } from "next/headers";
 import { after } from "next/server";
 import { enforce } from "@/modules/booking/public/rate-limit";
-import { cancelWithToken, type CancelOutcome } from "@/modules/booking/public/service";
+import { cancelWithToken, rescheduleWithToken, type CancelOutcome, type RescheduleOutcome } from "@/modules/booking/public/service";
+import { signToken, verifyToken } from "@/modules/booking/token";
 import { kickOutbox } from "@/modules/notifications/service";
 
 // POST (Server Action: Origin-checked, SEC-05). A link GET never changes state; this does, once per token (single-use jti).
@@ -19,4 +20,21 @@ export async function cancelAppointmentAction(cancelToken: unknown): Promise<Can
   const outcome = await cancelWithToken(cancelToken);
   if (outcome === "cancelled") after(kickOutbox);
   return outcome;
+}
+
+/** RSC-01: POST (Server Action: Origin-checked). Returns a fresh token after a refusal that leaves the move possible. */
+export async function rescheduleAppointmentAction(rescheduleToken: unknown, date: unknown, time: unknown): Promise<{ outcome: RescheduleOutcome | "rate_limited"; nextToken?: string }> {
+  if (typeof rescheduleToken !== "string" || typeof date !== "string" || typeof time !== "string") return { outcome: "invalid" };
+  const h = await headers();
+  const ip = (h.get("x-forwarded-for")?.split(",")[0] ?? h.get("x-real-ip") ?? "unknown").trim();
+  try {
+    await enforce([{ scope: "resched-ip", value: ip, windowSeconds: 60, max: 20 }]);
+  } catch {
+    return { outcome: "rate_limited" };
+  }
+  const outcome = await rescheduleWithToken(rescheduleToken, date, time);
+  if (outcome === "moved") after(kickOutbox);
+  const v = verifyToken(rescheduleToken, "reschedule");
+  const retryable = outcome === "slot_taken" || outcome === "invalid_slot";
+  return { outcome, ...(retryable && v.ok ? { nextToken: signToken({ appointmentId: v.payload.a, scope: "reschedule", ttlSeconds: 3600 }) } : {}) };
 }

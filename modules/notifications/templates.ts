@@ -11,6 +11,8 @@ export type NotificationType =
   | "reminder"
   | "owner_new_request"
   | "owner_customer_cancelled"
+  | "booking_rescheduled"
+  | "owner_customer_rescheduled"
   | "waitlist_offer"
   | "waitlist_offer_expired";
 
@@ -48,6 +50,8 @@ const SUBJECT: Record<NotificationType, (b: string) => string> = {
   reminder: (b) => `תזכורת לתור שלך · ${b}`,
   owner_new_request: () => "בקשת תור חדשה ממתינה לאישור",
   owner_customer_cancelled: () => "לקוח ביטל תור",
+  booking_rescheduled: (b) => `התור שלך הועבר · ${b}`,
+  owner_customer_rescheduled: () => "לקוח העביר תור",
   waitlist_offer: (b) => `התפנה תור בשבילך · ${b}`,
   waitlist_offer_expired: (b) => `ההצעה לתור פגה · ${b}`,
 };
@@ -61,6 +65,8 @@ const LEAD: Record<NotificationType, (name: string) => string> = {
   reminder: () => "תזכורת: מחר יש לך תור.",
   owner_new_request: (n) => `${n} ביקש/ה תור וממתין/ה לאישור שלך.`,
   owner_customer_cancelled: (n) => `${n} ביטל/ה תור.`,
+  booking_rescheduled: () => "התור הועבר למועד החדש. המועד המעודכן מופיע למטה.",
+  owner_customer_rescheduled: (n) => `${n} העביר/ה תור למועד אחר.`,
   waitlist_offer: () => "התפנה תור בזמן שביקשת. התור שמור לך לזמן קצר, ואחר כך עובר לממתין הבא.",
   waitlist_offer_expired: () => "ההצעה לא נענתה בזמן והתור עבר לממתין הבא. נשארת ברשימת ההמתנה ונשלח הצעה נוספת כשיתפנה תור אחר.",
 };

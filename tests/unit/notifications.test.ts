@@ -88,8 +88,15 @@ describe("templates (NTF-08, docs/05 §2)", () => {
     expect(r.text).toContain("מועד:");
     expect(r.html).toContain("https://tori.example/booking/TOKEN.SIG");
   });
+  it("RSC: a move plans one message for the customer and one for the owner, and goes stale if the appointment was cancelled meanwhile", () => {
+    expect(plan({ type: "AppointmentRescheduled", payload: {} }, "confirmed").map((n) => `${n.recipient}:${n.type}`)).toEqual(["customer:booking_rescheduled", "owner:owner_customer_rescheduled"]);
+    const now = new Date("2026-10-14T10:00:00Z");
+    expect(staleReason("booking_rescheduled", "confirmed", "2026-10-20T10:00:00Z", now)).toBeNull();
+    expect(staleReason("owner_customer_rescheduled", "pending", "2026-10-20T10:00:00Z", now)).toBeNull();
+    expect(staleReason("booking_rescheduled", "cancelled_by_customer", "2026-10-20T10:00:00Z", now)).toBe("appointment_inactive");
+  });
   it("the subject never names the service or the customer, and never carries a link or token", () => {
-    for (const type of ["booking_received", "booking_confirmed", "booking_declined", "booking_cancelled_by_business", "booking_cancelled_by_customer", "reminder", "owner_new_request", "owner_customer_cancelled"] as const) {
+    for (const type of ["booking_received", "booking_confirmed", "booking_declined", "booking_cancelled_by_business", "booking_cancelled_by_customer", "reminder", "owner_new_request", "owner_customer_cancelled", "booking_rescheduled", "owner_customer_rescheduled"] as const) {
       const r = render(ctx({ type, recipient: type.startsWith("owner") ? "owner" : "customer" }), opts);
       expect(r.subject).not.toContain("תספורת");
       expect(r.subject).not.toContain("נועם");

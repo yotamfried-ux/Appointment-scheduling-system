@@ -16,7 +16,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ token: string 
   const updated = new Date(a.updatedAt);
   const ics = buildIcs({
     uid: `${a.id}@${new URL(appUrl()).host}`,
-    sequence: Math.floor(updated.getTime() / 60_000), // minutes since 1970: only ever grows when the appointment changes
+    sequence: Math.floor(updated.getTime() / 1000), // seconds since 1970: only ever grows when the appointment changes (a move right after booking must still raise it)
     stamp: updated,
     start: new Date(a.startsAt),
     end: new Date(a.endsAt),

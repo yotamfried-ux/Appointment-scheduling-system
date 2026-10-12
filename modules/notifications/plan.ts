@@ -26,6 +26,11 @@ export function plan(event: OutboxEvent, appointmentStatus: string | null): Plan
         { type: "booking_cancelled_by_customer", recipient: "customer" },
         { type: "owner_customer_cancelled", recipient: "owner" },
       ];
+    case "AppointmentRescheduled": // the customer moved their appointment through their link
+      return [
+        { type: "booking_rescheduled", recipient: "customer" },
+        { type: "owner_customer_rescheduled", recipient: "owner" },
+      ];
     case "AppointmentStatusChanged": {
       switch (event.payload.action) {
         case "approve":
@@ -63,6 +68,9 @@ export function staleReason(type: NotificationType, status: string, startsAtIso:
     case "booking_cancelled_by_customer":
     case "owner_customer_cancelled":
       return ok(status === "cancelled_by_customer");
+    case "booking_rescheduled":
+    case "owner_customer_rescheduled":
+      return ok(status === "confirmed" || status === "pending");
     case "waitlist_offer": // `status` is the offer's status: only a live offer is worth announcing
       return ok(status === "pending" && new Date(startsAtIso) > now);
     case "waitlist_offer_expired":

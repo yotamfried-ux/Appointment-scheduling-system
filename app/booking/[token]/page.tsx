@@ -50,8 +50,14 @@ export default async function ManagePage({ params }: { params: Promise<{ token: 
         </dl>
         {active ? (
           <div className="grid gap-1">
-            <a href={`/booking/${token}/calendar`} download className="inline-flex min-h-11 w-fit items-center rounded-md border px-4 text-sm font-semibold hover:bg-accent" data-testid="manage-add-to-calendar">{t("addToCalendar")}</a>
+            <a href={`/booking/${token}/calendar`} download className="inline-flex min-h-11 w-full items-center justify-center rounded-md border px-4 text-sm font-semibold hover:bg-accent" data-testid="manage-add-to-calendar">{t("addToCalendar")}</a>
             <p className="text-xs text-muted-foreground">{t("addToCalendarHint")}</p>
+          </div>
+        ) : null}
+        {active && a.canReschedule ? (
+          <div className="grid gap-1">
+            <a href={`/booking/${token}/reschedule`} className="inline-flex min-h-11 w-full items-center justify-center rounded-md border px-4 text-sm font-semibold hover:bg-accent" data-testid="manage-reschedule">{t("reschedule")}</a>
+            <p className="text-xs text-muted-foreground">{t("rescheduleHint")}</p>
           </div>
         ) : null}
         {active && a.canCancel && a.cancelToken ? (
