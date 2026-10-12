@@ -2,6 +2,7 @@
 import { NextResponse } from "next/server";
 import { ZodError, type ZodType } from "zod";
 import type { ApiErrorCode } from "@/lib/api/contracts";
+import { dbWasUnavailable, runInDbScope } from "@/platform/db-timeout";
 
 export class ApiError extends Error {
   constructor(
@@ -63,7 +64,15 @@ export function api<P = Record<string, never>>(handler: (req: Request, params: P
     const base = { "Cache-Control": "no-store", "x-request-id": requestId };
     try {
       if (lab && !labEnabled()) throw fail("NOT_FOUND", "לא נמצא."); // lab routes only; public routes are always on
-      const out = await handler(req, await ctx.params, { requestId });
+      const out = await runInDbScope(async () => {
+        try {
+          return await handler(req, await ctx.params, { requestId });
+        } catch (e) {
+          // the database did not answer in time: tell the caller to retry (503), not that we are broken (500)
+          if (!(e instanceof ApiError) && dbWasUnavailable()) throw fail("UNAVAILABLE", "השירות עמוס או לא זמין כרגע. נסו שוב בעוד רגע.", undefined, { "Retry-After": "5" });
+          throw e;
+        }
+      });
       if (out instanceof Response) {
         Object.entries(base).forEach(([k, v]) => out.headers.set(k, v));
         return out;
