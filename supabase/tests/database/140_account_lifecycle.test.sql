@@ -70,6 +70,7 @@ select pg_temp.as_system();
 select is((select published_at is not null and deletion_scheduled_for is null from public.businesses where slug = 'dl-alpha'), true, 'the page is back and the schedule is gone');
 select is((select count(*)::int from public.appointments where business_id = (select a from ids) and status = 'cancelled_by_business'), 2, 'the cancelled appointments stay cancelled (the customers were told)');
 
+insert into public.platform_admins (user_id) values ('00000000-0000-0000-0000-00000000b1a2');
 -- ---- purge only after the grace period
 select pg_temp.as_user('00000000-0000-0000-0000-00000000b1a1');
 select public.request_business_deletion((select a from ids), (select name from public.businesses where slug = 'dl-alpha'));
@@ -85,6 +86,8 @@ select pg_temp.as_system();
 select is((select count(*)::int from public.businesses where slug = 'dl-alpha'), 0, 'the business is gone');
 select is((select count(*)::int from public.customers where business_id = (select a from ids)) + (select count(*)::int from public.appointments where business_id = (select a from ids)) + (select count(*)::int from public.services where business_id = (select a from ids)), 0, 'and with it customers, appointments and services');
 select is((select count(*)::int from public.audit_log where business_id = (select a from ids) and action = 'account.purged'), 1, 'the audit trail records the purge (and holds no personal data)');
+select is((select count(*)::int from auth.users where id = '00000000-0000-0000-0000-00000000b1a1'), 0, 'the owner''s sign-in identity is removed with the business (nothing else kept it)');
+select is((select count(*)::int from auth.users where id = '00000000-0000-0000-0000-00000000b1a2'), 1, 'CONTROL: a platform admin who was also a member keeps the sign-in identity');
 select is((select count(*)::int from private.lint_violations()), 0, 'schema lint stays empty');
 select * from finish();
 rollback;

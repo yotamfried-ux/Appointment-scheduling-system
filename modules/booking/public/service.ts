@@ -20,7 +20,7 @@ const CatalogRpc = z.object({
     id: z.uuid(), slug: z.string(), name: z.string(), kind: z.enum(KIND_IDS), timezone: z.string(), address: z.string(),
     requiresApproval: z.boolean(), cancelUntilHours: z.number(), minNoticeMinutes: z.number(), horizonDays: z.number(), waitlistEnabled: z.boolean(), acceptingBookings: z.boolean(),
   }),
-  services: z.array(z.object({ id: z.uuid(), name: z.string(), description: z.string(), durationMinutes: z.number(), bufferMinutes: z.number(), priceCents: z.number(), requiresApproval: z.boolean().nullable() })),
+  services: z.array(z.object({ id: z.uuid(), name: z.string(), description: z.string(), durationMinutes: z.number(), bufferMinutes: z.number(), priceCents: z.number(), priceMode: z.enum(["fixed", "from", "free", "hidden"]).default("fixed"), requiresApproval: z.boolean().nullable() })),
   rules: z.array(z.object({ weekday: z.number(), startMinute: z.number(), endMinute: z.number() })),
   exceptions: z.array(z.object({ date: z.string(), kind: z.enum(["closed", "open"]), startMinute: z.number().nullable(), endMinute: z.number().nullable() })),
 });
@@ -56,7 +56,7 @@ export function toServicesResponse(c: Catalog): z.infer<typeof C.ServicesRespons
       waitlistEnabled: c.business.waitlistEnabled,
       acceptingBookings: c.business.acceptingBookings,
     },
-    services: c.services.map((s) => ({ id: s.id, name: s.name, description: s.description, durationMinutes: s.durationMinutes, priceNis: s.priceCents / 100, group: false })),
+    services: c.services.map((s) => ({ id: s.id, name: s.name, description: s.description, durationMinutes: s.durationMinutes, priceNis: s.priceCents / 100, priceMode: s.priceMode, group: false })),
   };
 }
 
@@ -190,6 +190,7 @@ export interface AppointmentView {
   endsAt: string;
   serviceName: string;
   priceCents: number;
+  priceMode: "fixed" | "from" | "free" | "hidden" | null;
   businessName: string;
   businessSlug: string;
   timezone: string;

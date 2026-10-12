@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { admin, loginAs, makeBusiness, sql } from "../helpers/business";
+import { admin, loginAs, makeBusiness, PASSWORD, sql } from "../helpers/business";
 import { auth, byType, drain, mail, rows } from "../helpers/outbox";
 import { axe, customerBooksViaPage, customerOnPhone, noOverflow, ownerAtDesk } from "./world";
 
@@ -97,7 +97,9 @@ test("no tracking → terms accepted → a customer is erased → everything exp
     expect(health.jobs.find((j: { job: string }) => j.job === "maintenance").stale).toBe(false);
     await visitor.page.goto(first.manageUrl);
     await expect(visitor.page.getByTestId("manage-invalid")).toBeVisible();
-    await loginAs(desk.page, b.ownerEmail).catch(() => undefined);
+    expect(sql(`select count(*) from auth.users where email = '${b.ownerEmail}'`)).toBe("0"); // even the sign-in identity is gone
+    const again = await desk.page.request.post(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`, { headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, "content-type": "application/json" }, data: { email: b.ownerEmail, password: PASSWORD } });
+    expect(again.status()).toBe(400);
   });
 
   await desk.ctx.close();

@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toast";
-import { formatPrice } from "@/lib/lab/booking-data";
+import { priceLabel } from "@/lib/price";
 import { BUFFER_OPTIONS, DURATION_OPTIONS, fromCents, type ServiceRow } from "@/modules/catalog/schema";
 
 interface Draft {
@@ -21,9 +21,10 @@ interface Draft {
   durationMinutes: number;
   bufferMinutes: number;
   priceNis: string;
+  priceMode: "fixed" | "from" | "free" | "hidden";
 }
-const blank: Draft = { name: "", description: "", durationMinutes: 30, bufferMinutes: 0, priceNis: "" };
-const toDraft = (s: ServiceRow): Draft => ({ id: s.id, name: s.name, description: s.description ?? "", durationMinutes: s.duration_minutes, bufferMinutes: s.buffer_minutes, priceNis: String(fromCents(s.price_cents)) });
+const blank: Draft = { name: "", description: "", durationMinutes: 30, bufferMinutes: 0, priceNis: "", priceMode: "fixed" };
+const toDraft = (s: ServiceRow): Draft => ({ id: s.id, name: s.name, description: s.description ?? "", durationMinutes: s.duration_minutes, bufferMinutes: s.buffer_minutes, priceNis: String(fromCents(s.price_cents)), priceMode: s.price_mode ?? "fixed" });
 
 export function ServicesManager({ services }: { services: ServiceRow[] }) {
   const t = useTranslations("settings.services");
@@ -37,16 +38,16 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
 
   function submit() {
     if (!draft) return;
-    const price = Number(draft.priceNis);
+    const price = draft.priceMode === "free" ? 0 : Number(draft.priceNis);
     const fe = {
       name: draft.name.trim().length < 2 ? t("errors.name") : undefined,
-      price: draft.priceNis.trim() === "" || !Number.isFinite(price) || price < 0 || price > 100_000 ? t("errors.price") : undefined,
+      price: draft.priceMode === "free" ? undefined : draft.priceNis.trim() === "" || !Number.isFinite(price) || price < 0 || price > 100_000 ? t("errors.price") : undefined,
     };
     setFieldErrors(fe);
     if (fe.name || fe.price) return;
     setError(null);
     start(async () => {
-      const r = await saveServiceAction({ id: draft.id, name: draft.name, description: draft.description, durationMinutes: draft.durationMinutes, bufferMinutes: draft.bufferMinutes, priceNis: price });
+      const r = await saveServiceAction({ id: draft.id, name: draft.name, description: draft.description, durationMinutes: draft.durationMinutes, bufferMinutes: draft.bufferMinutes, priceNis: price, priceMode: draft.priceMode });
       if (!r.ok) return setError(r.code === "DUPLICATE" ? t("errors.duplicate") : r.code === "FORBIDDEN" ? t("errors.forbidden") : t("errors.generic"));
       toast(t("saved"), { variant: "success" });
       setDraft(null);
@@ -99,9 +100,19 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
             </NativeSelect>
           )}
         </FormField>
-        <FormField label={t("price")} error={fieldErrors.price}>
-          {(a) => <Input {...a} type="number" inputMode="decimal" min={0} step="1" value={draft.priceNis} onChange={(e) => setDraft({ ...draft, priceNis: e.target.value })} />}
+        <FormField label={t("priceMode")}>
+          {(a) => (
+            <NativeSelect {...a} value={draft.priceMode} onChange={(e) => setDraft({ ...draft, priceMode: e.target.value as Draft["priceMode"] })} data-testid="service-price-mode">
+              <option value="fixed">{t("priceModes.fixed")}</option>
+              <option value="from">{t("priceModes.from")}</option>
+              <option value="free">{t("priceModes.free")}</option>
+              <option value="hidden">{t("priceModes.hidden")}</option>
+            </NativeSelect>
+          )}
         </FormField>
+        {draft.priceMode === "free" ? null : <FormField label={t("price")} error={fieldErrors.price}>
+          {(a) => <Input {...a} type="number" inputMode="decimal" min={0} step="1" value={draft.priceNis} onChange={(e) => setDraft({ ...draft, priceNis: e.target.value })} />}
+        </FormField>}
       </div>
       {error ? <p role="alert" className="text-sm font-medium text-destructive" data-testid="service-error">{error}</p> : null}
       <div className="flex flex-wrap gap-2">
@@ -135,7 +146,7 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
                     <p className="font-semibold [overflow-wrap:anywhere]">{s.name}</p>
                     <p className="text-sm text-muted-foreground">
                       {t("minutes", { minutes: s.duration_minutes })}
-                      {s.buffer_minutes ? ` · +${t("minutes", { minutes: s.buffer_minutes })}` : ""} · {formatPrice(fromCents(s.price_cents))}
+                      {s.buffer_minutes ? ` · +${t("minutes", { minutes: s.buffer_minutes })}` : ""} · {priceLabel(s.price_mode, fromCents(s.price_cents)) ?? t("priceModes.hidden")}
                     </p>
                   </div>
                   <div className="flex justify-start gap-1.5 sm:justify-end">

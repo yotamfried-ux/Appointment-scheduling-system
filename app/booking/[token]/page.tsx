@@ -2,7 +2,8 @@ import { getTranslations } from "next-intl/server";
 import { CancelButton } from "@/app/booking/[token]/cancel-button";
 import { Logo } from "@/components/brand/logo";
 import { LegalFooter } from "@/components/legal/legal-footer";
-import { formatDayLabel, formatPrice } from "@/lib/lab/booking-data";
+import { formatDayLabel } from "@/lib/lab/booking-data";
+import { priceLabel } from "@/lib/price";
 import { viewAppointment } from "@/modules/booking/public/service";
 import { zonedParts } from "@/platform/clock";
 
@@ -31,7 +32,7 @@ export default async function ManagePage({ params }: { params: Promise<{ token: 
     { label: t("business"), value: a.businessName },
     { label: t("service"), value: a.serviceName },
     { label: t("when"), value: <>{formatDayLabel(start.date)} · <bdi>{hhmm(start.minutes)}</bdi></>, id: "when" },
-    { label: t("price"), value: formatPrice(a.priceCents / 100) },
+    ...(priceLabel(a.priceMode, a.priceCents / 100) ? [{ label: t("price"), value: priceLabel(a.priceMode, a.priceCents / 100) }] : []),
     { label: t("status"), value: t(`statuses.${a.status as "confirmed"}`), id: "status" },
     { label: t("reference"), value: <bdi className="font-mono">{a.reference}</bdi>, id: "reference" },
   ];

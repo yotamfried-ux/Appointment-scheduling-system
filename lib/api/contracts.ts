@@ -16,7 +16,8 @@ export const ServiceDto = z.object({
   name: z.string(),
   description: z.string(),
   durationMinutes: z.number().int().positive(),
-  priceNis: z.number().positive(),
+  priceNis: z.number().min(0),
+  priceMode: z.enum(["fixed", "from", "free", "hidden"]).default("fixed"),
   group: z.boolean(),
 });
 

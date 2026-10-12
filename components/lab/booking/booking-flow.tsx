@@ -16,7 +16,8 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toast";
 import { ApiClientError, labApi, resolveSession, type ClientOptions } from "@/lib/api/client";
 import type * as C from "@/lib/api/contracts";
-import { dayPart, formatDayLabel, formatPrice, LAB_TODAY, type LabDay } from "@/lib/lab/booking-data";
+import { priceLabel } from "@/lib/price";
+import { dayPart, formatDayLabel, LAB_TODAY, type LabDay } from "@/lib/lab/booking-data";
 import { bookingReducer, canContinue, detailsValid, initialBookingState, STEP_ORDER, type BookingStep } from "@/lib/lab/booking-flow";
 import { normalizePhone } from "@/lib/phone";
 import { cn } from "@/lib/utils";
@@ -289,7 +290,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base }: { kind
                     <p className="text-sm text-muted-foreground">{x.description}</p>
                   </div>
                   <div className="shrink-0 text-end">
-                    <p className="font-semibold">{formatPrice(x.priceNis)}</p>
+                    {priceLabel(x.priceMode, x.priceNis) ? <p className="font-semibold">{priceLabel(x.priceMode, x.priceNis)}</p> : null}
                     <p className="text-sm text-muted-foreground">{t("service.duration", { minutes: x.durationMinutes })}</p>
                   </div>
                 </ChoiceCard>
@@ -460,7 +461,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base }: { kind
                 <p className="truncate text-muted-foreground">
                   {s.day ? formatDayLabel(s.day, "short") : null}
                   {s.time ? <> · <bdi>{s.time}</bdi></> : null}
-                  {!s.day ? formatPrice(service.priceNis) : null}
+                  {!s.day ? priceLabel(service.priceMode, service.priceNis) : null}
                 </p>
               </>
             ) : (
@@ -510,7 +511,7 @@ function ManageLink({ path }: { path: string }) {
   );
 }
 
-function Confirmation({ service, booking, email, opts, doneTitle, cancelUntilHours, onAnother }: { service: { name: string; priceNis: number }; booking: Booking; email: string; opts: ClientOptions; doneTitle: string; cancelUntilHours: number; onAnother: () => void }) {
+function Confirmation({ service, booking, email, opts, doneTitle, cancelUntilHours, onAnother }: { service: { name: string; priceNis: number; priceMode?: "fixed" | "from" | "free" | "hidden" }; booking: Booking; email: string; opts: ClientOptions; doneTitle: string; cancelUntilHours: number; onAnother: () => void }) {
   const t = useTranslations("booking");
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [mail, setMail] = useState<{ subject: string; body: string; to: string } | null>(null);
@@ -542,10 +543,12 @@ function Confirmation({ service, booking, email, opts, doneTitle, cancelUntilHou
             {formatDayLabel(booking.date)} · <bdi>{booking.time}</bdi>
           </dd>
         </div>
-        <div className="flex justify-between gap-4 p-4">
-          <dt className="text-muted-foreground">{t("summary.price")}</dt>
-          <dd className="font-semibold">{formatPrice(service.priceNis)}</dd>
-        </div>
+        {priceLabel(service.priceMode, service.priceNis) ? (
+          <div className="flex justify-between gap-4 p-4">
+            <dt className="text-muted-foreground">{t("summary.price")}</dt>
+            <dd className="font-semibold">{priceLabel(service.priceMode, service.priceNis)}</dd>
+          </div>
+        ) : null}
         <div className="flex justify-between gap-4 p-4">
           <dt className="text-muted-foreground">{t("done.status")}</dt>
           <dd className="font-semibold" data-testid="done-status">{pending ? t("done.statusPending") : t("done.statusConfirmed")}</dd>

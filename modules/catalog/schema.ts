@@ -10,6 +10,7 @@ export const ServiceInput = z
     durationMinutes: z.number().int().min(5).max(480),
     bufferMinutes: z.number().int().min(0).max(120).default(0),
     priceNis: z.number().min(0).max(100_000),
+    priceMode: z.enum(["fixed", "from", "free", "hidden"]).default("fixed"),
     capacity: z.number().int().min(1).max(100).default(1),
   })
   .strict();
@@ -25,6 +26,7 @@ export interface ServiceRow {
   duration_minutes: number;
   buffer_minutes: number;
   price_cents: number;
+  price_mode: "fixed" | "from" | "free" | "hidden";
   capacity: number;
   active: boolean;
   position: number;
