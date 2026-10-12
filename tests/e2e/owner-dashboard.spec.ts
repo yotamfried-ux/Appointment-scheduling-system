@@ -120,7 +120,8 @@ test.describe("owner dashboard (real stack)", () => {
     await page.getByTestId("manual-phone").fill("050-9990000");
     await page.getByTestId("manual-submit").click();
     await expect(page.getByTestId("manual-form")).toHaveCount(0);
-    if (`${get("year")}-${get("month")}-${get("day")}` !== todayLocal(0)) await page.getByTestId("day-prev").click();
+    // creating a booking moves the agenda to that booking's day (yesterday, in the first hours after midnight): wait for it, do not navigate
+    await expect(page.getByTestId("day-input")).toHaveValue(`${get("year")}-${get("month")}-${get("day")}`);
     const row = page.locator('[data-testid^="row-"]').filter({ hasText: "דוד מזרחי" });
     await expect(row).toBeVisible();
     const id = (await row.getAttribute("data-testid"))!.replace("row-", "");
