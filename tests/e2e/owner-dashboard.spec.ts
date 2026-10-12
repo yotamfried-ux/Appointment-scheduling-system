@@ -50,6 +50,8 @@ test.describe("owner dashboard (real stack)", () => {
     await loginAs(page, b.ownerEmail);
     await page.goto("/dashboard");
     await page.getByTestId("day-input").fill(f.date);
+    // the input shows the agenda's own date, so this waits for the NEW day to be loaded (the title of today's agenda is visible all along; clicking "add" on it would book today)
+    await expect(page.getByTestId("day-input")).toHaveValue(f.date);
     await expect(page.getByTestId("agenda-title")).toBeVisible();
 
     // from a free gap: the time is prefilled

@@ -5,14 +5,16 @@ import { useTranslations } from "next-intl";
 import { useEffect, useState, useTransition } from "react";
 import { rescheduleAppointmentAction } from "@/app/booking/[token]/actions";
 import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 import { formatDayLabel } from "@/lib/lab/booking-data";
 import { labApi } from "@/lib/api/client";
 
-export function RescheduleForm({ slug, serviceId, initialToken, manageHref }: { slug: string; serviceId: string; initialToken: string; manageHref: string }) {
+export function RescheduleForm({ slug, serviceId: currentServiceId, services, initialToken, manageHref }: { slug: string; serviceId: string; services: { id: string; name: string }[]; initialToken: string; manageHref: string }) {
   const t = useTranslations("reschedule");
   const router = useRouter();
   const opts = { kind: "other", session: "public", base: `/api/public/${slug}` } as const;
   const [token, setToken] = useState(initialToken);
+  const [serviceId, setServiceId] = useState(currentServiceId);
   const [days, setDays] = useState<string[] | null>(null);
   const [date, setDate] = useState<string | null>(null);
   const [times, setTimes] = useState<string[] | null>(null);
@@ -26,6 +28,8 @@ export function RescheduleForm({ slug, serviceId, initialToken, manageHref }: { 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceId, slug]);
 
+  const pickService = (id: string) => { setServiceId(id); setDays(null); setDate(null); setTime(null); setTimes(null); setMessage(null); };
+
   const pickDay = (d: string) => {
     setDate(d); setTime(null); setTimes(null); setMessage(null);
     labApi.slots(opts, { service: serviceId, date: d }).then((r) => setTimes(r.slots.map((s) => s.time))).catch(() => setTimes([]));
@@ -34,15 +38,24 @@ export function RescheduleForm({ slug, serviceId, initialToken, manageHref }: { 
   const submit = () =>
     start(async () => {
       if (!date || !time) return;
-      const r = await rescheduleAppointmentAction(token, date, time);
+      const r = await rescheduleAppointmentAction(token, date, time, serviceId === currentServiceId ? undefined : serviceId);
       if (r.nextToken) setToken(r.nextToken);
       if (r.outcome === "moved") return router.push(manageHref);
       if (r.outcome === "slot_taken") { if (date) pickDay(date); setMessage(t("taken")); return; } // reload the day first (it clears the message), then say why
-      setMessage(r.outcome === "too_late" ? t("tooLate") : r.outcome === "limit" ? t("limit") : r.outcome === "rate_limited" ? t("rate") : t("failed"));
+      setMessage(r.outcome === "service_change_not_allowed" ? t("noServiceChange") : r.outcome === "too_late" ? t("tooLate") : r.outcome === "limit" ? t("limit") : r.outcome === "rate_limited" ? t("rate") : t("failed"));
     });
 
   return (
     <div className="grid gap-5">
+      {services.length > 1 ? (
+        <section aria-labelledby="resched-service" className="grid gap-2">
+          <h2 id="resched-service" className="font-semibold">{t("pickService")}</h2>
+          <NativeSelect aria-labelledby="resched-service" value={serviceId} onChange={(e) => pickService(e.target.value)} data-testid="resched-service">
+            {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </NativeSelect>
+          <p className="text-xs text-muted-foreground">{t("serviceHint")}</p>
+        </section>
+      ) : null}
       <section aria-labelledby="resched-days" className="grid gap-2">
         <h2 id="resched-days" className="font-semibold">{t("pickDay")}</h2>
         {days === null ? <p className="text-sm text-muted-foreground">{t("loading")}</p> : days.length === 0 ? <p className="text-sm text-muted-foreground" data-testid="resched-none">{t("none")}</p> : (

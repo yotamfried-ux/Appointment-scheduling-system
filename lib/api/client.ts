@@ -100,5 +100,6 @@ export const ownerApi = {
   waitlistRemove: (id: string) => call(C.OwnerOutcomeResponse, `waitlist/${encodeURIComponent(id)}/remove`, OWNER, { method: "POST", body: {} }).then((r) => r.data),
   waitlistOffer: (id: string, time: string) => call(C.OwnerOutcomeResponse, `waitlist/${encodeURIComponent(id)}/offer`, OWNER, { method: "POST", body: { time } }).then((r) => r.data),
   waitlistSettings: (body: { autoOffer?: boolean; enabled?: boolean }) => call(C.OwnerOutcomeResponse, "waitlist/settings", OWNER, { method: "POST", body }).then((r) => r.data),
+  move: (id: string, body: z.input<typeof C.OwnerMoveRequest>) => call(C.OwnerMoveResponse, `appointments/${encodeURIComponent(id)}/move`, OWNER, { method: "POST", body }).then((r) => r.data),
   createManual: (body: z.input<typeof C.CreateManualRequest>) => call(C.CreateManualResponse, "appointments", OWNER, { method: "POST", body }).then((r) => r.data),
 };

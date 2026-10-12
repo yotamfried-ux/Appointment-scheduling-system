@@ -13,5 +13,6 @@ export const BookingRulesInput = z.object({
   attendanceAlertMinutes: z.number().int().min(0).max(1440),
   autoCompleteHours: z.number().int().min(1).max(168).nullable(),
   digestFrequency: z.enum(["off", "daily"]),
+  rescheduleServiceChange: z.boolean(),
 });
 export type BookingRules = z.infer<typeof BookingRulesInput>;

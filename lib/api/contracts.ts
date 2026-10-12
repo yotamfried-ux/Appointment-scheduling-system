@@ -244,3 +244,7 @@ export const ApiErrorBody = z.object({
   }),
 });
 export type ApiErrorCode = (typeof ERROR_CODES)[number];
+
+// RSC-04: the owner moves a booking to another time (same service, same length).
+export const OwnerMoveRequest = z.object({ date: IsoDate, time: HHmm }).strict();
+export const OwnerMoveResponse = z.object({ id: z.string(), status: z.string(), outOfHours: z.boolean() });

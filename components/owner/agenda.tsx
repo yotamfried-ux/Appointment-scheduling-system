@@ -10,6 +10,7 @@ import { ApprovalsPanel, type ApprovalAction } from "@/components/lab/dashboard/
 import { DaySchedule } from "@/components/lab/dashboard/day-schedule";
 import { StatStrip } from "@/components/lab/dashboard/stat-strip";
 import { ManualDialog } from "@/components/owner/manual-dialog";
+import { MoveDialog } from "@/components/owner/move-dialog";
 import { OfferDialog } from "@/components/owner/offer-dialog";
 import { WaitlistPanel, type WaitlistEntry } from "@/components/owner/waitlist-panel";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ export function OwnerAgenda() {
   const [confirming, setConfirming] = useState<string | null>(null);
   const [dialog, setDialog] = useState<{ open: boolean; time: string }>({ open: false, time: "" });
   const [offering, setOffering] = useState<WaitlistEntry | null>(null);
+  const [moving, setMoving] = useState<LabAppointment | null>(null);
   const [pollMs, setPollMs] = useState(10_000);
   const inFlight = useRef(false); // synchronous guard: React state is too late for a fast double click
 
@@ -187,7 +189,12 @@ export function OwnerAgenda() {
           <Button size="sm" variant="outline" onClick={() => setConfirming(null)}>{t("agenda.cancelNo")}</Button>
         </div>
       );
-    return <Button size="sm" variant="outline" disabled={off} onClick={() => setConfirming(a.id)} data-testid={`cancel-${a.id}`}>{t("agenda.cancel")}</Button>;
+    return (
+      <>
+        <Button size="sm" variant="outline" disabled={off} onClick={() => { dismissAllToasts(); setMoving(a); }} data-testid={`move-${a.id}`}>{t("agenda.move")}</Button>
+        <Button size="sm" variant="outline" disabled={off} onClick={() => setConfirming(a.id)} data-testid={`cancel-${a.id}`}>{t("agenda.cancel")}</Button>
+      </>
+    );
   };
 
   return (
@@ -255,6 +262,7 @@ export function OwnerAgenda() {
         </div>
       </div>
 
+      {moving ? <MoveDialog id={moving.id} customer={moving.customer} date={agenda.date} start={moving.start} onClose={() => setMoving(null)} onDone={(d) => (d === agenda.date ? void reload() : go(d))} /> : null}
       {offering ? <OfferDialog entry={offering} onClose={() => setOffering(null)} onDone={() => void reload()} /> : null}
 
       {dialog.open ? (

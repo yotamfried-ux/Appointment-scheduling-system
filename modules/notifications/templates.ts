@@ -15,6 +15,7 @@ export type NotificationType =
   | "owner_customer_rescheduled"
   | "owner_unconfirmed"
   | "owner_digest"
+  | "booking_moved_by_business"
   | "waitlist_offer"
   | "waitlist_offer_expired";
 
@@ -58,6 +59,7 @@ const SUBJECT: Record<NotificationType, (b: string) => string> = {
   owner_customer_rescheduled: () => "לקוח העביר תור",
   owner_unconfirmed: () => "לקוח עוד לא אישר הגעה",
   owner_digest: () => "סיכום יומי מהיומן",
+  booking_moved_by_business: (b) => `העסק העביר את התור שלך · ${b}`,
   waitlist_offer: (b) => `התפנה תור בשבילך · ${b}`,
   waitlist_offer_expired: (b) => `ההצעה לתור פגה · ${b}`,
 };
@@ -75,6 +77,7 @@ const LEAD: Record<NotificationType, (name: string) => string> = {
   owner_customer_rescheduled: (n) => `${n} העביר/ה תור למועד אחר.`,
   owner_unconfirmed: (n) => `${n} עדיין לא אישר/ה הגעה לתור הקרוב. אולי כדאי לשלוח הודעה.`,
   owner_digest: () => "מה חשוב לדעת היום:",
+  booking_moved_by_business: () => "העסק העביר את התור שלך למועד אחר (המועד החדש למטה). אם המועד לא מתאים, אפשר לבטל בקישור בלי שום תנאי.",
   waitlist_offer: () => "התפנה תור בזמן שביקשת. התור שמור לך לזמן קצר, ואחר כך עובר לממתין הבא.",
   waitlist_offer_expired: () => "ההצעה לא נענתה בזמן והתור עבר לממתין הבא. נשארת ברשימת ההמתנה ונשלח הצעה נוספת כשיתפנה תור אחר.",
 };

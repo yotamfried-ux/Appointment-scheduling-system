@@ -190,6 +190,24 @@ export async function createManual(ctx: OwnerCtx, input: C.CreateManualInput): P
   return { id: r.id, reference: r.reference, outOfHours: !inside };
 }
 
+/** RSC-04: the owner moves a booking. Whether the new time is inside opening hours is computed here (flag only, as for manual bookings): the owner may book anywhere. */
+export async function moveAppointment(ctx: OwnerCtx, id: string, input: z.infer<typeof C.OwnerMoveRequest>): Promise<z.infer<typeof C.OwnerMoveResponse>> {
+  const { data: row } = await ctx.supabase.from("appointments").select("service_snapshot").eq("id", id).maybeSingle();
+  if (!row) throw fail("NOT_FOUND", "לא נמצא.");
+  const startMin = hhmmToMinutes(input.time);
+  const duration = Number((row.service_snapshot as { durationMinutes?: number }).durationMinutes ?? 30);
+  const av = await loadAvailability(ctx.supabase, ctx.business.id);
+  const inside = windowsForDate(input.date, rowsToRules(av.rules), rowsToExceptions(av.exceptions)).some((w) => startMin >= w.from && startMin + duration <= w.to);
+  const { data, error } = await ctx.supabase.rpc("owner_move_appointment", { p_id: id, p_new_start: zonedTimeToUtc(input.date, startMin, ctx.business.timezone).toISOString(), p_out_of_availability: !inside });
+  if (error) {
+    if ((error.message ?? "").includes("same_slot")) throw fail("VALIDATION_FAILED", "התור כבר נמצא בשעה הזו.");
+    if ((error.message ?? "").includes("slot_in_past")) throw fail("INVALID_SLOT", "אי אפשר להעביר תור לשעה שכבר עברה.");
+    throw mapError(error);
+  }
+  const r = data as { id: string; status: string };
+  return { id: r.id, status: r.status, outOfHours: !inside };
+}
+
 const DB_ACTION: Record<z.infer<typeof C.OwnerAction>, string> = {
   approve: "approve",
   reject: "reject",

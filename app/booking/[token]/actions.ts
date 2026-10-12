@@ -23,7 +23,7 @@ export async function cancelAppointmentAction(cancelToken: unknown): Promise<Can
 }
 
 /** RSC-01: POST (Server Action: Origin-checked). Returns a fresh token after a refusal that leaves the move possible. */
-export async function rescheduleAppointmentAction(rescheduleToken: unknown, date: unknown, time: unknown): Promise<{ outcome: RescheduleOutcome | "rate_limited"; nextToken?: string }> {
+export async function rescheduleAppointmentAction(rescheduleToken: unknown, date: unknown, time: unknown, serviceId?: unknown): Promise<{ outcome: RescheduleOutcome | "rate_limited"; nextToken?: string }> {
   if (typeof rescheduleToken !== "string" || typeof date !== "string" || typeof time !== "string") return { outcome: "invalid" };
   const h = await headers();
   const ip = (h.get("x-forwarded-for")?.split(",")[0] ?? h.get("x-real-ip") ?? "unknown").trim();
@@ -32,7 +32,7 @@ export async function rescheduleAppointmentAction(rescheduleToken: unknown, date
   } catch {
     return { outcome: "rate_limited" };
   }
-  const outcome = await rescheduleWithToken(rescheduleToken, date, time);
+  const outcome = await rescheduleWithToken(rescheduleToken, date, time, typeof serviceId === "string" ? serviceId : undefined);
   if (outcome === "moved") after(kickOutbox);
   const v = verifyToken(rescheduleToken, "reschedule");
   const retryable = outcome === "slot_taken" || outcome === "invalid_slot";

@@ -204,6 +204,8 @@ export interface AppointmentView {
   rescheduleToken: string | null;
   attendanceConfirmedAt: string | null;
   attendToken: string | null;
+  serviceChangeAllowed: boolean;
+  movedByBusinessAt: string | null;
 }
 
 export async function viewAppointment(token: string): Promise<AppointmentView | null> {
@@ -238,10 +240,10 @@ export async function cancelWithToken(cancelToken: string): Promise<CancelOutcom
 }
 
 // ---------------------------------------------------------------- RSC-01/02: move to another slot of the same service
-export type RescheduleOutcome = "moved" | "slot_taken" | "too_late" | "limit" | "invalid_slot" | "unavailable" | "invalid";
+export type RescheduleOutcome = "moved" | "slot_taken" | "too_late" | "limit" | "invalid_slot" | "unavailable" | "service_change_not_allowed" | "invalid";
 
 /** `rescheduleToken` is single use. A refused move (taken or bad slot) has consumed it, so the server action hands back a fresh one for the retry. */
-export async function rescheduleWithToken(rescheduleToken: string, date: string, time: string): Promise<RescheduleOutcome> {
+export async function rescheduleWithToken(rescheduleToken: string, date: string, time: string, newServiceId?: string): Promise<RescheduleOutcome> {
   const v = verifyToken(rescheduleToken, "reschedule");
   if (!v.ok || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return "invalid";
   const db = systemDb();
@@ -251,14 +253,15 @@ export async function rescheduleWithToken(rescheduleToken: string, date: string,
   const res = await resolveCatalog(a.businessSlug);
   if (res.kind !== "ok") return "invalid";
   const c = res.catalog;
-  const svc = findService(c, a.serviceId);
+  const changing = Boolean(newServiceId && newServiceId !== a.serviceId); // RSC-03: the database decides whether the business allows it
+  const svc = findService(c, changing ? newServiceId! : a.serviceId);
   if (!svc) return "unavailable";
   const structural = slotsForDay({ date, timeZone: c.business.timezone, rules: rulesOf(c), exceptions: exceptionsOf(c), durationMinutes: svc.durationMinutes, bufferMinutes: svc.bufferMinutes, stepMinutes: 30, now: new Date(0), minNoticeMinutes: 0 });
   const wanted = structural.find((s) => s.local === time);
   if (!wanted || !withinHorizon(c, date)) return "invalid_slot";
   const first = await db.rpc("public_consume_token", { p_jti: v.payload.j, p_exp: new Date(v.payload.e * 1000).toISOString() }); // single use (SEC-06)
   if (first.error || first.data !== true) return "invalid";
-  const { error } = await db.rpc("public_reschedule", { p_id: v.payload.a, p_new_start: wanted.startUtc });
+  const { error } = await db.rpc("public_reschedule", { p_id: v.payload.a, p_new_start: wanted.startUtc, p_new_service: changing ? newServiceId : null });
   if (!error) return "moved";
   const m = error.message ?? "";
   if (m.includes("slot_taken")) return "slot_taken";
@@ -266,6 +269,7 @@ export async function rescheduleWithToken(rescheduleToken: string, date: string,
   if (m.includes("reschedule_limit")) return "limit";
   if (m.includes("slot_in_past") || m.includes("slot_too_far") || m.includes("same_slot")) return "invalid_slot";
   if (m.includes("service_unavailable")) return "unavailable";
+  if (m.includes("service_change_not_allowed")) return "service_change_not_allowed";
   return "invalid";
 }
 

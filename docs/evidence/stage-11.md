@@ -21,7 +21,7 @@ Plan: docs/03 §8 (Stage 11) · qualification: `docs/evidence/security/qualifica
 - Local Gitleaks flagged invented placeholder values in the env-gate unit test; recorded as false positives with fingerprints (no secret material).
 - Earlier in the stage: unused `@ts-expect-error`; `robots.txt` was redirected by the proxy; the DB-frozen drill exposed hanging endpoints (→ deadline, 503, error page); the restore drill needed a scratch database with `public` dropped and tolerance for 6 expected default-privilege errors.
 
-- One walk-in test (`owner-dashboard.spec.ts:47`) failed once in about six isolated repeats and passed in the final full run; the cause was not isolated (not related to this change as far as I could tell), so it is **recorded as intermittent, not fixed**.
+- One walk-in test (`owner-dashboard.spec.ts:47`) failed once in about six isolated repeats and passed in the final full run; the cause was not isolated (not related to this change as far as I could tell), so it was recorded as intermittent. **Cause found and fixed in stage 13** (it clicked "add" before the chosen day was loaded; see `stage-13.md`).
 
 ## Known limitations (not claimed)
 See `qualification.md` §3–§5 and `docs/08-launch-checklist.md`: no external pentest, no real PITR/Resend/billing-provider evidence, no screen-reader audit, booking page Lighthouse mobile 77 (B4), no re-authentication step-up, RSC-01/02, ACC-09, BKG-08 still open product gaps.

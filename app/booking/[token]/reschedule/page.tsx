@@ -3,7 +3,7 @@ import { RescheduleForm } from "@/app/booking/[token]/reschedule/reschedule-form
 import { Logo } from "@/components/brand/logo";
 import { LegalFooter } from "@/components/legal/legal-footer";
 import { formatDayLabel } from "@/lib/lab/booking-data";
-import { viewAppointment } from "@/modules/booking/public/service";
+import { resolveCatalog, viewAppointment } from "@/modules/booking/public/service";
 import { zonedParts } from "@/platform/clock";
 
 // RSC-01/02. GET only shows the picker; the move itself is a POST (Server Action) with a single-use token.
@@ -21,6 +21,9 @@ export default async function ReschedulePage({ params }: { params: Promise<{ tok
       </main>
     );
   }
+  // RSC-03: other services are offered only when the business allows changing the service while moving
+  const catalog = a.serviceChangeAllowed ? await resolveCatalog(a.businessSlug) : null;
+  const services = catalog?.kind === "ok" ? catalog.catalog.services.map((s) => ({ id: s.id, name: s.name })) : [];
   const start = zonedParts(new Date(a.startsAt), a.timezone);
   const hhmm = `${String(Math.floor(start.minutes / 60)).padStart(2, "0")}:${String(start.minutes % 60).padStart(2, "0")}`;
   return (
@@ -31,7 +34,7 @@ export default async function ReschedulePage({ params }: { params: Promise<{ tok
         {a.canReschedule && a.rescheduleToken ? (
           <>
             <p className="text-muted-foreground" data-testid="resched-current">{t("current", { service: a.serviceName, when: `${formatDayLabel(start.date)} · ${hhmm}` })}</p>
-            <RescheduleForm slug={a.businessSlug} serviceId={a.serviceId} initialToken={a.rescheduleToken} manageHref={`/booking/${token}`} />
+            <RescheduleForm slug={a.businessSlug} serviceId={a.serviceId} services={services} initialToken={a.rescheduleToken} manageHref={`/booking/${token}`} />
           </>
         ) : (
           <section className="grid gap-3" data-testid="resched-closed">

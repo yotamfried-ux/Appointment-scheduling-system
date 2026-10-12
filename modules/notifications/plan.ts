@@ -31,6 +31,8 @@ export function plan(event: OutboxEvent, appointmentStatus: string | null): Plan
         { type: "booking_rescheduled", recipient: "customer" },
         { type: "owner_customer_rescheduled", recipient: "owner" },
       ];
+    case "AppointmentMovedByBusiness": // the owner moved the booking: tell the customer (they may decline)
+      return [{ type: "booking_moved_by_business", recipient: "customer" }];
     case "AppointmentStatusChanged": {
       switch (event.payload.action) {
         case "approve":
@@ -68,6 +70,8 @@ export function staleReason(type: NotificationType, status: string, startsAtIso:
     case "booking_cancelled_by_customer":
     case "owner_customer_cancelled":
       return ok(status === "cancelled_by_customer");
+    case "booking_moved_by_business":
+      return ok(status === "confirmed" || status === "pending");
     case "owner_unconfirmed": // the visit is still ahead and still unconfirmed by the customer
       return ok(status === "confirmed" && new Date(startsAtIso) > now);
     case "owner_digest":

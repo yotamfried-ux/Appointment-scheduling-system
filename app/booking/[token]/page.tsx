@@ -50,6 +50,7 @@ export default async function ManagePage({ params }: { params: Promise<{ token: 
             </div>
           ))}
         </dl>
+        {active && a.movedByBusinessAt ? <p className="rounded-lg border border-info/40 bg-info-soft p-3 text-sm font-medium text-info-soft-foreground" data-testid="manage-moved">{t("movedByBusiness")}</p> : null}
         {a.attendToken ? <AttendButton attendToken={a.attendToken} /> : active && a.attendanceConfirmedAt ? <p className="rounded-lg border bg-card p-3 text-sm font-medium" data-testid="attend-confirmed">{t("attendConfirmed")}</p> : null}
         {active ? (
           <div className="grid gap-1">

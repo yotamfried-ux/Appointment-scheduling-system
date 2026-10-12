@@ -51,6 +51,7 @@ const ROUTES: Route[] = [
     body: (c, who) => ({ serviceId: c.serviceId, date: c.date, time: c.times[who === "owner" ? 3 : 4], customer: { fullName: `ידני ${who}`, phone: who === "owner" ? "0501234501" : "0501234502" } }),
     ok: [201],
   },
+  { file: "owner/appointments/[id]/move/route.ts", method: "POST", url: (c, w) => `/api/owner/appointments/${idOf(c, w, "appt")}/move`, body: (c) => ({ date: c.date, time: c.times[9] }), admin: true, byId: true, ok: [200], staffStatus: 404, targetKey: "appt" },
   { file: "owner/appointments/[id]/transition/route.ts", method: "POST", url: (c, w) => `/api/owner/appointments/${idOf(c, w, "appt")}/transition`, body: () => ({ action: "cancel" }), byId: true, ok: [200], staffStatus: 404, targetKey: "appt" },
   { file: "owner/customers/route.ts", method: "GET", url: () => "/api/owner/customers", ok: [200] },
   { file: "owner/customers/[id]/route.ts", method: "GET", url: (c) => `/api/owner/customers/${c.cust.target}`, byId: true, ok: [200] },

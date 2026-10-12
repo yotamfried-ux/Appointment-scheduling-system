@@ -83,7 +83,7 @@ export async function saveBookingRulesAction(raw: unknown): Promise<Ok | Fail<"N
   const { data, error } = await c.supabase.from("businesses").update({
     requires_approval: r.requiresApproval, cancel_until_hours: r.cancelUntilHours, min_notice_minutes: r.minNoticeMinutes, booking_horizon_days: r.horizonDays,
     address: r.address, no_show_policy: r.noShowPolicy, no_show_threshold: r.noShowThreshold, block_message: r.blockMessage === "" ? null : r.blockMessage,
-    attendance_alert_minutes: r.attendanceAlertMinutes, auto_complete_hours: r.autoCompleteHours, digest_frequency: r.digestFrequency,
+    attendance_alert_minutes: r.attendanceAlertMinutes, auto_complete_hours: r.autoCompleteHours, digest_frequency: r.digestFrequency, reschedule_service_change: r.rescheduleServiceChange,
   }).eq("id", c.businessId).select("id");
   if (error) return { ok: false, code: "FAILED" };
   if (!data?.length) return { ok: false, code: "FORBIDDEN" }; // RLS filtered the update: not an admin

@@ -33,6 +33,10 @@ export function BookingRulesForm({ initial }: { initial: BookingRules }) {
           <input type="checkbox" className="size-5" checked={f.requiresApproval} onChange={(e) => setF({ ...f, requiresApproval: e.target.checked })} data-testid="rules-approval" />
           <span>{t("approval")}</span>
         </label>
+        <label className="flex min-h-11 items-center gap-3">
+          <input type="checkbox" className="size-5" checked={f.rescheduleServiceChange} onChange={(e) => setF({ ...f, rescheduleServiceChange: e.target.checked })} data-testid="rules-service-change" />
+          <span>{t("serviceChange")}</span>
+        </label>
         <FormField label={t("cancelUntil")} hint={t("cancelUntilHint")}>
           {(a) => <Input {...a} type="number" inputMode="numeric" min={0} max={720} value={Number.isNaN(f.cancelUntilHours) ? "" : f.cancelUntilHours} onChange={(e) => setF({ ...f, cancelUntilHours: num(e.target.value) })} data-testid="rules-cancel-hours" />}
         </FormField>

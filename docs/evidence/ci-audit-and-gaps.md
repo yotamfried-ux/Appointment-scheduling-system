@@ -60,3 +60,6 @@ All 7 real jobs green: Lint·Types·Unit·Build, DB, E2E, CodeQL, Gitleaks (full
 
 ## Update after stage 12
 RSC-01/02, BKG-08 and ACC-09 are now implemented and tested (pgTAP 120/130/140, E2E `reschedule`, `no-show-policy`, `account`, the permission matrix, and the user-journey simulations); see `docs/evidence/stage-12.md`. Remaining open: RSC-03/04, NSH-01/02/06, NTF-09/10/11, ACC-10, CAT-05/06/07, BKG-18, CXL-08 (all P1/P2).
+
+## Update after stage 13
+RSC-03/04, NSH-01/02/06, NTF-09/11, CAT-05 and the removal of the owner's sign-in identity at purge are built and tested (`docs/evidence/stage-13.md`). CAT-06/07, BKG-18, CXL-08, ACC-10 and NTF-10 are closed as deliberate non-goals of v1 (D24).
