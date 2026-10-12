@@ -71,6 +71,11 @@ export async function setNotes(ctx: OwnerCtx, id: string, notes: string): Promis
   }
 }
 
+export async function setPolicyOverride(ctx: OwnerCtx, id: string, override: boolean): Promise<void> {
+  const { error } = await ctx.supabase.rpc("set_customer_policy_override", { p_customer: id, p_override: override });
+  if (error) throw mapError(error);
+}
+
 export async function anonymize(ctx: OwnerCtx, id: string): Promise<"anonymized" | "already"> {
   const { data, error } = await ctx.supabase.rpc("anonymize_customer", { p_customer: id });
   if (error) throw mapError(error);

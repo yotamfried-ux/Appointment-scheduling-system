@@ -172,6 +172,7 @@ function mapBookingError(e: { code?: string | null; message?: string | null }) {
   if (m.includes("idempotency_reuse")) return fail("IDEMPOTENCY_KEY_REUSED", "מפתח הבקשה כבר שימש לבקשה אחרת.");
   if (m.includes("slot_in_past") || m.includes("slot_too_far")) return fail("INVALID_SLOT", "השעה אינה זמינה להזמנה.");
   if (m.includes("service_unavailable")) return fail("SERVICE_UNAVAILABLE", "השירות כבר אינו זמין. בחרו שירות אחר.");
+  if (m.includes("customer_blocked")) return fail("BLOCKED", (e as { details?: string | null }).details?.trim() || "לא ניתן לקבוע תור אונליין כרגע. נשמח שתיצרו קשר עם העסק."); // BKG-08: the business' own words, nothing about counts
   if (m.includes("booking_limit")) return fail("BOOKING_LIMIT", "יש כבר כמה תורים עתידיים על המספר הזה. אפשר לנהל אותם בקישור שנשלח.");
   if (m.includes("billing_inactive")) return fail("BOOKINGS_CLOSED", "העסק אינו מקבל כרגע תורים חדשים.");
   if (m.includes("not_found")) return fail("NOT_FOUND", "לא נמצא.");

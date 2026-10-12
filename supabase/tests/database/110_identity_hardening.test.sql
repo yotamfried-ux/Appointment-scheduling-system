@@ -71,7 +71,7 @@ delete from public.waitlist_entries where customer_id = (select id from public.c
 select pg_temp.as_user('00000000-0000-0000-0000-00000000b1a1');
 select is((public.anonymize_customer((select id from public.customers where phone = '+972501110001')) ->> 'outcome'), 'anonymized', 'the manager erases the customer');
 select pg_temp.as_system();
-select is((select count(*)::int from public.appointments where customer_id = (select id from public.customers where full_name = 'לקוח שנמחק') and contact_email is not null), 0, 'no appointment of an erased customer keeps an address');
+select is((select count(*)::int from public.appointments where customer_id = (select id from public.customers where full_name = 'לקוח שנמחק' and business_id = (select a from ids)) and contact_email is not null), 0, 'no appointment of an erased customer keeps an address');
 
 -- ---------- 4. the bulk export function is for managers whose plan includes the export
 select pg_temp.as_user('00000000-0000-0000-0000-00000000b1a2');

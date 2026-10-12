@@ -192,6 +192,8 @@ export function BookingFlow({ kind, session: sessionParam, limit, base }: { kind
         setBooking(null);
         dispatch({ type: "reset" });
         loadCatalog();
+      } else if (e.code === "BLOCKED") {
+        setSubmit({ status: "error", message: e.message });
       } else if (e.code === "BOOKING_LIMIT") {
         setSubmit({ status: "error", message: t("errors.bookingLimit") });
       } else if (e.code === "VALIDATION_FAILED") {

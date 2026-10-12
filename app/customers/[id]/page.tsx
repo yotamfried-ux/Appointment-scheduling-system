@@ -13,6 +13,7 @@ import { zonedParts } from "@/platform/clock";
 import { z } from "zod";
 import { AnonymizeCustomer } from "./anonymize";
 import { NotesForm } from "./notes-form";
+import { PolicyOverride } from "./policy-override";
 
 export const metadata = { title: "לקוח", robots: { index: false, follow: false } };
 
@@ -37,6 +38,12 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
   const gone = c.anonymizedAt !== null;
   const isAdmin = ctx.role === "admin" || ctx.role === "owner";
   const name = gone ? t("anonymizedName") : c.fullName;
+  const [{ data: pol }, { data: crow }] = await Promise.all([
+    ctx.supabase.from("businesses").select("no_show_policy, no_show_threshold").eq("id", ctx.business.id).single(),
+    ctx.supabase.from("customers").select("policy_override").eq("id", c.id).single(),
+  ]);
+  const policy = (pol?.no_show_policy ?? "off") as "off" | "warn" | "require_approval" | "block";
+  const flagged = policy !== "off" && d.stats.noShows60d >= (pol?.no_show_threshold ?? 3);
 
   return (
     <AppShell email={email} width="max-w-4xl" nav={<OwnerNav current="customers" />}>
@@ -56,6 +63,7 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
           { label: t("detail.spent"), value: formatMoney(d.stats.spentCents), hint: "" },
         ]}
       />
+      {gone || policy === "off" || !(flagged || crow?.policy_override) ? null : <PolicyOverride id={c.id} policy={policy} flagged={flagged} override={Boolean(crow?.policy_override)} />}
       {gone ? null : <NotesForm id={c.id} initial={c.notes ?? ""} />}
       <section aria-labelledby="history" className="grid gap-3">
         <h2 id="history" className="text-lg font-semibold">{t("detail.history")}</h2>
