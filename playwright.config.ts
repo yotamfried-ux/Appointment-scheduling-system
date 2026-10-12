@@ -30,7 +30,11 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0, // a retry-pass is reported FLAKY, never silently green
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
-  use: { baseURL, trace: "retain-on-failure", screenshot: "only-on-failure", locale: "he-IL", timezoneId: "Asia/Jerusalem" },
+  use: {
+    baseURL, trace: "retain-on-failure", screenshot: "only-on-failure", locale: "he-IL", timezoneId: "Asia/Jerusalem",
+    // optional: run against an already-installed Chromium (offline machines); CI installs the matching browser itself
+    ...(process.env.E2E_CHROMIUM_PATH ? { launchOptions: { executablePath: process.env.E2E_CHROMIUM_PATH } } : {}),
+  },
   projects: [
     { name: "mobile-360", testIgnore: /journeys\//, use: { ...devices["Pixel 5"], viewport: { width: 360, height: 740 } } },
     { name: "desktop", testIgnore: /journeys\//, use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } } },
