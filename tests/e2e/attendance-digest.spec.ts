@@ -62,12 +62,14 @@ test.describe("overdue visits and the digest (NSH-06, NTF-09/11)", () => {
     const old = (await publicBook(request, b, f.date, f.times[0], 1, 0, mail())) as unknown as Booked;
     const recent = (await publicBook(request, b, f.date, f.times[4], 2, 0, mail())) as unknown as Booked;
     const mv = (id: string, hours: number) => sql(`set session_replication_role = replica; update public.appointments set starts_at = now() - interval '${hours} hours', ends_at = now() - interval '${hours} hours' + interval '30 minutes', blocked_until = now() - interval '${hours} hours' + interval '30 minutes' where id = '${id}'; set session_replication_role = origin;`);
-    mv(old.id, 30); mv(recent.id, 3);
+    // The job is global: another test in this file runs it with a clock up to a few days ahead, which also sweeps this business. So the threshold is the
+    // maximum (168 h) and the visits sit far from it: a 200 h old visit is overdue under any clock, a 3 h old one is not until the clock is 165 h ahead.
+    mv(old.id, 200); mv(recent.id, 3);
     resetBucket(); await runJob(page, new Date());
     expect(sql(`select status from public.appointments where id='${old.id}'`), "off by default").toBe("confirmed");
     await loginAs(page, b.ownerEmail);
     await page.goto("/settings/booking");
-    await page.getByTestId("rules-auto-complete").fill("24");
+    await page.getByTestId("rules-auto-complete").fill("168");
     await page.getByTestId("rules-save").click();
     await expect(page.getByTestId("rules-status")).toHaveText("נשמר.");
     resetBucket(); await runJob(page, new Date());
