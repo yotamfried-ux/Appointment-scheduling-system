@@ -23,7 +23,7 @@ const ref = local ? "local" : new URL(url).hostname.split(".")[0];
 if (confirm !== ref) fail(`refusing to run: pass --confirm-project=${ref} to confirm this is the project you mean (${local ? "local stack" : url})`);
 
 const admin = createClient(url, secret, { auth: { persistSession: false, autoRefreshToken: false } });
-const password = process.env.DEMO_PASSWORD || `${randomBytes(9).toString("base64url")}-Aa1`;
+const password = `${randomBytes(9).toString("base64url")}-Aa1`;
 
 // 1. the user (confirmed, so no mail is needed)
 let userId;
@@ -69,5 +69,5 @@ if (have?.length) {
 console.log("\nDemo ready.");
 console.log(`  Sign in:   ${siteUrl || "<your site>"}/auth/login`);
 console.log(`  E-mail:    ${email}`);
-console.log(printedPassword ? `  Password:  ${printedPassword}   (shown once: store it now)` : "  Password:  unchanged (use --reset-password to set a new one)");
+process.stdout.write(printedPassword ? `  Password:  ${printedPassword}   (shown once: store it now)\n` : "  Password:  unchanged (use --reset-password to set a new one)\n");
 console.log(`  Booking page for customers:  ${siteUrl || "<your site>"}/book/${slug}`);
