@@ -126,7 +126,15 @@ select throws_ok($$ insert into public.waitlist_offers (business_id, entry_id, s
   '23P01', null, 'two live offers can never cover the same stretch of time (EXCLUDE)');
 
 -- ---------- WLT-04: the slot gets booked before the offer is accepted ----------
-select is((pg_temp.book((select day from ids) + interval '10 hours', '+972502000001', 'wl-key-0002'))->>'status', 'confirmed', 'someone books the offered slot through the public path');
+select ok((select count(*) from public.public_busy((select a from ids), (select day from ids) + interval '9 hours', (select day from ids) + interval '11 hours') where starts_at = (select day from ids) + interval '10 hours') >= 1, 'the offered slot is busy for the public (so it is not listed)');
+select throws_ok($$ select pg_temp.book((select day from ids) + interval '10 hours', '+972502000001', 'wl-key-0002') $$, 'P0001', 'slot_taken', 'a live offer RESERVES its slot: the public path cannot take it meanwhile');
+-- the owner can still book it by hand (WLT-04): simulate the owner's manual appointment
+select pg_temp.as_system();
+insert into public.customers (business_id, full_name, phone) select a, 'ידני', '+972502000001' from ids;
+insert into public.appointments (business_id, resource_id, service_id, customer_id, reference, status, source, starts_at, ends_at, blocked_until, service_snapshot, price_cents)
+  select a, (select id from public.resources where business_id = a and is_default), (select s30 from ids), (select id from public.customers where phone = '+972502000001' and business_id = a), 'TR-HAND01', 'confirmed', 'manual',
+         (select day from ids) + interval '10 hours', (select day from ids) + interval '10 hours 30 minutes', (select day from ids) + interval '10 hours 30 minutes', '{"name":"x","durationMinutes":30,"bufferMinutes":0,"priceCents":8000}'::jsonb, 8000 from ids;
+select pg_temp.as_service();
 select is((select public.waitlist_accept((select id from public.waitlist_offers where status = 'pending')))->>'outcome', 'slot_taken', 'WLT-04: accepting now says the slot is taken');
 select is((select status from public.waitlist_entries where id = (select e1 from e)), 'waiting', 'WLT-04: the customer stays on the list');
 select is((select status from public.waitlist_offers where entry_id = (select e1 from e)), 'lost', 'and the offer is marked lost');
@@ -242,8 +250,14 @@ update public.waitlist_entries set status = 'waiting', on_date = (select d1 from
 select pg_temp.as_service();
 select public.public_cancel((select id from appt6));
 select is((select count(*)::int from public.waitlist_offers where status = 'pending'), 1, 'a live offer exists for 16:00');
-select pg_temp.book((select day from ids) + interval '16 hours', '+972502000007', 'wl-key-0008');
-select is((select public.waitlist_sweep(now()))->>'lost', '1', 'the sweep marks an offer lost once someone booked the slot');
+select throws_ok($$ select pg_temp.book((select day from ids) + interval '16 hours', '+972502000007', 'wl-key-0008') $$, 'P0001', 'slot_taken', 'the public cannot book a slot with a live offer');
+select pg_temp.as_system();   -- the owner books it by hand
+insert into public.customers (business_id, full_name, phone) select a, 'ידני 7', '+972502000007' from ids;
+insert into public.appointments (business_id, resource_id, service_id, customer_id, reference, status, source, starts_at, ends_at, blocked_until, service_snapshot, price_cents)
+  select a, (select id from public.resources where business_id = a and is_default), (select s30 from ids), (select id from public.customers where phone = '+972502000007' and business_id = a), 'TR-HAND07', 'confirmed', 'manual',
+         (select day from ids) + interval '16 hours', (select day from ids) + interval '16 hours 30 minutes', (select day from ids) + interval '16 hours 30 minutes', '{"name":"x","durationMinutes":30,"bufferMinutes":0,"priceCents":8000}'::jsonb, 8000 from ids;
+select pg_temp.as_service();
+select is((select public.waitlist_sweep(now()))->>'lost', '1', 'the sweep marks an offer lost once the owner booked the slot by hand');
 select is((select status from public.waitlist_entries where id = (select e1 from e)), 'waiting', 'its owner is back on the list');
 select pg_temp.as_system();
 update public.waitlist_entries set on_date = (now() at time zone 'Asia/Jerusalem')::date - 3 where id = (select e2 from e);

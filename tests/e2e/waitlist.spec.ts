@@ -207,14 +207,19 @@ test.describe("offers (WLT-01/03/04/06)", () => {
     await expect(page.getByTestId("wl-leave")).toHaveCount(0);
   });
 
-  test("WLT-04: the slot is taken through the public page before the offer is accepted — the customer is told and stays on the list", async ({ request, page }) => {
+  test("WLT-04: the owner books the offered slot by hand before the offer is accepted — the customer is told and stays on the list", async ({ request, page }) => {
     const b = await makeBusiness("barber");
     const { f, a, w, slotStart } = await scenario(request, b);
     await cancel(b, a.id);
     await drain(request, async () => byType(await rows(b), "waitlist_offer").length === 1 && idle(await rows(b)));
     await page.goto(await offerLink(b, (await offersOf(b))[0].id));
     await expect(page.getByTestId("wl-accept")).toBeVisible();
-    await publicBook(request, b, f.date, f.times[0], 99, 0, mail()); // somebody books the very slot meanwhile
+    // the public cannot take a slot that is on offer (the offer e-mail promises it is kept)…
+    const grab = await request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: b.services[0].id, date: f.date, time: f.times[0], location: "business", customer: { fullName: "מתחרה", phone: "0509998877", email: mail() }, intake: {} }, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `grab-${Math.random().toString(36).slice(2)}` } });
+    expect(grab.status()).toBe(409);
+    // …only the owner can book it by hand meanwhile (WLT-04)
+    const hand = await b.db.rpc("create_manual_appointment", { p_business: b.id, p_service: b.services[0].id, p_starts_at: slotStart, p_full_name: "ידני", p_phone: "+972509998866", p_note: null, p_out_of_availability: false });
+    expect(hand.error, JSON.stringify(hand.error)).toBeNull();
     await page.getByTestId("wl-accept").click();
     await expect(page.getByTestId("wl-result")).toContainText("התור נתפס");
     expect(await entryStatus(w[0].id)).toBe("waiting");

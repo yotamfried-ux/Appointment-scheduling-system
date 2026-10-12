@@ -32,8 +32,10 @@ export default defineConfig({
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: { baseURL, trace: "retain-on-failure", screenshot: "only-on-failure", locale: "he-IL", timezoneId: "Asia/Jerusalem" },
   projects: [
-    { name: "mobile-360", use: { ...devices["Pixel 5"], viewport: { width: 360, height: 740 } } },
-    { name: "desktop", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } } },
+    { name: "mobile-360", testIgnore: /journeys\//, use: { ...devices["Pixel 5"], viewport: { width: 360, height: 740 } } },
+    { name: "desktop", testIgnore: /journeys\//, use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 800 } } },
+    // User-journey simulations: each test brings its own browsers (an owner at a desk, customers on phones), so one project is enough.
+    { name: "journeys", testMatch: /journeys\/.*\.spec\.ts/, fullyParallel: false, use: { ...devices["Desktop Chrome"] } },
   ],
   webServer: process.env.E2E_BASE_URL
     ? undefined
