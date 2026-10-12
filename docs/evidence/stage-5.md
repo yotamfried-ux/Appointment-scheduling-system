@@ -23,4 +23,4 @@ Plan: `docs/plans/stage-5-owner-dashboard.md`. Evidence is for the commit that c
 - An old toast could cover a dialog's title → toasts are dismissed when a dialog opens.
 
 ## Known limitations (not claimed)
-No notifications to owners or customers yet (stage 6) · pending requests never expire yet (stage 6 job) · no reschedule / edit of an appointment · owner transitions need the admin role (staff can create manual appointments but not approve) · one business per account in the UI · `owner_note` is not editable after creation · waitlist and reports come later · CI not yet run on this commit.
+No notifications to owners or customers yet (stage 6) · pending requests never expire yet (stage 6 job) · no reschedule / edit of an appointment · owner transitions need the admin role (staff can create manual appointments but not approve) · one business per account in the UI · `owner_note` is not editable after creation · waitlist and reports come later · CI result (checked on GitHub): a5295e1: **CI failed** (a stale test, see the correction note above). `d06d93e` fixed it: CI, Security and CodeQL green.

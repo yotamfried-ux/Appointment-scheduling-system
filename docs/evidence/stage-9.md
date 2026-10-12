@@ -30,4 +30,4 @@ Plan: `docs/plans/stage-9-billing.md` · decision D22. Evidence is for the commi
 - Plan prices are placeholders in the `plans` table (editable data), not a pricing decision. Trial length (14 days) and grace (7 days) are constants in the migration.
 - BIL-07 (grandfathering) stores `plan_version` only; price-change workflow is not built.
 - Existing businesses created before this migration received a fresh 14-day trial.
-- CI not yet run on this commit.
+- CI result (checked on GitHub): 094580f: CI, Security and CodeQL all green.

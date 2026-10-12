@@ -25,4 +25,4 @@ Plan: `docs/plans/stage-10-calendar-legal.md` · decision D23 (the owner chose t
 - Acceptance is enforced on the owner screens, not on the API, and not for customers of a business (they accept nothing today; the booking page links the privacy policy in its footer).
 - The ICS file is a one-time download: later changes do not reach a calendar that already has the event (no sync, by decision). A reschedule would need a new download.
 - Production defaults the acceptance gate **on**: every existing owner will be asked to accept once after deploy.
-- CI not yet run on this commit.
+- CI result (checked on GitHub): 1f26bca: CodeQL **failed** with a real bug (semicolons not escaped in ICS text; see below) and its CI run was cancelled by the fix. `c8c99ca`: CI, Security and CodeQL all green.

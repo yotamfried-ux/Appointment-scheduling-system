@@ -24,4 +24,4 @@ Plan: `docs/plans/stage-8-customers-reports.md`. Evidence is for the commit that
 - Reports read live tables; no materialized views or caching (fine at this scale, revisit at ~10⁶ appointments per business).
 - Export download is a streamed response; if the client disconnects mid-way the audit row (written before streaming, with the expected row count) still says the full count.
 - Charts are dependency-free SVG bar charts; no tooltips on touch.
-- CI not yet run on this commit.
+- CI result (checked on GitHub): 9ce366b: CI (lint/types/unit/build, DB pgTAP, E2E), Security (Gitleaks, OSV, Trivy, CodeQL) and the CodeQL check all green.

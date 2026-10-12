@@ -30,4 +30,4 @@ Plan: `docs/plans/stage-7-waitlist.md`. Evidence is for the commit that contains
 - Cron: the sweep runs every 5 minutes (`vercel.json`); plan limits unchecked. An expired offer is also rejected at accept time, so a late sweep never lets someone take a stale offer.
 - Offer e-mails use the fake provider here; real delivery needs the stage-6 prerequisites.
 - Join confirmation e-mail is not sent (the customer sees the status link on screen).
-- CI not yet run on this commit.
+- CI result (checked on GitHub): 60742bf: CI, Security and CodeQL green.

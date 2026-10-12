@@ -28,4 +28,4 @@ Plan: `docs/plans/stage-6-notifications.md`. Evidence is for the commit that con
 - Not built: re-engagement and owner summaries (NTF-09/10/11), unsubscribe links (all messages are service messages), e-mail field in the manual-appointment form, expiry of unanswered requests, dead-letter retry from the UI.
 - Declining a cancellation request re-uses the earlier confirmation (no new e-mail).
 - Owner e-mail goes to the business owner role only.
-- CI not yet run on this commit.
+- CI result (checked on GitHub): 7a14f42: run cancelled by the next push. `cd38466` (a Gitleaks false positive in a unit-test placeholder fixed): CI, Security and CodeQL green.
