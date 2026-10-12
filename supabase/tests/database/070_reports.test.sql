@@ -165,9 +165,12 @@ select is((public.owner_customer_detail((select c1 from c))->'stats'->>'visits')
 select is(jsonb_array_length(public.owner_customer_detail((select c1 from c))->'appointments'), 4, 'detail: dana has four appointments in all (3 completed, 1 cancelled by the business)');
 select is((public.owner_customer_detail((select c1 from c))->'appointments'->0->>'status'), 'cancelled_by_business', 'the newest appointment comes first (27 March)');
 
--- keyset page for exports
+-- keyset page for exports: a data source for managers whose plan includes the export; staff cannot page through it directly
+select is((select count(*)::int from public.owner_customers_page((select a from ids), null, 3)), 0, 'keyset page: staff get nothing (the export is for managers)');
+select pg_temp.as_user('00000000-0000-0000-0000-0000000006a1');
 select is((select count(*)::int from public.owner_customers_page((select a from ids), null, 3)), 3, 'keyset page: first three');
 select is((select count(*)::int from public.owner_customers_page((select a from ids), (select id from public.owner_customers_page((select a from ids), null, 3) order by id desc limit 1), 100)), 4, 'keyset page: the rest after the third');
+select pg_temp.as_user('00000000-0000-0000-0000-0000000006a2');
 
 -- ---------- notes ----------
 select lives_ok($$ select public.set_customer_notes((select c1 from c), 'מעדיפה בוקר') $$, 'staff may write a note');

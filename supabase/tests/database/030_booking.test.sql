@@ -112,7 +112,7 @@ select pg_temp.as_service();
 select is((pg_temp.book((select s30 from ids), (select day from ids) + interval '14 hours', 'key-0000008', 'h8', 'נועם לוי המעודכן'))->>'status', 'confirmed', 'BKG-05: returning customer (same phone, new name) books again');
 select pg_temp.as_system();
 select is((select count(*)::int from public.customers where business_id = (select a from ids) and phone = '+972501234567'), 1, 'BKG-05: one customer row per phone');
-select is((select full_name from public.customers where business_id = (select a from ids) and phone = '+972501234567'), 'נועם לוי המעודכן', 'BKG-05: the latest name is kept');
+select is((select full_name from public.customers where business_id = (select a from ids) and phone = '+972501234567'), 'נועם לוי', 'BKG-05: an existing customer is NOT rewritten by a later anonymous booking (a phone number is not proof of identity)');
 select pg_temp.as_service();
 select lives_ok($$ select pg_temp.book((select s30 from ids), (select day from ids) + interval '15 hours', 'key-0000009', 'h9') $$, '5th future booking of the same phone');
 select throws_ok($$ select pg_temp.book((select s30 from ids), (select day from ids) + interval '16 hours', 'key-0000010', 'h10') $$, 'P0001', 'booking_limit', 'BKG-07: the 6th future booking is refused');
