@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { AuthButton } from "@/components/auth-button";
 import { Logo } from "@/components/brand/logo";
+import { LegalFooter } from "@/components/legal/legal-footer";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Button } from "@/components/ui/button";
 
@@ -42,6 +43,7 @@ export default async function Home() {
       <footer className="flex items-center justify-center gap-4 border-t py-5">
         <ThemeSwitcher />
       </footer>
+      <LegalFooter />
     </div>
   );
 }

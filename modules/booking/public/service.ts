@@ -193,6 +193,7 @@ export interface AppointmentView {
   businessSlug: string;
   timezone: string;
   cancelUntil: string;
+  updatedAt: string;
   canCancel: boolean;
   cancelToken: string | null;
 }

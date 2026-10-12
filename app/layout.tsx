@@ -4,6 +4,7 @@ import { connection } from "next/server";
 import { NextIntlClientProvider } from "next-intl";
 import { getTranslations } from "next-intl/server";
 import { ThemeProvider } from "next-themes";
+import { ConsentBanner } from "@/components/legal/consent-banner";
 import { Toaster } from "@/components/ui/toast";
 import "./globals.css";
 
@@ -43,6 +44,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <NextIntlClientProvider>
           <ThemeProvider nonce={nonce} attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
             {children}
+            <ConsentBanner />
             <Toaster closeLabel={t("close")} />
           </ThemeProvider>
         </NextIntlClientProvider>

@@ -14,6 +14,7 @@ const env = {
   ALLOW_TEST_LIMIT_HEADER: "1", // lets E2E lower rate limits per request; ignored when VERCEL_ENV=production
   CRON_SECRET,
   RESEND_WEBHOOK_SECRET,
+  ALLOW_TEST_LEGAL_GATE: "1", // lets one test switch the terms gate on for its own requests; ignored when VERCEL_ENV=production
   BILLING_PROVIDER: "fake", // the plug-in provider used in CI; a real one is another adapter
   BILLING_WEBHOOK_SECRET,
   EMAIL_PROVIDER: "fake", // nothing leaves the machine; failures are injected through the recipient address

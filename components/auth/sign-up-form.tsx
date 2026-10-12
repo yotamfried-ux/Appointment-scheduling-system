@@ -19,6 +19,7 @@ import { signUpAction } from "@/app/auth/actions";
 export function SignUpForm() {
   const t = useTranslations("auth");
   const tv = useTranslations("auth.validation");
+  const tl = useTranslations("legal");
   const router = useRouter();
   const [serverError, setServerError] = useState<string | null>(null);
   const schema = useMemo(() => signUpSchema((k) => tv(k)), [tv]);
@@ -67,6 +68,12 @@ export function SignUpForm() {
         <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
           {isSubmitting ? t("signUp.submitting") : t("signUp.submit")}
         </Button>
+        <p className="text-center text-xs text-muted-foreground" data-testid="signup-legal">
+          {tl.rich("accept.signupNote", {
+            terms: () => <Link href="/terms" target="_blank" className="underline underline-offset-4">{tl("accept.terms")}</Link>,
+            privacy: () => <Link href="/privacy" target="_blank" className="underline underline-offset-4">{tl("accept.privacy")}</Link>,
+          })}
+        </p>
       </form>
     </AuthCard>
   );

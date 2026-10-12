@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { CancelButton } from "@/app/booking/[token]/cancel-button";
 import { Logo } from "@/components/brand/logo";
+import { LegalFooter } from "@/components/legal/legal-footer";
 import { formatDayLabel, formatPrice } from "@/lib/lab/booking-data";
 import { viewAppointment } from "@/modules/booking/public/service";
 import { zonedParts } from "@/platform/clock";
@@ -47,6 +48,12 @@ export default async function ManagePage({ params }: { params: Promise<{ token: 
             </div>
           ))}
         </dl>
+        {active ? (
+          <div className="grid gap-1">
+            <a href={`/booking/${token}/calendar`} download className="inline-flex min-h-11 w-fit items-center rounded-md border px-4 text-sm font-semibold hover:bg-accent" data-testid="manage-add-to-calendar">{t("addToCalendar")}</a>
+            <p className="text-xs text-muted-foreground">{t("addToCalendarHint")}</p>
+          </div>
+        ) : null}
         {active && a.canCancel && a.cancelToken ? (
           <>
             <p className="text-sm text-muted-foreground">{t("cancelUntil", { when: `${formatDayLabel(cancelUntil.date, "short")} ${hhmm(cancelUntil.minutes)}` })}</p>
@@ -64,6 +71,7 @@ export default async function ManagePage({ params }: { params: Promise<{ token: 
           <p className="text-sm text-muted-foreground">{t("already")}</p>
         )}
       </main>
+      <LegalFooter />
     </div>
   );
 }

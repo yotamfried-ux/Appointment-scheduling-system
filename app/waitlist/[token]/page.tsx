@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { WaitlistActions } from "@/app/waitlist/[token]/waitlist-actions";
 import { Logo } from "@/components/brand/logo";
+import { LegalFooter } from "@/components/legal/legal-footer";
 import { StatusBadge } from "@/components/patterns/status-badge";
 import { formatDayLabel } from "@/lib/lab/booking-data";
 import { viewWaitlist } from "@/modules/waitlist/public";
@@ -58,6 +59,7 @@ export default async function WaitlistPage({ params }: { params: Promise<{ token
         </dl>
         <WaitlistActions tokens={v.tokens} offerActive={Boolean(v.offer)} canLeave={v.status === "waiting" || v.status === "offered"} />
       </main>
+      <LegalFooter />
     </div>
   );
 }

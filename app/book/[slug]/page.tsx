@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { LegalFooter } from "@/components/legal/legal-footer";
 import { BookingFlow } from "@/components/lab/booking/booking-flow";
 import { resolveCatalog } from "@/modules/booking/public/service";
 
@@ -22,5 +23,10 @@ export default async function BookPage({ params }: { params: Promise<{ slug: str
       </main>
     );
   }
-  return <BookingFlow kind={r.catalog.business.kind} base={`/api/public/${r.catalog.business.slug}`} />;
+  return (
+    <>
+      <BookingFlow kind={r.catalog.business.kind} base={`/api/public/${r.catalog.business.slug}`} />
+      <LegalFooter />
+    </>
+  );
 }

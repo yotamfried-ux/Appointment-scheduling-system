@@ -1,16 +1,9 @@
-import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { LegalPage } from "@/components/legal/legal-page";
+import { PRIVACY } from "@/lib/legal/content";
+import { LEGAL } from "@/lib/legal/config";
 
 export const metadata = { title: "מדיניות פרטיות" };
 
-// Placeholder until the legal text is drafted with counsel (docs/05 §10, stage 10).
-export default async function Page() {
-  const t = await getTranslations("legal");
-  return (
-    <main id="main" className="mx-auto max-w-2xl px-5 py-16">
-      <h1 className="text-3xl font-bold">{t("privacyTitle")}</h1>
-      <p className="mt-3 text-muted-foreground">{t("placeholder")}</p>
-      <Link href="/" className="mt-6 inline-block font-medium text-primary underline underline-offset-4">{t("home")}</Link>
-    </main>
-  );
+export default function Page() {
+  return <LegalPage testId="privacy" title="מדיניות פרטיות" version={LEGAL.privacy.version} effective={LEGAL.privacy.effective} sections={PRIVACY} />;
 }
