@@ -4,9 +4,12 @@ import { getTranslations } from "next-intl/server";
 import { AppShell } from "@/components/app-shell";
 import { PublishButton } from "@/app/dashboard/publish-button";
 import { OwnerAgenda } from "@/components/owner/agenda";
+import { BillingBanner } from "@/components/owner/billing-banner";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import { PageHeader } from "@/components/patterns/page-header";
+import { ownerPage } from "@/lib/auth/owner-page";
 import { requireUser } from "@/lib/auth/session";
+import { myBilling } from "@/modules/billing/entitlements";
 import { BUSINESS_KINDS, type BusinessKindId } from "@/modules/tenancy/business-kind";
 import { listMyBusinesses } from "@/modules/tenancy/service";
 
@@ -17,10 +20,13 @@ export default async function DashboardPage() {
   const businesses = await listMyBusinesses(supabase);
   if (businesses.length === 0) redirect("/onboarding");
   const b = businesses[0];
+  const { ctx } = await ownerPage();
+  const billing = await myBilling(ctx);
   const host = process.env.NEXT_PUBLIC_SITE_HOST ?? "tori.example";
 
   return (
     <AppShell email={String(claims.email ?? "")} width="max-w-6xl" nav={<OwnerNav current="calendar" />}>
+      <BillingBanner billing={billing} timezone={ctx.business.timezone} />
       <PageHeader title={t("welcome", { name: `\u2068${b.name}\u2069` })} />
       {b.published_at ? null : <PublishButton businessId={b.id} />}
       <OwnerAgenda />
@@ -39,7 +45,7 @@ export default async function DashboardPage() {
         </div>
       </dl>
       <nav aria-label={t("settingsNav")} className="flex flex-wrap gap-x-5 gap-y-1 text-sm font-medium">
-        {[["/settings/services", t("settingsServices")], ["/settings/hours", t("settingsHours")], ["/settings/security", t("security")]].map(([href, label]) => (
+        {[["/settings/services", t("settingsServices")], ["/settings/hours", t("settingsHours")], ["/settings/billing", t("settingsBilling")], ["/settings/security", t("security")]].map(([href, label]) => (
           <Link key={href} href={href} className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline">{label}</Link>
         ))}
       </nav>

@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/patterns/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ownerPage } from "@/lib/auth/owner-page";
+import { myBilling } from "@/modules/billing/entitlements";
 import { IsoDate } from "@/lib/api/contracts";
 import { formatMoney, formatPercent, resolvePeriod, type Preset } from "@/modules/reports/metrics";
 import { MAX_RANGE_DAYS, report, requireAdmin } from "@/modules/reports/service";
@@ -41,7 +42,8 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
     else rangeError = true; // fall back to the default period and say so
   }
 
-  const r = await report(ctx, period.from, period.to);
+  const [r, billing] = await Promise.all([report(ctx, period.from, period.to), myBilling(ctx)]);
+  const up = await getTranslations("billing.upsell");
   const k = r.kpis;
   const isAdmin = (() => { try { requireAdmin(ctx); return true; } catch { return false; } })();
   const empty = k.appointments === 0 && k.cancelled === 0 && k.pending === 0;
@@ -170,10 +172,18 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
             <h2 id="export" className="text-lg font-semibold">{t("export.title")}</h2>
             <p className="text-sm text-muted-foreground">{t("export.desc")}</p>
           </div>
+          {!billing.features.export ? (
+            <div className="grid gap-1 rounded-md bg-warning-soft p-3 text-sm text-warning-soft-foreground" data-testid="export-upsell">
+              <p className="font-semibold">{up("title", { feature: up("export") })}</p>
+              <p>{up("desc")}</p>
+              <Link href="/settings/billing" className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4">{up("action")}</Link>
+            </div>
+          ) : (
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline"><a href={`/api/owner/export/appointments?from=${period.from}&to=${period.to}`} data-testid="export-appointments" download>{t("export.appointments")}</a></Button>
             <Button asChild variant="outline"><a href="/api/owner/export/customers" data-testid="export-customers" download>{t("export.customers")}</a></Button>
           </div>
+          )}
         </section>
       ) : null}
     </AppShell>

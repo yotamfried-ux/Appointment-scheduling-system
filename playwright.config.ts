@@ -1,5 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
-import { CRON_SECRET, RESEND_WEBHOOK_SECRET } from "./tests/e2e/helpers/secrets";
+import { BILLING_WEBHOOK_SECRET, CRON_SECRET, RESEND_WEBHOOK_SECRET } from "./tests/e2e/helpers/secrets";
 
 const PORT = Number(process.env.PORT ?? 3100);
 const baseURL = process.env.E2E_BASE_URL ?? `http://127.0.0.1:${PORT}`;
@@ -14,6 +14,8 @@ const env = {
   ALLOW_TEST_LIMIT_HEADER: "1", // lets E2E lower rate limits per request; ignored when VERCEL_ENV=production
   CRON_SECRET,
   RESEND_WEBHOOK_SECRET,
+  BILLING_PROVIDER: "fake", // the plug-in provider used in CI; a real one is another adapter
+  BILLING_WEBHOOK_SECRET,
   EMAIL_PROVIDER: "fake", // nothing leaves the machine; failures are injected through the recipient address
   OUTBOX_KICK: "0", // specs trigger the runner explicitly so attempt counts are deterministic
   ALLOW_TEST_CLOCK: "1", // lets the reminder job take ?now=; refused when VERCEL_ENV=production

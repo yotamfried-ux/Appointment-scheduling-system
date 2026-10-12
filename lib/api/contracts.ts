@@ -38,6 +38,8 @@ export const BusinessDto = z.object({
   cancelUntilHours: z.number(),
   /** Public pages only: customers may join the waitlist for a full day. */
   waitlistEnabled: z.boolean().optional(),
+  /** False when the business's subscription has lapsed (BKG-11/BIL-01): the page says so instead of offering times. */
+  acceptingBookings: z.boolean().optional(),
 });
 
 export const ServicesResponse = z.object({ kind: KindSchema, business: BusinessDto, services: z.array(ServiceDto) });
@@ -176,6 +178,8 @@ export const OwnerAgendaResponse = z.object({
   undelivered: z.number().int().nonnegative(),
   waitlist: z.array(OwnerWaitlistEntryDto),
   settings: z.object({ waitlistEnabled: z.boolean(), waitlistAutoOffer: z.boolean() }),
+  /** What the subscription allows (BIL-08): the panel shows an upsell instead of a feature the plan does not include. */
+  billing: z.object({ state: z.enum(["trial", "active", "grace", "degraded"]), features: z.object({ waitlist: z.boolean(), export: z.boolean() }) }).optional(),
   /** Cheap change marker: the client polls `/api/owner/version` and reloads only when it differs. */
   version: z.string(),
   services: z.array(z.object({ id: z.string(), name: z.string(), durationMinutes: z.number().int().positive() })),
@@ -224,6 +228,8 @@ export const ERROR_CODES = [
   "WAITLIST_LIMIT",
   "UNAUTHENTICATED",
   "FORBIDDEN",
+  "PAYMENT_REQUIRED",
+  "BOOKINGS_CLOSED",
   "UNAVAILABLE",
   "INTERNAL",
 ] as const;

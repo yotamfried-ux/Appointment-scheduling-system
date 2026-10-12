@@ -43,7 +43,7 @@ function mapJoinError(e: { code?: string | null; message?: string | null }) {
   if (m.includes("service_unavailable")) return fail("SERVICE_UNAVAILABLE", "השירות כבר אינו זמין. בחרו שירות אחר.");
   if (m.includes("date_out_of_range")) return fail("VALIDATION_FAILED", "הבקשה אינה תקינה.", [{ field: "date", message: "התאריך מחוץ לטווח ההזמנות של העסק." }]);
   if (m.includes("email_required")) return fail("VALIDATION_FAILED", "הבקשה אינה תקינה.", [{ field: "customer.email", message: "יש להזין כתובת אימייל — ההצעות נשלחות אליה." }]);
-  if (m.includes("not_found")) return fail("NOT_FOUND", "לא נמצא.");
+  if (m.includes("not_found") || m.includes("plan_required")) return fail("NOT_FOUND", "לא נמצא.");
   if (e.code === "23514") return fail("VALIDATION_FAILED", "הבקשה אינה תקינה.");
   console.error(JSON.stringify({ level: "error", msg: "waitlist join failed", code: e.code })); // no PII in logs
   return new Error("waitlist join failed");

@@ -247,6 +247,7 @@ export function OwnerAgenda() {
             entries={agenda.waitlist}
             settings={agenda.settings}
             busy={busy.size > 0}
+            allowed={agenda.billing?.features.waitlist ?? true}
             onOffer={(e) => setOffering(e)}
             onRemove={(e) => waitlistRun(() => ownerApi.waitlistRemove(e.id), t("waitlist.toastRemoved"))}
             onSettings={(patch) => waitlistRun(() => ownerApi.waitlistSettings(patch), t("waitlist.toastEnabled"))}

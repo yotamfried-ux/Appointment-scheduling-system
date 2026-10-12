@@ -1,5 +1,6 @@
 import "server-only";
 import { fail } from "@/lib/api/http";
+import { requireFeature } from "@/modules/billing/entitlements";
 import { mapError, type OwnerCtx } from "@/modules/booking/owner/service";
 import { addDaysIso } from "@/modules/availability/slots";
 import { zonedParts, zonedTimeToUtc } from "@/platform/clock";
@@ -63,6 +64,7 @@ const dateTime = (iso: string, tz: string) => {
 
 export async function exportCustomers(ctx: OwnerCtx): Promise<{ filename: string; body: ReadableStream<Uint8Array> }> {
   requireAdmin(ctx);
+  await requireFeature(ctx, "export");
   const { count, error } = await ctx.supabase.from("customers").select("id", { count: "exact", head: true }).eq("business_id", ctx.business.id);
   if (error) throw mapError(error);
   await audit(ctx, "customers", count ?? 0); // recorded before any data leaves
@@ -83,6 +85,7 @@ export async function exportCustomers(ctx: OwnerCtx): Promise<{ filename: string
 
 export async function exportAppointments(ctx: OwnerCtx, from: string, to: string): Promise<{ filename: string; body: ReadableStream<Uint8Array> }> {
   requireAdmin(ctx);
+  await requireFeature(ctx, "export");
   const tz = ctx.business.timezone;
   const lo = zonedTimeToUtc(from, 0, tz).toISOString();
   const hi = zonedTimeToUtc(addDaysIso(to, 1), 0, tz).toISOString();

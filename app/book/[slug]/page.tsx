@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { BookingFlow } from "@/components/lab/booking/booking-flow";
 import { resolveCatalog } from "@/modules/booking/public/service";
 
@@ -10,5 +11,16 @@ export default async function BookPage({ params }: { params: Promise<{ slug: str
   const r = await resolveCatalog(slug);
   if (r.kind === "redirect") redirect(`/book/${r.slug}`);
   if (r.kind !== "ok") notFound();
+  if (!r.catalog.business.acceptingBookings) {
+    const t = await getTranslations("billing.closed");
+    return (
+      <main id="main" className="mx-auto grid min-h-svh max-w-md content-center gap-3 px-4 py-10 text-center" data-testid="bookings-closed">
+        <p className="text-sm text-muted-foreground">{r.catalog.business.name}</p>
+        <h1 className="text-2xl font-bold tracking-tight text-balance">{t("title")}</h1>
+        <p className="text-muted-foreground">{t("desc")}</p>
+        {r.catalog.business.address ? <p className="text-sm"><span className="text-muted-foreground">{t("address")}: </span>{r.catalog.business.address}</p> : null}
+      </main>
+    );
+  }
   return <BookingFlow kind={r.catalog.business.kind} base={`/api/public/${r.catalog.business.slug}`} />;
 }

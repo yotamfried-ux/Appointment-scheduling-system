@@ -1,6 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
+import Link from "next/link";
 import { useState } from "react";
 import type { z } from "zod";
 import { StatusBadge } from "@/components/patterns/status-badge";
@@ -13,15 +14,18 @@ import { cn } from "@/lib/utils";
 
 export type WaitlistEntry = z.infer<typeof C.OwnerWaitlistEntryDto>;
 
-export function WaitlistPanel({ entries, settings, busy, onOffer, onRemove, onSettings }: {
+export function WaitlistPanel({ entries, settings, busy, allowed = true, onOffer, onRemove, onSettings }: {
   entries: WaitlistEntry[];
   settings: { waitlistEnabled: boolean; waitlistAutoOffer: boolean };
   busy: boolean;
+  /** False when the subscription does not include the waitlist (BIL-08): data stays, the controls become an upsell. */
+  allowed?: boolean;
   onOffer: (e: WaitlistEntry) => void;
   onRemove: (e: WaitlistEntry) => void;
   onSettings: (patch: { autoOffer?: boolean; enabled?: boolean }) => void;
 }) {
   const t = useTranslations("owner.waitlist");
+  const up = useTranslations("billing.upsell");
   const [confirming, setConfirming] = useState<string | null>(null);
   return (
     <section aria-labelledby="wl-panel-title" className="rounded-lg border bg-card" data-testid="waitlist-panel">
@@ -29,6 +33,13 @@ export function WaitlistPanel({ entries, settings, busy, onOffer, onRemove, onSe
         <h2 id="wl-panel-title" className="text-base font-semibold">{t("title")}</h2>
         <span className="min-w-6 rounded-full bg-foreground px-2 py-0.5 text-center text-xs font-semibold text-background tabular-nums" data-testid="waitlist-count" aria-label={`${entries.length}`}>{entries.length}</span>
       </div>
+      {!allowed ? (
+        <div className="grid gap-1 border-b bg-warning-soft px-4 py-3.5 text-sm text-warning-soft-foreground" data-testid="waitlist-upsell">
+          <p className="font-semibold">{up("title", { feature: up("waitlist") })}</p>
+          <p>{up("desc")}</p>
+          <Link href="/settings/billing" className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4">{up("action")}</Link>
+        </div>
+      ) : (
       <div className="grid gap-3 border-b px-4 py-3.5">
         <label className="flex items-center justify-between gap-3 text-sm font-medium">
           <span>{t("enabled")}</span>
@@ -39,6 +50,7 @@ export function WaitlistPanel({ entries, settings, busy, onOffer, onRemove, onSe
           <Switch checked={settings.waitlistAutoOffer} onCheckedChange={(v) => onSettings({ autoOffer: v })} aria-label={t("auto")} data-testid="wl-auto-switch" />
         </label>
       </div>
+      )}
       {entries.length === 0 ? (
         <div className="px-4 py-8 text-center" data-testid="waitlist-empty">
           <p className="font-medium">{t("empty")}</p>
@@ -66,7 +78,7 @@ export function WaitlistPanel({ entries, settings, busy, onOffer, onRemove, onSe
                 </div>
               ) : (
                 <div className={cn("flex flex-wrap gap-2")}>
-                  <Button size="sm" disabled={busy || e.status === "offered"} onClick={() => onOffer(e)} data-testid={`wl-offer-${e.id}`}>{t("offer")}</Button>
+                  <Button size="sm" disabled={busy || !allowed || e.status === "offered"} onClick={() => onOffer(e)} data-testid={`wl-offer-${e.id}`}>{t("offer")}</Button>
                   <Button size="sm" variant="outline" disabled={busy} onClick={() => setConfirming(e.id)} data-testid={`wl-remove-${e.id}`}>{t("remove")}</Button>
                 </div>
               )}

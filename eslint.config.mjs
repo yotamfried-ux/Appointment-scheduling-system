@@ -34,6 +34,7 @@ const eslintConfig = defineConfig([
       "app/api/webhooks/**",
       "app/api/public/**",
       "modules/booking/public/**",
+      "modules/billing/system.ts",
       "modules/notifications/**",
       "modules/waitlist/public.ts",
       "tests/**",

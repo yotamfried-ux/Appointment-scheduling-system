@@ -4,6 +4,7 @@ import type { z } from "zod";
 import type * as C from "@/lib/api/contracts";
 import { fail } from "@/lib/api/http";
 import { hasRequiredAssurance } from "@/lib/auth/session";
+import { myBilling, requireFeature } from "@/modules/billing/entitlements";
 import { createClient } from "@/lib/supabase/server";
 import { normalizePhone } from "@/lib/phone";
 import { addDaysIso, windowsForDate } from "@/modules/availability/slots";
@@ -66,7 +67,7 @@ export async function agenda(ctx: OwnerCtx, date: string): Promise<z.infer<typeo
   const tz = ctx.business.timezone;
   const from = zonedTimeToUtc(date, 0, tz);
   const to = zonedTimeToUtc(addDaysIso(date, 1), 0, tz);
-  const [appts, av, svcs, inbox, dead, wl, version] = await Promise.all([
+  const [appts, av, svcs, inbox, dead, wl, version, billing] = await Promise.all([
     ctx.supabase
       .from("appointments")
       .select(COLUMNS)
@@ -101,6 +102,7 @@ export async function agenda(ctx: OwnerCtx, date: string): Promise<z.infer<typeo
       .order("created_at")
       .limit(100),
     changeVersion(ctx),
+    myBilling(ctx),
   ]);
   if (appts.error || svcs.error || inbox.error || dead.error || wl.error) throw new Error("agenda unavailable");
   const dto = (r: Row) => ({
@@ -141,6 +143,7 @@ export async function agenda(ctx: OwnerCtx, date: string): Promise<z.infer<typeo
       };
     }),
     settings: { waitlistEnabled: ctx.business.waitlist_enabled, waitlistAutoOffer: ctx.business.waitlist_auto_offer },
+    billing: { state: billing.state, features: billing.features },
     version,
     services: (svcs.data ?? []).map((s) => ({ id: s.id as string, name: s.name as string, durationMinutes: s.duration_minutes as number })),
     business: { name: ctx.business.name, kind: ctx.business.kind },
@@ -156,6 +159,7 @@ export function mapError(e: { code?: string | null; message?: string | null }) {
   if (m.includes("service_unavailable")) return fail("SERVICE_UNAVAILABLE", "השירות אינו זמין.");
   if (m.includes("slot_unavailable")) return fail("SLOT_TAKEN", "אי אפשר להציע את השעה הזו: היא תפוסה, קרובה מדי או שכבר יש עליה הצעה.");
   if (m.includes("invalid_state")) return fail("INVALID_TRANSITION", "לממתין כבר יש הצעה או שהוא הוסר. רעננו את הדף.");
+  if (m.includes("plan_required") || m.includes("plan_limit") || m.includes("billing_inactive")) return fail("PAYMENT_REQUIRED", m.includes("plan_limit") ? "הגעתם למכסת השירותים בחבילה. שדרגו כדי להוסיף." : m.includes("billing_inactive") ? "המנוי אינו פעיל, ולכן אי אפשר להוסיף תורים חדשים." : "התכונה הזו אינה כלולה במנוי הנוכחי.");
   if (e.code === "42501") return fail("NOT_FOUND", "לא נמצא."); // not yours and not existing look the same
   if (e.code === "28000") return fail("UNAUTHENTICATED", "יש להתחבר מחדש.");
   if (e.code === "23514") return fail("VALIDATION_FAILED", "הבקשה אינה תקינה.");
@@ -228,6 +232,7 @@ export async function waitlistOffer(ctx: OwnerCtx, id: string, time: string): Pr
 }
 
 export async function waitlistSettings(ctx: OwnerCtx, input: { autoOffer?: boolean; enabled?: boolean }): Promise<void> {
+  if (input.enabled === true || input.autoOffer === true) await requireFeature(ctx, "waitlist"); // BIL-08
   const patch = { ...(input.autoOffer !== undefined ? { waitlist_auto_offer: input.autoOffer } : {}), ...(input.enabled !== undefined ? { waitlist_enabled: input.enabled } : {}) };
   const { data, error } = await ctx.supabase.from("businesses").update(patch).eq("id", ctx.business.id).select("id");
   if (error) throw mapError(error);

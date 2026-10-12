@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { ownerPage } from "@/lib/auth/owner-page";
+import { myBilling } from "@/modules/billing/entitlements";
 import { listCustomers, SORTS, type CustomerSort } from "@/modules/customers/service";
 import { formatMoney } from "@/modules/reports/metrics";
 import { zonedParts } from "@/platform/clock";
@@ -27,7 +28,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   const list = await listCustomers(ctx, { q, sort, page });
   const day = (iso: string) => zonedParts(new Date(iso), ctx.business.timezone).date.split("-").reverse().join(".");
   const href = (p: number) => `/customers?${new URLSearchParams({ ...(q ? { q } : {}), sort, page: String(p) })}`;
-  const isAdmin = ctx.role === "admin" || ctx.role === "owner";
+  const isAdmin = (ctx.role === "admin" || ctx.role === "owner") && (await myBilling(ctx)).features.export;
 
   return (
     <AppShell email={email} width="max-w-6xl" nav={<OwnerNav current="customers" />}>

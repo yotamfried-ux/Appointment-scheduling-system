@@ -18,7 +18,7 @@ export const Slug = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/i).max(40);
 const CatalogRpc = z.object({
   business: z.object({
     id: z.uuid(), slug: z.string(), name: z.string(), kind: z.enum(KIND_IDS), timezone: z.string(), address: z.string(),
-    requiresApproval: z.boolean(), cancelUntilHours: z.number(), minNoticeMinutes: z.number(), horizonDays: z.number(), waitlistEnabled: z.boolean(),
+    requiresApproval: z.boolean(), cancelUntilHours: z.number(), minNoticeMinutes: z.number(), horizonDays: z.number(), waitlistEnabled: z.boolean(), acceptingBookings: z.boolean(),
   }),
   services: z.array(z.object({ id: z.uuid(), name: z.string(), description: z.string(), durationMinutes: z.number(), bufferMinutes: z.number(), priceCents: z.number(), requiresApproval: z.boolean().nullable() })),
   rules: z.array(z.object({ weekday: z.number(), startMinute: z.number(), endMinute: z.number() })),
@@ -54,6 +54,7 @@ export function toServicesResponse(c: Catalog): z.infer<typeof C.ServicesRespons
       requireApproval: c.business.requiresApproval,
       cancelUntilHours: c.business.cancelUntilHours,
       waitlistEnabled: c.business.waitlistEnabled,
+      acceptingBookings: c.business.acceptingBookings,
     },
     services: c.services.map((s) => ({ id: s.id, name: s.name, description: s.description, durationMinutes: s.durationMinutes, priceNis: s.priceCents / 100, group: false })),
   };
@@ -81,6 +82,7 @@ function engine(c: Catalog, svcId: string, busy: BusyInterval[]) {
 }
 
 export async function computeSlots(c: Catalog, svcId: string, date: string, selected?: string): Promise<z.infer<typeof C.SlotsResponse>> {
+  if (!c.business.acceptingBookings) throw fail("BOOKINGS_CLOSED", "העסק אינו מקבל כרגע תורים חדשים.");
   const { s, base } = engine(c, svcId, await busyBetween(c, date, 1));
   const windows = windowsForDate(date, rulesOf(c), exceptionsOf(c));
   const slots = withinHorizon(c, date) ? slotsForDay({ ...base, date }) : [];
@@ -94,6 +96,7 @@ export async function computeSlots(c: Catalog, svcId: string, date: string, sele
 }
 
 export async function computeAvailability(c: Catalog, svcId: string, from: string, days: number): Promise<z.infer<typeof C.AvailabilityResponse>> {
+  if (!c.business.acceptingBookings) throw fail("BOOKINGS_CLOSED", "העסק אינו מקבל כרגע תורים חדשים.");
   const { base } = engine(c, svcId, await busyBetween(c, from, days));
   const r = availabilityForRange({ ...base, from, days }).map((d) => ({ date: d.date, closed: d.closed, freeSlots: withinHorizon(c, d.date) ? d.freeSlots : 0 }));
   return { days: r };
@@ -117,6 +120,7 @@ function validateIntake(kind: BusinessKindId, input: C.CreateBookingInput) {
 const hashOf = (x: unknown) => createHash("sha256").update(JSON.stringify(x)).digest("hex");
 
 export async function createBooking(c: Catalog, input: C.CreateBookingInput, idemKey: string): Promise<{ booking: z.infer<typeof C.BookingDto>; replay: boolean }> {
+  if (!c.business.acceptingBookings) throw fail("BOOKINGS_CLOSED", "העסק אינו מקבל כרגע תורים חדשים.");
   const errors = validateIntake(kindOf(c), input);
   const phone = normalizePhone(input.customer.phone);
   if (!phone) errors.push({ field: "customer.phone", message: "מספר הטלפון אינו תקין." });
@@ -169,6 +173,7 @@ function mapBookingError(e: { code?: string | null; message?: string | null }) {
   if (m.includes("slot_in_past") || m.includes("slot_too_far")) return fail("INVALID_SLOT", "השעה אינה זמינה להזמנה.");
   if (m.includes("service_unavailable")) return fail("SERVICE_UNAVAILABLE", "השירות כבר אינו זמין. בחרו שירות אחר.");
   if (m.includes("booking_limit")) return fail("BOOKING_LIMIT", "יש כבר כמה תורים עתידיים על המספר הזה. אפשר לנהל אותם בקישור שנשלח.");
+  if (m.includes("billing_inactive")) return fail("BOOKINGS_CLOSED", "העסק אינו מקבל כרגע תורים חדשים.");
   if (m.includes("not_found")) return fail("NOT_FOUND", "לא נמצא.");
   if (e.code === "23514") return fail("VALIDATION_FAILED", "הבקשה אינה תקינה.");
   console.error(JSON.stringify({ level: "error", msg: "booking rpc failed", code: e.code })); // no PII in logs (BKG-14)
