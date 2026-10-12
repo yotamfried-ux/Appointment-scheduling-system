@@ -52,12 +52,14 @@ test("new service · archived service · closed day · walk-in · approval rule 
     await expect(desk.page.getByTestId("archived-list")).toContainText(name);
     expect(await listed(name)).toBe(false);
     await desk.page.getByRole("button", { name: `שחזור · ${name}` }).click();
+    await expect(desk.page.getByTestId("service-list")).toContainText(name); // wait for the save to land before the customer looks
     expect(await listed(name)).toBe(true);
   });
 
   await test.step("she closes a day for a holiday: the public calendar shows it closed, with no slots", async () => {
     const closed = todayLocal(9);
     await desk.page.goto("/settings/hours");
+    await expect(desk.page.getByTestId("preview-days")).toBeVisible(); // the page is interactive (hydrated and loaded)
     await desk.page.getByLabel("תאריך").fill(closed);
     await desk.page.getByTestId("add-exception").click();
     await expect(desk.page.getByTestId(`exception-${closed}`)).toContainText("סגור כל היום");
@@ -70,6 +72,7 @@ test("new service · archived service · closed day · walk-in · approval rule 
   await test.step("a walk-in is added from the calendar and the slot disappears from the public page at once", async () => {
     await desk.page.goto("/dashboard");
     await desk.page.getByTestId("day-input").fill(f.date);
+    await expect(desk.page.getByTestId("day-input")).toHaveValue(f.date); // the new day is loaded (the dialog books the agenda's own day)
     await desk.page.getByTestId("new-appointment").click();
     await desk.page.getByTestId("manual-service").selectOption({ index: 1 });
     await desk.page.getByTestId("manual-time").fill(f.times[4]);

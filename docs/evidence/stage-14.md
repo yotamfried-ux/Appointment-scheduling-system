@@ -37,3 +37,6 @@ Check-before-send: if she paid or the state changed after the notice was queued,
 
 ## Still not done (owner or third party)
 See `docs/08-launch-checklist.md` section A and B1–B3, B5–B7, B9–B10: accounts, legal text, external pentest, CAPTCHA, monitoring, human accessibility audit.
+
+## Journey 6 flakes found by CI and fixed (test timing, not the app)
+CI failed once on journey 6: it looked at the public page right after clicking "restore" (before the save landed), then, when repeated locally, booked its walk-in on today's agenda before the chosen day had loaded and added a holiday before the hours page was interactive. All three were my test's missing waits; each now waits for the page's own state (list updated, date input shows the loaded day, preview visible). Journeys 1, 3 and 6: 18/18 in repeated runs.
