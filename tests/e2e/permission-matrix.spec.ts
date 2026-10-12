@@ -56,6 +56,8 @@ const ROUTES: Route[] = [
   { file: "owner/customers/[id]/route.ts", method: "GET", url: (c) => `/api/owner/customers/${c.cust.target}`, byId: true, ok: [200] },
   { file: "owner/customers/[id]/notes/route.ts", method: "POST", url: (c) => `/api/owner/customers/${c.cust.target}/notes`, body: () => ({ notes: "בדיקת הרשאות" }), byId: true, ok: [200], targetKey: "cust" },
   { file: "owner/customers/[id]/policy/route.ts", method: "POST", url: (c, w) => `/api/owner/customers/${idOf(c, w, "cust")}/policy`, body: () => ({ override: true }), admin: true, byId: true, ok: [200], targetKey: "cust" },
+  { file: "owner/account/export/route.ts", method: "GET", url: () => "/api/owner/account/export", admin: true, ok: [200], foreignSelf: [200] },
+  { file: "owner/account/deletion/route.ts", method: "POST", url: () => "/api/owner/account/deletion", body: () => ({ action: "cancel" }), admin: true, ok: [200], foreignSelf: [200] },
   { file: "owner/customers/[id]/anonymize/route.ts", method: "POST", url: (c, w) => `/api/owner/customers/${idOf(c, w, "cust")}/anonymize`, admin: true, byId: true, ok: [200], targetKey: "cust" },
   { file: "owner/reports/route.ts", method: "GET", url: () => "/api/owner/reports?from=2026-01-01&to=2026-01-31", ok: [200] },
   { file: "owner/export/[kind]/route.ts", method: "GET", url: () => "/api/owner/export/customers", admin: true, ok: [200], foreignSelf: [200] },

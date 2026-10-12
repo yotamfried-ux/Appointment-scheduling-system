@@ -11,6 +11,7 @@ const ITEMS = [
   { href: "/settings/booking", key: "booking" },
   { href: "/settings/billing", key: "billing" },
   { href: "/settings/security", key: "security" },
+  { href: "/settings/account", key: "account" },
 ] as const;
 
 /** Section tabs for owner settings. A real <nav> of links (not ARIA tabs): each section is its own page. */

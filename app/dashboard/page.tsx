@@ -5,6 +5,8 @@ import { AppShell } from "@/components/app-shell";
 import { PublishButton } from "@/app/dashboard/publish-button";
 import { OwnerAgenda } from "@/components/owner/agenda";
 import { BillingBanner } from "@/components/owner/billing-banner";
+import { DeletionBanner } from "@/components/owner/deletion-banner";
+import { deletionStatus } from "@/modules/account/service";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import { PageHeader } from "@/components/patterns/page-header";
 import { ownerPage } from "@/lib/auth/owner-page";
@@ -22,13 +24,15 @@ export default async function DashboardPage() {
   const b = businesses[0];
   const { ctx } = await ownerPage();
   const billing = await myBilling(ctx);
+  const deletion = await deletionStatus(ctx);
   const host = process.env.NEXT_PUBLIC_SITE_HOST ?? "tori.example";
 
   return (
     <AppShell email={String(claims.email ?? "")} width="max-w-6xl" nav={<OwnerNav current="calendar" />}>
+      <DeletionBanner scheduledFor={deletion?.scheduledFor ?? null} timezone={ctx.business.timezone} />
       <BillingBanner billing={billing} timezone={ctx.business.timezone} />
       <PageHeader title={t("welcome", { name: `\u2068${b.name}\u2069` })} />
-      {b.published_at ? null : <PublishButton businessId={b.id} />}
+      {b.published_at || deletion ? null : <PublishButton businessId={b.id} />}
       <OwnerAgenda />
       <dl className="divide-y rounded-lg border bg-card">
         <div className="flex flex-col gap-1 p-4 sm:flex-row sm:justify-between sm:gap-4">
@@ -41,7 +45,7 @@ export default async function DashboardPage() {
         </div>
         <div className="flex flex-col gap-1 p-4 sm:flex-row sm:justify-between sm:gap-4">
           <dt className="text-muted-foreground">{t("status")}</dt>
-          <dd className="font-semibold" data-testid="biz-status">{b.published_at ? t("published") : t("draft")}</dd>
+          <dd className="font-semibold" data-testid="biz-status">{deletion ? t("closedForDeletion") : b.published_at ? t("published") : t("draft")}</dd>
         </div>
       </dl>
       <nav aria-label={t("settingsNav")} className="flex flex-wrap gap-x-5 gap-y-1 text-sm font-medium">
