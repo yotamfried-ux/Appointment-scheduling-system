@@ -25,3 +25,5 @@ Plan: docs/03 §8 (Stage 11) · qualification: `docs/evidence/security/qualifica
 
 ## Known limitations (not claimed)
 See `qualification.md` §3–§5 and `docs/08-launch-checklist.md`: no external pentest, no real PITR/Resend/billing-provider evidence, no screen-reader audit, booking page Lighthouse mobile 77 (B4), no re-authentication step-up, RSC-01/02, ACC-09, BKG-08 still open product gaps.
+
+- CI result (checked on GitHub): `1557904` and `252374d`: Gitleaks **failed** (invented fixture values in a unit test; then a fixed canary value I had committed to the workflow) — both fixed (random per-run canary, false positives fingerprinted). `8ecdc4b`: all jobs green — Lint·Types·Unit·Build, DB (migrations·pgTAP·lint), E2E (Playwright mobile+desktop·axe), CodeQL, Gitleaks (full history), OSV-Scanner, Trivy; the AI `review` job is skipped (not enabled).
