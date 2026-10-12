@@ -72,7 +72,7 @@ test.describe("no-show policy (BKG-08)", () => {
     const body = await blocked.json();
     expect(body.error.code).toBe("BLOCKED");
     expect(body.error.message).toBe("נא להתקשר אלינו");
-    expect(JSON.stringify(body)).not.toMatch(/no_show|no-show|שלוש|3/); // nothing about counts
+    expect(body.error.message).not.toMatch(/no_show|no-show|שלוש|\d/); // nothing about counts (the request id is random hex, so only the message is checked)
     expect(sql(`select count(*) from public.appointments where business_id='${b.id}' and status in ('pending','confirmed')`)).toBe("2");
 
     // another customer is unaffected

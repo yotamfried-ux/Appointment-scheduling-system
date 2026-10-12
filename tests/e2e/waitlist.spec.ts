@@ -6,7 +6,7 @@ import { auth, byType, drain, idle, mail, rows, runWaitlistSweep } from "./helpe
 
 // Waitlist on the real stack (fake e-mail provider). Scenarios: WLT-01 (FIFO offer on cancellation) · WLT-02/04 (accept vs booking race, EXCLUDE decides) ·
 // WLT-03 (expiry passes the slot on, sweep idempotent) · WLT-06 (auto-offer off) · WLT-08 (validation, cap, idempotency, rate limit) · SEC-05/06 (links).
-const axe = (page: Page) => new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
+const axe = async (page: Page) => { await expect(page).toHaveTitle(/.+/); /* the title streams in after a client navigation; axe must not race it */ return new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze(); };
 const noOverflow = async (page: Page) => expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 
 const join = (request: APIRequestContext, b: TestBusiness, date: string, n: number, over: Record<string, unknown> = {}, headers: Record<string, string> = {}) =>
