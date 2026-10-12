@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { LegalFooter } from "@/components/legal/legal-footer";
 import { BookingFlow } from "@/components/lab/booking/booking-flow";
-import { resolveCatalog } from "@/modules/booking/public/service";
+import { resolveCatalog, toServicesResponse } from "@/modules/booking/public/service";
 
 // Public booking page (BKG-01/11, ACC-07): unknown/unpublished ⇒ 404; an old slug redirects to the current one.
 export const metadata = { title: "קביעת תור", robots: { index: false, follow: false }, referrer: "no-referrer" as const };
@@ -25,7 +25,7 @@ export default async function BookPage({ params }: { params: Promise<{ slug: str
   }
   return (
     <>
-      <BookingFlow kind={r.catalog.business.kind} base={`/api/public/${r.catalog.business.slug}`} />
+      <BookingFlow kind={r.catalog.business.kind} base={`/api/public/${r.catalog.business.slug}`} initialCatalog={toServicesResponse(r.catalog)} />
       <LegalFooter />
     </>
   );

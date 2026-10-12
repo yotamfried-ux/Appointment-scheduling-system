@@ -43,7 +43,8 @@ function fieldKey(path: string): string {
 }
 
 /** `base` switches the data source: omitted = the lab API (design lab); `/api/public/<slug>` = a real published business. */
-export function BookingFlow({ kind, session: sessionParam, limit, base }: { kind: BusinessKindId; session?: string; limit?: number; base?: string }) {
+/** `initialCatalog` (real businesses): the server already knows the services, so the first step is in the HTML and no request has to finish before the page is usable. */
+export function BookingFlow({ kind, session: sessionParam, limit, base, initialCatalog }: { kind: BusinessKindId; session?: string; limit?: number; base?: string; initialCatalog?: Catalog }) {
   const t = useTranslations("booking");
   const [s, dispatch] = useReducer(bookingReducer, initialBookingState);
   const [touched, setTouched] = useState(false);
@@ -53,7 +54,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base }: { kind
   const [session] = useState(() => resolveSession(sessionParam));
   const opts = useMemo<ClientOptions>(() => ({ kind, session, limit, base }), [kind, session, limit, base]);
 
-  const [catalog, setCatalog] = useState<Load<Catalog>>({ status: "loading" });
+  const [catalog, setCatalog] = useState<Load<Catalog>>(initialCatalog ? { status: "ready", data: initialCatalog } : { status: "loading" });
   const [avail, setAvail] = useState<Load<Map<string, { closed: boolean; freeSlots: number }>>>({ status: "idle" });
   const [availTick, setAvailTick] = useState(0);
   const [slots, setSlots] = useState<Load<Slots>>({ status: "idle" });
@@ -67,9 +68,10 @@ export function BookingFlow({ kind, session: sessionParam, limit, base }: { kind
     labApi.services(opts).then((data) => setCatalog({ status: "ready", data }), () => setCatalog({ status: "error" }));
   }, [opts]);
   useEffect(() => {
+    if (initialCatalog) return; // already rendered from the server
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch from the API
     loadCatalog();
-  }, [loadCatalog]);
+  }, [loadCatalog, initialCatalog]);
 
   const business = catalog.status === "ready" ? catalog.data.business : null;
   const vocab = business?.vocab;
