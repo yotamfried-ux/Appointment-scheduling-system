@@ -39,7 +39,13 @@ describe("ICS (CAL-05)", () => {
     expect(lines(b)).toContain("SEQUENCE:6");
   });
   it("escapes TEXT and cannot be made to start a new line or property (SEC-08)", () => {
-    expect(icsText("a,b;c\\d")).toBe("a\\,b\;c\\\\d");
+    const BS = String.fromCharCode(92); // a single backslash, spelled out so no string-escape typo can hide in this test
+    expect(icsText("a,b;c" + BS + "d")).toBe("a" + BS + ",b" + BS + ";c" + BS + BS + "d");
+    // property: in the output every semicolon and comma is preceded by a backslash, and every backslash starts a valid escape
+    for (const raw of ["x;y", ";;", "a,b,c", "mix;of,all" + BS + ";", BS + BS + ";"]) {
+      const out = icsText(raw);
+      expect(out.replace(/\\[\\;,n]/g, "")).not.toMatch(/[\\;,]/);
+    }
     expect(icsText("line1\nline2\r\nline3")).toBe("line1\\nline2\\nline3");
     const evil = buildIcs({ ...base, summary: "x\r\nATTENDEE:mailto:evil@example.com\r\nBEGIN:VALARM", location: "y\nORGANIZER:mailto:evil@example.com" });
     const l = lines(evil);

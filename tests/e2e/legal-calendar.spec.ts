@@ -22,6 +22,8 @@ function israelToUtc(date: string, time: string): Date {
 }
 const stamp = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 const unfold = (s: string) => s.replace(/\r\n[ \t]/g, "");
+/** Independent of the app: backslash first, then semicolon and comma (RFC 5545 TEXT). */
+const icsEscape = (v: string) => v.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,");
 const field = (ics: string, name: string) => unfold(ics).split("\r\n").find((l) => l.startsWith(`${name}:`))?.slice(name.length + 1);
 
 async function booked(request: Parameters<typeof firstDayWithSlots>[0], b: TestBusiness, n = 1) {
@@ -48,7 +50,7 @@ test.describe("ICS for the customer (CAL-05)", () => {
     expect(field(ics, "DTEND")).toBe(stamp(israelToUtc(bk.date, bk.endTime)));
     expect(field(ics, "UID")).toBe(`${bk.id}@127.0.0.1:3100`);
     expect(field(ics, "STATUS")).toBe(bk.status === "confirmed" ? "CONFIRMED" : "TENTATIVE");
-    expect(field(ics, "SUMMARY")).toContain(b.services[0].name.replace(/,/g, "\\,"));
+    expect(field(ics, "SUMMARY")).toContain(icsEscape(b.services[0].name));
     // nothing private rides along: the file points at the business's public page, never at the private link
     expect(ics).not.toContain(bk.manageUrl.split("/").pop()!);
     expect(field(ics, "URL")).toContain(`/book/${b.slug}`);

@@ -16,6 +16,8 @@ Plan: `docs/plans/stage-10-calendar-legal.md` · decision D23 (the owner chose t
 - Test fixtures cannot edit a booked slot (the appointment guard rightly refuses); `updated_at` and the snapshot are placed with triggers bypassed in the test only.
 - The cookies page listed the theme preference as a cookie; it is browser local storage → corrected the text.
 
+- **CodeQL caught a real bug on the first push:** semicolons were not escaped in ICS text (`"\;"` in a JS string is just `;`). My unit test contained the same typo, so it agreed with the bug. Fixed; the test now spells the backslash as a character code, checks the escape property over several inputs, and the E2E uses an independent escape helper. Negative control: with the fix removed the unit test fails.
+
 ## Known limitations (not claimed)
 - **The legal texts are drafts**, written from what the system does. They are not legal advice and must be reviewed by counsel before launch; the contact and the accessibility coordinator are placeholders (`NEXT_PUBLIC_LEGAL_CONTACT`, `NEXT_PUBLIC_A11Y_CONTACT`). Data location, retention periods and liability wording are explicitly left open in the text.
 - The accessibility statement describes automated (axe) and developer-run manual checks; **no external accessibility audit** has been done and no conformance is claimed.

@@ -21,7 +21,7 @@ export interface IcsEvent {
 const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
 
 /** TEXT values: backslash, semicolon, comma and newlines are escaped; other control characters are dropped, so user-supplied text can never start a new line or property (SEC-08). */
-export const icsText = (s: string) => s.replace(CONTROL, "").replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\r\n|\r|\n/g, "\\n");
+export const icsText = (s: string) => s.replace(CONTROL, "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r\n|\r|\n/g, "\\n");
 
 /** Lines are limited to 75 octets; a longer one continues on the next line after a single space. Never splits a UTF-8 character. */
 export function fold(line: string): string {
