@@ -8,3 +8,6 @@
 155790493df2e5a78f19721b6971caaee4fd6dc8:tests/unit/check-env.test.ts:generic-api-key:11
 155790493df2e5a78f19721b6971caaee4fd6dc8:tests/unit/check-env.test.ts:generic-api-key:13
 155790493df2e5a78f19721b6971caaee4fd6dc8:tests/unit/check-env.test.ts:generic-api-key:44
+# False positive: a fixed canary value in the CI workflow (replaced by a random per-run value in the next commit). Not a secret.
+252374d9bd650ce70009293fa73f3685dce906e2:.github/workflows/ci.yml:generic-api-key:29
+252374d9bd650ce70009293fa73f3685dce906e2:.github/workflows/ci.yml:generic-api-key:32

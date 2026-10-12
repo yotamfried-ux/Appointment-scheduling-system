@@ -22,14 +22,13 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      - name: Random canary secret (never committed; must not reach the client bundle)
+        run: echo "SUPABASE_SECRET_KEY=sb_secret_$(openssl rand -hex 16)" >> "$GITHUB_ENV"
       - run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
-          SUPABASE_SECRET_KEY: sb_secret_canary_9f3a7c51d2e84b60 # must never appear in the client bundle
-      - run: npm run check:bundle
-        env:
-          SUPABASE_SECRET_KEY: sb_secret_canary_9f3a7c51d2e84b60 # SEC-04: no secret key in the client bundle (with a planted-secret negative control)
+      - run: npm run check:bundle # SEC-04: no secret key in the client bundle (planted-secret negative control + the random canary value)
 
   e2e:
     name: E2E (Playwright · mobile + desktop · axe)
