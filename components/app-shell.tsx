@@ -5,7 +5,7 @@ import { ThemeSwitcher } from "@/components/theme-switcher";
 import { BRAND } from "@/config/brand";
 
 /** Signed-in chrome shared by owner pages (same header geometry as onboarding): logo at the start, account actions at the end. */
-export function AppShell({ email, children, width = "max-w-2xl" }: { email?: string; children: React.ReactNode; width?: string }) {
+export function AppShell({ email, children, width = "max-w-2xl", nav }: { email?: string; children: React.ReactNode; width?: string; nav?: React.ReactNode }) {
   return (
     <div className="min-h-svh">
       <header className="border-b bg-card/60 backdrop-blur">
@@ -20,6 +20,7 @@ export function AppShell({ email, children, width = "max-w-2xl" }: { email?: str
           </div>
         </div>
       </header>
+      {nav}
       <main id="main" className={`mx-auto w-full space-y-6 px-4 py-8 ${width}`}>
         {children}
       </main>

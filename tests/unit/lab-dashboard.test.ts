@@ -107,13 +107,20 @@ describe("owner actions on the same state machine (stage 5)", () => {
     expect(st(dashboardReducer(mk("pending"), { type: "cancel", id: "x" }))).toBe("cancelled");
     for (const s of ["completed", "noShow", "cancelled", "cancellationRequested"] as const) expect(st(dashboardReducer(mk(s), { type: "cancel", id: "x" }))).toBe(s);
   });
-  it("complete and noShow only from confirmed", () => {
+  it("complete and noShow start from confirmed; a wrong mark can be corrected to the other one (NSH-04)", () => {
     expect(st(dashboardReducer(mk("confirmed"), { type: "complete", id: "x" }))).toBe("completed");
     expect(st(dashboardReducer(mk("confirmed"), { type: "noShow", id: "x" }))).toBe("noShow");
-    for (const s of ["pending", "completed", "noShow", "cancelled"] as const) {
+    expect(st(dashboardReducer(mk("noShow"), { type: "complete", id: "x" }))).toBe("completed");
+    expect(st(dashboardReducer(mk("completed"), { type: "noShow", id: "x" }))).toBe("noShow");
+  });
+  it("complete and noShow never apply to anything else", () => {
+    for (const s of ["pending", "cancelled", "cancellationRequested"] as const) {
       expect(st(dashboardReducer(mk(s), { type: "complete", id: "x" }))).toBe(s);
       expect(st(dashboardReducer(mk(s), { type: "noShow", id: "x" }))).toBe(s);
     }
+    // marking the same outcome again is a no-op, not an error
+    expect(st(dashboardReducer(mk("completed"), { type: "complete", id: "x" }))).toBe("completed");
+    expect(st(dashboardReducer(mk("noShow"), { type: "noShow", id: "x" }))).toBe("noShow");
   });
   it("an unknown id changes nothing", () => {
     const s = mk("confirmed");

@@ -73,10 +73,15 @@ export function dashboardReducer(s: DashboardState, a: DashboardAction): Dashboa
       const t = s.appointments.find((x) => x.id === a.id);
       return t && (t.status === "confirmed" || t.status === "pending") ? transition(s, a.id, t.status, "cancelled") : s;
     }
-    case "complete":
-      return transition(s, a.id, "confirmed", "completed");
-    case "noShow":
-      return transition(s, a.id, "confirmed", "noShow");
+    // NSH-04: a wrong mark can be corrected in either direction (completed <-> noShow), never into or out of anything else.
+    case "complete": {
+      const t = s.appointments.find((x) => x.id === a.id);
+      return t && (t.status === "confirmed" || t.status === "noShow") ? transition(s, a.id, t.status, "completed") : s;
+    }
+    case "noShow": {
+      const t = s.appointments.find((x) => x.id === a.id);
+      return t && (t.status === "confirmed" || t.status === "completed") ? transition(s, a.id, t.status, "noShow") : s;
+    }
   }
 }
 

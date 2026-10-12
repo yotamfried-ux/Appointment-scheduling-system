@@ -70,7 +70,10 @@ grant select on appt to authenticated;
 select throws_ok($$ select public.transition_appointment((select future::uuid from appt), 'complete') $$, 'P0001', 'too_early', 'a future appointment cannot be marked completed');
 select throws_ok($$ select public.transition_appointment((select future::uuid from appt), 'no_show') $$, 'P0001', 'too_early', 'nor as a no-show');
 select is((public.transition_appointment((select past::uuid from appt), 'no_show'))->>'status', 'no_show', 'a started appointment can be marked no-show');
-select throws_ok($$ select public.transition_appointment((select past::uuid from appt), 'complete') $$, 'P0001', 'invalid_transition', 'a no-show cannot become completed');
+select is((public.transition_appointment((select past::uuid from appt), 'complete'))->>'status', 'completed', 'NSH-04: a no-show marked by mistake can be corrected to completed');
+select is((public.transition_appointment((select past::uuid from appt), 'no_show'))->>'status', 'no_show', 'and back again');
+select throws_ok($$ select public.transition_appointment((select past::uuid from appt), 'cancel') $$, 'P0001', 'invalid_transition', 'but a finished visit can never be cancelled');
+select throws_ok($$ select public.transition_appointment((select past::uuid from appt), 'no_show') $$, 'P0001', 'invalid_transition', 'and marking the same outcome twice is refused');
 select is((public.transition_appointment((select future::uuid from appt), 'cancel'))->>'status', 'cancelled_by_business', 'the owner can cancel an upcoming appointment');
 select throws_ok($$ select public.transition_appointment((select future::uuid from appt), 'cancel') $$, 'P0001', 'invalid_transition', 'cancelling twice is refused, not silently repeated');
 
@@ -82,7 +85,8 @@ select throws_ok($$ update public.appointments set owner_note = 'x' where id = (
 
 -- ---------- audit ----------
 select ok((select count(*) from public.audit_log where business_id = (select a from ids) and action = 'appointment.manual_create') >= 3, 'manual creations are audited');
-select is((select count(*)::int from public.audit_log where action = 'appointment.no_show' and business_id = (select a from ids)), 1, 'the no-show is audited exactly once');
+select is((select count(*)::int from public.audit_log where action = 'appointment.no_show' and business_id = (select a from ids)), 2, 'both no-show decisions (the original and the re-marking after the correction) are audited');
+select is((select count(*)::int from public.audit_log where action = 'appointment.complete' and business_id = (select a from ids) and meta->>'from' = 'no_show'), 1, 'NSH-04: the correction is audited with from/to');
 
 select * from finish();
 rollback;

@@ -165,8 +165,13 @@ export function OwnerAgenda() {
   const go = (d: string) => setDate(d);
 
   const rowActions = (a: LabAppointment) => {
-    if (a.status !== "confirmed") return null;
     const off = busy.size > 0;
+    // NSH-04: an outcome marked by mistake can be flipped; the audit log keeps both marks.
+    if (a.status === "completed")
+      return <Button size="sm" variant="outline" disabled={off} onClick={() => act("noShow", a, [t("agenda.toastNoShow"), "info"])} data-testid={`fix-noshow-${a.id}`}>{t("agenda.fixNoShow")}</Button>;
+    if (a.status === "noShow")
+      return <Button size="sm" variant="outline" disabled={off} onClick={() => act("complete", a, [t("agenda.toastCompleted"), "success"])} data-testid={`fix-attended-${a.id}`}>{t("agenda.fixAttended")}</Button>;
+    if (a.status !== "confirmed") return null;
     if (started(a))
       return (
         <>

@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { AppShell } from "@/components/app-shell";
 import { PublishButton } from "@/app/dashboard/publish-button";
 import { OwnerAgenda } from "@/components/owner/agenda";
+import { OwnerNav } from "@/components/owner/owner-nav";
 import { PageHeader } from "@/components/patterns/page-header";
 import { requireUser } from "@/lib/auth/session";
 import { BUSINESS_KINDS, type BusinessKindId } from "@/modules/tenancy/business-kind";
@@ -19,7 +20,7 @@ export default async function DashboardPage() {
   const host = process.env.NEXT_PUBLIC_SITE_HOST ?? "tori.example";
 
   return (
-    <AppShell email={String(claims.email ?? "")} width="max-w-6xl">
+    <AppShell email={String(claims.email ?? "")} width="max-w-6xl" nav={<OwnerNav current="calendar" />}>
       <PageHeader title={t("welcome", { name: `\u2068${b.name}\u2069` })} />
       {b.published_at ? null : <PublishButton businessId={b.id} />}
       <OwnerAgenda />

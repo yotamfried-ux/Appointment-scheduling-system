@@ -17,6 +17,8 @@ import { systemClock, zonedParts, zonedTimeToUtc } from "@/platform/clock";
 export interface OwnerCtx {
   supabase: SupabaseClient;
   business: { id: string; name: string; kind: BusinessKindId; timezone: string; waitlist_enabled: boolean; waitlist_auto_offer: boolean };
+  /** The caller's role in that business (staff < admin < owner); decided by the database, read here only to shape the UI and refuse early. */
+  role: string;
 }
 
 export async function ownerContext(): Promise<OwnerCtx> {
@@ -27,7 +29,8 @@ export async function ownerContext(): Promise<OwnerCtx> {
   const { data: rows } = await supabase.from("businesses").select("id, name, kind, timezone, waitlist_enabled, waitlist_auto_offer").order("created_at").limit(1);
   const b = rows?.[0] as OwnerCtx["business"] | undefined;
   if (!b) throw fail("FORBIDDEN", "אין עסק מקושר לחשבון.");
-  return { supabase, business: b };
+  const { data: m } = await supabase.from("business_members").select("role").eq("business_id", b.id).eq("user_id", String(data.claims.sub)).maybeSingle();
+  return { supabase, business: b, role: (m?.role as string | undefined) ?? "staff" };
 }
 
 const hhmmToMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
@@ -144,7 +147,7 @@ export async function agenda(ctx: OwnerCtx, date: string): Promise<z.infer<typeo
   };
 }
 
-function mapError(e: { code?: string | null; message?: string | null }) {
+export function mapError(e: { code?: string | null; message?: string | null }) {
   const m = e.message ?? "";
   if (m.includes("slot_taken")) return fail("SLOT_TAKEN", "בשעה הזו כבר יש תור.");
   if (m.includes("too_early")) return fail("TOO_EARLY", "אפשר לסמן תור כהושלם או כ\"לא הגיע\" רק אחרי שהתחיל.");
