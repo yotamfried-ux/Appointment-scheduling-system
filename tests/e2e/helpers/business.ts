@@ -75,10 +75,21 @@ export async function publicBook(request: APIRequestContext, b: TestBusiness, da
 }
 
 /** The `nth` bookable day (0 = first). Specs that depend on global jobs pick distinct days, two or more apart, so their time windows never overlap. */
+/** GET with a few retries on connection resets only: a keep-alive socket the server closed a moment earlier is a test-infrastructure race, not an app answer. */
+async function getRetrying(request: APIRequestContext, url: string) {
+  for (let i = 0; ; i++) {
+    try {
+      return await request.get(url);
+    } catch (e) {
+      if (i >= 3 || !/ECONNRESET|socket hang up/i.test(String(e))) throw e;
+    }
+  }
+}
+
 export async function firstDayWithSlots(request: APIRequestContext, b: TestBusiness, nth = 0) {
-  const av = C.AvailabilityResponse.parse(await (await request.get(`/api/public/${b.slug}/availability?service=${b.services[0].id}&from=${todayLocal(2)}&days=30`)).json());
+  const av = C.AvailabilityResponse.parse(await (await getRetrying(request, `/api/public/${b.slug}/availability?service=${b.services[0].id}&from=${todayLocal(2)}&days=30`)).json());
   const date = av.days.filter((d) => d.freeSlots > 0)[nth].date;
-  const sl = C.SlotsResponse.parse(await (await request.get(`/api/public/${b.slug}/slots?service=${b.services[0].id}&date=${date}`)).json());
+  const sl = C.SlotsResponse.parse(await (await getRetrying(request, `/api/public/${b.slug}/slots?service=${b.services[0].id}&date=${date}`)).json());
   return { date, times: sl.slots.map((s) => s.time) };
 }
 

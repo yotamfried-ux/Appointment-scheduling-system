@@ -182,7 +182,8 @@ test.describe("no tracking without consent (CMP-01, BKG-17)", () => {
     await loginAs(page, b.ownerEmail);
     for (const path of ["/dashboard", "/customers", "/reports", "/settings/billing"]) {
       await page.goto(path);
-      await page.waitForLoadState("networkidle");
+      await page.waitForLoadState("load");
+      await page.waitForTimeout(400); // let the page's own first requests settle (the dashboard polls, so "networkidle" would never be reliable)
     }
     const cookies = await context.cookies();
     expect(cookies.length).toBeGreaterThan(0);

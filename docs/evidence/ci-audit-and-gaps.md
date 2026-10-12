@@ -57,3 +57,6 @@ Nothing that was reported as passing is failing now. The honest list of what is 
 
 ## Final check at `8ecdc4b` (head of the branch, which contains every stage)
 All 7 real jobs green: Lint·Types·Unit·Build, DB, E2E, CodeQL, Gitleaks (full history), OSV-Scanner, Trivy. Stages 0–10 were checked per stage in the audit above; stage 11's two Gitleaks failures were fixed. The only non-run job is the AI `review` workflow (skipped: not enabled yet, launch checklist B6).
+
+## Update after stage 12
+RSC-01/02, BKG-08 and ACC-09 are now implemented and tested (pgTAP 120/130/140, E2E `reschedule`, `no-show-policy`, `account`, the permission matrix, and the user-journey simulations); see `docs/evidence/stage-12.md`. Remaining open: RSC-03/04, NSH-01/02/06, NTF-09/10/11, ACC-10, CAT-05/06/07, BKG-18, CXL-08 (all P1/P2).

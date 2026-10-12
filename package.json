@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:journeys": "playwright test --project=journeys",
     "test:e2e": "playwright test",
     "db:start": "supabase start -x studio,imgproxy,logflare,vector,edge-runtime,storage-api,realtime,postgres-meta,supavisor",
     "db:stop": "supabase stop",
