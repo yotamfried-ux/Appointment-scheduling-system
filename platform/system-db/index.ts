@@ -1,6 +1,6 @@
 import "server-only";
-// The ONLY module that holds the Supabase secret key (bypasses RLS). Reachable only from the public booking module,
-// jobs and webhooks (eslint no-restricted-imports + scripts/check-bundle.sh, docs/05 §5.1). Every function it calls is a
+// The ONLY module that holds the Supabase secret key (bypasses RLS). Importable only from the files named in eslint.config.mjs
+// (an exact allow-list: four job routes, the Resend webhook, and a handful of modules), plus scripts/check-bundle.sh (docs/05 §5.1). Every function it calls is a
 // SECURITY DEFINER RPC granted to service_role alone, and takes the tenant explicitly — never from the request body.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { timeoutFetch } from "@/platform/db-timeout";

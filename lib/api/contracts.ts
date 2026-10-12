@@ -74,7 +74,7 @@ export const CreateBookingRequest = z
     location: LocationSchema.default("business"),
     customer: z
       .object({
-        fullName: z.string().trim().min(2, "יש להזין שם (לפחות 2 תווים)."),
+        fullName: z.string().trim().min(2, "יש להזין שם (לפחות 2 תווים).").max(80, "השם ארוך מדי."),
         phone: z.string().min(1, "יש להזין מספר טלפון.").refine((v) => normalizePhone(v) !== null, "מספר הטלפון אינו תקין."),
         email: z.string().trim().refine((v) => v === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), "כתובת האימייל אינה תקינה.").optional(),
       })
@@ -100,7 +100,7 @@ export const JoinWaitlistRequest = z
   })
   .strict();
 export type JoinWaitlistInput = z.infer<typeof JoinWaitlistRequest>;
-export const JoinWaitlistResponse = z.object({ id: z.string(), replay: z.boolean(), manageUrl: z.string() });
+export const JoinWaitlistResponse = z.object({ id: z.string(), replay: z.boolean(), manageUrl: z.string().optional() });
 
 export const BookingDto = z.object({
   id: z.string(),

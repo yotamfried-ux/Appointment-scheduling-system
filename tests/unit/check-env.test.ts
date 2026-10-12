@@ -57,7 +57,7 @@ describe("production environment gate (OPS-08)", () => {
   it("fake providers, test switches and a disabled terms gate are refused", () => {
     expect(names(run({ EMAIL_PROVIDER: "fake" }))).toContain("EMAIL_PROVIDER");
     expect(names(run({ BILLING_PROVIDER: "fake" }))).toContain("BILLING_PROVIDER");
-    for (const n of ["ALLOW_TEST_LIMIT_HEADER", "ALLOW_TEST_CLOCK", "ALLOW_TEST_LEGAL_GATE"]) expect(names(run({ [n]: "1" })), n).toContain(n);
+    for (const n of ["ALLOW_TEST_LIMIT_HEADER", "ALLOW_TEST_CLOCK", "ALLOW_TEST_LEGAL_GATE", "ALLOW_NON_PRODUCTION_DEFAULTS"]) expect(names(run({ [n]: "1" })), n).toContain(n);
     expect(names(run({ LEGAL_GATE: "off" }))).toContain("LEGAL_GATE");
     expect(names(run({ OUTBOX_KICK: "0" }))).toContain("OUTBOX_KICK");
   });

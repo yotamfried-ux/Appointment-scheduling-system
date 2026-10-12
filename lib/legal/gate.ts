@@ -2,8 +2,9 @@ import "server-only";
 import { headers } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ACCEPTED_DOCS, LEGAL, type AcceptedDoc } from "@/lib/legal/config";
+import { isProductionLike } from "@/lib/env";
 
-const isProduction = () => process.env.VERCEL_ENV === "production";
+const isProduction = isProductionLike;
 
 /**
  * CMP-03. On in production, off elsewhere so development and the other tests are not interrupted. LEGAL_GATE=on|off overrides. Outside production a test can switch it

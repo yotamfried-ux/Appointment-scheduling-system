@@ -16,7 +16,8 @@ export function WaitlistJoinForm({ slug, services, initialService }: { slug: str
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ url: string; created: boolean } | null>(null);
+  const [done, setDone] = useState<{ url: string | null; created: boolean } | null>(null);
+  const [idemKey] = useState(() => crypto.randomUUID()); // the proof that this browser created the entry
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,8 +38,8 @@ export function WaitlistJoinForm({ slug, services, initialService }: { slug: str
         date: f.date,
         ...(f.from && f.to ? { window: { from: f.from, to: f.to } } : {}),
         customer: { fullName: f.name, phone: f.phone, email: f.email },
-      });
-      setDone({ url: r.manageUrl, created: r.created });
+      }, idemKey);
+      setDone({ url: r.manageUrl ?? null, created: r.created });
     } catch (err) {
       if (err instanceof ApiClientError && err.code === "VALIDATION_FAILED" && err.details.length) setErrors(Object.fromEntries(err.details.map((d) => [FIELD[d.field] ?? "form", d.message])));
       else if (err instanceof ApiClientError && err.code === "WAITLIST_LIMIT") setFormError(t("errors.limit"));
@@ -57,7 +58,7 @@ export function WaitlistJoinForm({ slug, services, initialService }: { slug: str
       <section className="grid gap-3 rounded-xl border bg-card p-5" data-testid="waitlist-done">
         <h2 className="text-xl font-bold">{t("done.title")}</h2>
         <p className="text-muted-foreground">{done.created ? t("done.body") : t("done.already")}</p>
-        <a href={done.url} className="inline-flex min-h-11 items-center font-semibold text-primary underline underline-offset-2 [overflow-wrap:anywhere]" data-testid="waitlist-manage-link">{t("done.link")}</a>
+        {done.url ? <a href={done.url} className="inline-flex min-h-11 items-center font-semibold text-primary underline underline-offset-2 [overflow-wrap:anywhere]" data-testid="waitlist-manage-link">{t("done.link")}</a> : <p className="text-sm text-muted-foreground" data-testid="waitlist-no-link">{t("done.noLink")}</p>}
       </section>
     );
 

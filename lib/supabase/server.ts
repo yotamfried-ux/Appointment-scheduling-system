@@ -1,3 +1,4 @@
+import { isProductionLike } from "@/lib/env";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { timeoutFetch } from "@/platform/db-timeout";
@@ -22,7 +23,7 @@ export async function createClient() {
         setAll(cookiesToSet) {
           try {
             cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, { ...options, httpOnly: true }), // JS must never read session tokens (docs/05 §5.2)
+              cookieStore.set(name, value, { ...options, httpOnly: true, secure: options?.secure ?? isProductionLike() }), // JS must never read session tokens (docs/05 §5.2)
             );
           } catch {
             // The `setAll` method was called from a Server Component.

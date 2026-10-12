@@ -2,6 +2,7 @@ import { api, fail } from "@/lib/api/http";
 import { authorizeCron } from "@/lib/security/cron";
 import { runReminders } from "@/modules/notifications/service";
 import { systemDb } from "@/platform/system-db";
+import { isProductionLike } from "@/lib/env";
 
 // Every 15 minutes. The run key is the 15-minute bucket: a duplicate trigger of the same bucket does nothing (OPS-05).
 export const dynamic = "force-dynamic";
@@ -12,7 +13,7 @@ const handler = api(async (req) => {
   let now = new Date();
   const test = new URL(req.url).searchParams.get("now");
   if (test !== null) {
-    if (process.env.ALLOW_TEST_CLOCK !== "1" || process.env.VERCEL_ENV === "production") throw fail("NOT_FOUND", "לא נמצא."); // a test clock exists in dev/CI only
+    if (process.env.ALLOW_TEST_CLOCK !== "1" || isProductionLike()) throw fail("NOT_FOUND", "לא נמצא."); // a test clock exists in dev/CI only
     now = new Date(test);
     if (Number.isNaN(now.getTime())) throw fail("BAD_REQUEST", "זמן לא תקין.");
   }

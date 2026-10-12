@@ -70,7 +70,7 @@ export const labApi = {
   slots: (o: ClientOptions, q: { service: string; date: string; selected?: string }) => call(C.SlotsResponse, `slots?${qs(q)}`, o).then((r) => r.data),
   createBooking: (o: ClientOptions, body: z.input<typeof C.CreateBookingRequest>, idempotencyKey: string) =>
     call(C.CreateBookingResponse, "bookings", o, { method: "POST", body, idempotencyKey }).then((r) => r.data.booking),
-  joinWaitlist: (o: ClientOptions, body: z.input<typeof C.JoinWaitlistRequest>) => call(C.JoinWaitlistResponse, "waitlist", o, { method: "POST", body }).then((r) => ({ ...r.data, created: r.status === 201 })),
+  joinWaitlist: (o: ClientOptions, body: z.input<typeof C.JoinWaitlistRequest>, idempotencyKey?: string) => call(C.JoinWaitlistResponse, "waitlist", o, { method: "POST", body, idempotencyKey }).then((r) => ({ ...r.data, created: r.status === 201 })),
   notification: (o: ClientOptions, id: string) => call(C.NotificationPreview, `bookings/${encodeURIComponent(id)}/notification`, o).then((r) => r.data),
   appointments: (o: ClientOptions) => call(C.AppointmentsResponse, "appointments", o).then((r) => r.data),
   transition: (o: ClientOptions, id: string, action: z.infer<typeof C.TransitionRequest>["action"]) =>

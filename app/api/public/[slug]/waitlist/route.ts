@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { JoinWaitlistRequest } from "@/lib/api/contracts";
-import { api, parse, readJson } from "@/lib/api/http";
+import { api, fail, parse, readJson } from "@/lib/api/http";
 import { normalizePhone } from "@/lib/phone";
-import { clientIp, enforce, limitFromHeader } from "@/modules/booking/public/rate-limit";
+import { clientIp, emailLimit, enforce, limitFromHeader } from "@/modules/booking/public/rate-limit";
 import { catalogOr404 } from "@/modules/booking/public/resolve";
 import { joinWaitlist } from "@/modules/waitlist/public";
 
 // Join the waitlist for a full day (no session). Cheap limits first (WLT-08), then validation, then the database decides.
 export const POST = api<{ slug: string }>(async (req, { slug }) => {
+  if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(slug)) throw fail("NOT_FOUND", "לא נמצא."); // before any limiter row is written for a junk slug
   const ip = clientIp(req);
   await enforce([
     { scope: "wl-ip", value: `${ip}|${slug}`, windowSeconds: 60, max: limitFromHeader(req, 10) },
@@ -17,6 +18,8 @@ export const POST = api<{ slug: string }>(async (req, { slug }) => {
   const input = parse(JoinWaitlistRequest, await readJson(req));
   const phone = normalizePhone(input.customer.phone);
   if (phone) await enforce([{ scope: "wl-phone", value: `${phone}|${catalog.business.id}`, windowSeconds: 3600, max: 10 }]);
-  const r = await joinWaitlist(catalog, input);
+  await enforce([emailLimit(req, input.customer.email)]);
+  const key = req.headers.get("idempotency-key");
+  const r = await joinWaitlist(catalog, input, key && key.length >= 8 && key.length <= 128 ? key : null);
   return NextResponse.json(r, { status: r.replay ? 200 : 201, headers: r.replay ? { "Idempotent-Replay": "true" } : {} });
 }, { lab: false });

@@ -60,6 +60,25 @@ test.describe("joining (WLT-08)", () => {
     expect((await admin().from("waitlist_entries").select("id").eq("business_id", b.id)).data).toEqual([]); // nothing was created
   });
 
+  test("SEC: a stranger who replays someone's phone number gets no manage link; the original browser (same key) still does", async ({ request }) => {
+    const b = await makeBusiness("barber");
+    const f = await firstDayWithSlots(request, b);
+    const victim = { fullName: "נועם לוי", phone: "050-4445577", email: mail() };
+    const body = { date: f.date, customer: victim };
+    const first = await join(request, b, f.date, 1, body, { "idempotency-key": "victim-browser-key-1" });
+    expect(first.status()).toBe(201);
+    expect((await first.json()).manageUrl).toMatch(/^\/waitlist\//);
+    const attacker = await join(request, b, f.date, 1, { date: f.date, customer: { ...victim, email: mail() } }, { "idempotency-key": "attacker-key-0001" });
+    expect(attacker.status()).toBe(200);
+    expect((await attacker.json()).manageUrl).toBeUndefined();
+    const noProof = await join(request, b, f.date, 1, body);
+    expect((await noProof.json()).manageUrl).toBeUndefined();
+    const retry = await join(request, b, f.date, 1, body, { "idempotency-key": "victim-browser-key-1" });
+    expect((await retry.json()).manageUrl).toMatch(/^\/waitlist\//);
+    const rows = (await admin().from("waitlist_entries").select("contact_email").eq("business_id", b.id)).data!;
+    expect(rows).toEqual([{ contact_email: victim.email }]); // the attacker's address was never stored
+  });
+
   test("joining twice is idempotent (200 + Idempotent-Replay); at most three active entries per customer; the same phone for another business is separate", async ({ request }) => {
     const b = await makeBusiness("barber");
     const f = await firstDayWithSlots(request, b);

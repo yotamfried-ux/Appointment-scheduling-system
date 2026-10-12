@@ -42,7 +42,7 @@ export function checkEnv(env) {
   if (billing === "fake") err("BILLING_PROVIDER", "the fake billing provider is refused in production");
   if (billing === "manual") warn("BILLING_PROVIDER", "manual: no payment provider is connected, subscriptions are recorded by a platform admin");
   // test switches must not exist in production at all
-  for (const n of ["ALLOW_TEST_LIMIT_HEADER", "ALLOW_TEST_CLOCK", "ALLOW_TEST_LEGAL_GATE"]) if (has(n)) err(n, "a test switch must not be set in production");
+  for (const n of ["ALLOW_TEST_LIMIT_HEADER", "ALLOW_TEST_CLOCK", "ALLOW_TEST_LEGAL_GATE", "ALLOW_NON_PRODUCTION_DEFAULTS"]) if (has(n)) err(n, "a test switch must not be set in production");
   if (env.LEGAL_GATE === "off") err("LEGAL_GATE", "the terms gate must not be switched off in production");
   if (env.OUTBOX_KICK === "0") err("OUTBOX_KICK", "disables the immediate outbox kick; only the 5-minute cron would send mail");
   if (env.EMAIL_PROVIDER === "fake") err("EMAIL_PROVIDER", "the fake e-mail provider is refused in production");
@@ -53,6 +53,7 @@ export function checkEnv(env) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  if (process.argv.includes("--if-production") && process.env.VERCEL_ENV !== "production") process.exit(0); // wired into `npm run build`: only a production deploy is gated
   if (process.env.VERCEL_ENV && process.env.VERCEL_ENV !== "production" && !process.argv.includes("--force")) {
     console.log(`check-env: skipped (VERCEL_ENV=${process.env.VERCEL_ENV}); run with VERCEL_ENV=production or --force`);
     process.exit(0);

@@ -95,13 +95,28 @@ test.describe("booking (BKG-02/04/05/07/09/10/15)", () => {
     const after = C.SlotsResponse.parse(await (await get(request, b.slug, `slots?service=${svc.id}&date=${f.date}`)).json());
     expect(after.slots.map((s) => s.time)).not.toContain(f.times[0]);
 
-    // BKG-05: same phone, another name → still one customer, latest name
+    // BKG-05: same phone, another name → still one customer; the stored identity is NOT rewritten by an unauthenticated booking (takeover control)
     const f2 = f.times.find((t) => t !== f.times[0] && !after.slots.every((s) => s.time !== t))!;
     const r2 = await post(request, b.slug, body(svc.id, f.date, f2, 1, { customer: { fullName: "נועם לוי המעודכן", phone: "0501234567" } }));
     expect(r2.status()).toBe(201);
     const custs = (await b.db.from("customers").select("full_name, phone").eq("business_id", b.id)).data!;
-    expect(custs).toEqual([{ full_name: "נועם לוי המעודכן", phone: "+972501234567" }]);
+    expect(custs).toEqual([{ full_name: "נועם לוי", phone: "+972501234567" }]);
     expect((await b.db.from("domain_events").select("id").eq("type", "AppointmentCreated")).data).toBeNull(); // outbox is system-only (RLS): the owner cannot read it
+  });
+
+  test("SEC: one e-mail address cannot be used to flood a third party's inbox; other addresses are unaffected", async ({ request }) => {
+    const b = await makeBusiness("barber");
+    const svc = b.services[0];
+    const f = await firstFreeSlot(request, b.slug, svc.id);
+    const victim = `victim${rand()}@example.com`;
+    const ip = { "x-test-email-scope": rand(), "x-test-email-limit": "2" };
+    const as = (i: number, email: string) => post(request, b.slug, body(svc.id, f.date, f.times[i], 10 + i, { customer: { ...customer(10 + i), email } }), idem(), ip);
+    expect((await as(0, victim)).status()).toBe(201);
+    expect((await as(1, victim)).status()).toBe(201);
+    const third = await as(2, victim);
+    expect(third.status()).toBe(429);
+    expect(third.headers()["retry-after"]).toBeTruthy();
+    expect((await as(2, "someone-else@example.com")).status()).toBe(201);
   });
 
   test("idempotency: replay returns the same booking (200), a different body with the same key is refused, a missing key is 400", async ({ request }) => {

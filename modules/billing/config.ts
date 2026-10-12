@@ -2,8 +2,9 @@ import "server-only";
 import { fakeBillingAdapter } from "@/modules/billing/adapters/fake";
 import { manualBillingAdapter } from "@/modules/billing/adapters/manual";
 import type { BillingPort } from "@/modules/billing/ports";
+import { isProductionLike } from "@/lib/env";
 
-const isProduction = () => process.env.VERCEL_ENV === "production";
+const isProduction = isProductionLike;
 
 /** Which provider is connected. Fails closed: production never uses the fake provider; with no provider chosen, production runs `manual`. */
 export function billingProvider(): BillingPort {

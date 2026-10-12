@@ -3,8 +3,9 @@ import { createHmac } from "node:crypto";
 import { fakeAdapter } from "@/modules/notifications/adapters/fake";
 import { resendAdapter } from "@/modules/notifications/adapters/resend";
 import type { EmailPort } from "@/modules/notifications/ports";
+import { isProductionLike } from "@/lib/env";
 
-const isProduction = () => process.env.VERCEL_ENV === "production";
+const isProduction = isProductionLike;
 
 /** Fails closed: production never falls back to the fake adapter, and the Resend adapter needs its key and sender. */
 export function emailProvider(): EmailPort {

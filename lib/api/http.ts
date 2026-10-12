@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { ZodError, type ZodType } from "zod";
 import type { ApiErrorCode } from "@/lib/api/contracts";
 import { dbWasUnavailable, runInDbScope } from "@/platform/db-timeout";
+import { isProductionLike } from "@/lib/env";
 
 export class ApiError extends Error {
   constructor(
@@ -53,7 +54,7 @@ export function parse<T>(schema: ZodType<T>, value: unknown): T {
 }
 
 /** The lab API exists in dev/preview/test only. */
-export const labEnabled = () => process.env.VERCEL_ENV !== "production";
+export const labEnabled = () => !isProductionLike();
 
 type Ctx<P> = { params: Promise<P> };
 
@@ -89,9 +90,14 @@ export function api<P = Record<string, never>>(handler: (req: Request, params: P
   };
 }
 
+const MAX_BODY_BYTES = 64 * 1024; // every JSON body in this app is a few hundred bytes; anything near this is abuse
+
 export async function readJson(req: Request): Promise<unknown> {
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) throw fail("BAD_REQUEST", "גוף הבקשה גדול מדי.");
+  const text = await req.text().catch(() => "");
+  if (text.length > MAX_BODY_BYTES) throw fail("BAD_REQUEST", "גוף הבקשה גדול מדי.");
   try {
-    return await req.json();
+    return JSON.parse(text);
   } catch {
     throw fail("BAD_REQUEST", "גוף הבקשה אינו JSON תקין.");
   }

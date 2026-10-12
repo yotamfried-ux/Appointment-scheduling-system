@@ -10,7 +10,7 @@ const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!;
 const SECRET = process.env.SUPABASE_SECRET_KEY!;
 export const PASSWORD = "Correct-Horse-Battery-9";
-export const rand = () => Math.random().toString(36).slice(2, 8).replace(/[0-9]/g, "x");
+export const rand = () => Math.random().toString(36).slice(2, 10).replace(/[0-9]/g, "x") + Math.random().toString(36).slice(2, 5).replace(/[0-9]/g, "y"); // ~11 letters: slugs must not collide across the many businesses a long-lived local database accumulates
 
 export const admin = () => createClient(URL_, SECRET, { auth: { persistSession: false } });
 export const anonClient = () => createClient(URL_, KEY, { auth: { persistSession: false } });
@@ -50,7 +50,8 @@ export async function makeBusiness(kind: BusinessKindId = "barber", opts: { publ
 export const todayLocal = (offsetDays = 0, tz = "Asia/Jerusalem") =>
   new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(Date.now() + offsetDays * 86_400_000));
 
-export const customer = (n = 1, over: Record<string, unknown> = {}) => ({ fullName: `לקוח בדיקה ${n}`, phone: `+97250${String(1000000 + n).slice(-7)}`, email: `c${n}@example.com`, ...over });
+const RUN = Math.random().toString(36).slice(2, 8); // per-process, so the per-address mail limit (8/hour) is not shared between runs
+export const customer = (n = 1, over: Record<string, unknown> = {}) => ({ fullName: `לקוח בדיקה ${n}`, phone: `+97250${String(1000000 + n).slice(-7)}`, email: `c${n}.${RUN}@example.com`, ...over });
 
 /** Sign the owner in through the real login form (cookies are set by the app, exactly as for a person). */
 export async function loginAs(page: import("@playwright/test").Page, email: string) {

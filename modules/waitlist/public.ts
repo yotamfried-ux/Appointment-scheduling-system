@@ -1,6 +1,7 @@
 import "server-only";
 // Customer side of the waitlist (system path). Hours are not checked here: a waitlist is for days that are FULL; offers only ever
 // reuse a slot that was just freed by a real booking, and accepting goes through the same EXCLUDE as any booking.
+import { createHash } from "node:crypto";
 import type { z } from "zod";
 import type * as C from "@/lib/api/contracts";
 import { fail } from "@/lib/api/http";
@@ -13,7 +14,8 @@ import { systemClock, zonedParts } from "@/platform/clock";
 const minutesOf = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 const dayEndUtc = (date: string) => Date.parse(`${date}T23:59:59Z`);
 
-export async function joinWaitlist(c: Catalog, input: C.JoinWaitlistInput): Promise<z.infer<typeof C.JoinWaitlistResponse>> {
+/** `idemKey` is the caller's proof of having created the entry: only that caller gets the manage link back (a stranger replaying a phone number gets none). */
+export async function joinWaitlist(c: Catalog, input: C.JoinWaitlistInput, idemKey: string | null): Promise<z.infer<typeof C.JoinWaitlistResponse>> {
   if (!c.business.waitlistEnabled) throw fail("NOT_FOUND", "רשימת ההמתנה אינה פעילה בעסק הזה.");
   const phone = normalizePhone(input.customer.phone);
   if (!phone) throw fail("VALIDATION_FAILED", "הבקשה אינה תקינה.", [{ field: "customer.phone", message: "מספר הטלפון אינו תקין." }]);
@@ -30,11 +32,12 @@ export async function joinWaitlist(c: Catalog, input: C.JoinWaitlistInput): Prom
     p_full_name: input.customer.fullName.trim(),
     p_phone: phone,
     p_email: input.customer.email.trim(),
+    p_idem_hash: idemKey ? createHash("sha256").update(`${c.business.id}|${idemKey}`).digest("hex") : null,
   });
   if (error) throw mapJoinError(error);
-  const r = data as { replay: boolean; id: string };
+  const r = data as { replay: boolean; id: string; owner: boolean };
   const ttl = Math.max(3600, Math.floor((dayEndUtc(input.date) - Date.now()) / 1000) + 3 * 86_400);
-  return { id: r.id, replay: r.replay, manageUrl: `/waitlist/${signToken({ appointmentId: r.id, scope: "wl_view", ttlSeconds: ttl })}` };
+  return { id: r.id, replay: r.replay, ...(r.owner ? { manageUrl: `/waitlist/${signToken({ appointmentId: r.id, scope: "wl_view", ttlSeconds: ttl })}` } : {}) };
 }
 
 function mapJoinError(e: { code?: string | null; message?: string | null }) {

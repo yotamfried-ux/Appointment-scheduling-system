@@ -11,4 +11,8 @@ fi
 if grep -rIlE 'sb_secret_|SUPABASE_SECRET|SUPABASE_SERVICE_ROLE|"role":"service_role"' "$DIR"; then
   echo "FAIL: secret material found in the client bundle"; exit 1
 fi
+# Canary: CI builds with SUPABASE_SECRET_KEY set to a unique value; the real value (whatever it is) must not appear in the bundle either.
+if [[ -n "${SUPABASE_SECRET_KEY:-}" && ${#SUPABASE_SECRET_KEY} -ge 12 ]] && grep -rIlF -- "$SUPABASE_SECRET_KEY" "$DIR"; then
+  echo "FAIL: the secret key value itself is in the client bundle"; exit 1
+fi
 echo "ok: no secret material in $DIR"

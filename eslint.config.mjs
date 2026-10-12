@@ -30,12 +30,11 @@ const eslintConfig = defineConfig([
     // The only places allowed to use the secret-key module.
     files: [
       "platform/**",
-      "app/api/jobs/**",
-      "app/api/webhooks/**",
-      "app/api/public/**",
-      "modules/booking/public/**",
+      "app/api/jobs/{maintenance,outbox,reminders,waitlist}/route.ts",
+      "app/api/webhooks/resend/route.ts",
       "modules/billing/system.ts",
-      "modules/notifications/**",
+      "modules/booking/public/{rate-limit,service}.ts",
+      "modules/notifications/{job-health,service}.ts",
       "modules/waitlist/public.ts",
       "tests/**",
     ],

@@ -1,3 +1,4 @@
+import { isProductionLike } from "@/lib/env";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
@@ -39,7 +40,7 @@ export async function updateSession(request: NextRequest) {
             request,
           });
           cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, { ...options, httpOnly: true }),
+            supabaseResponse.cookies.set(name, value, { ...options, httpOnly: true, secure: options?.secure ?? isProductionLike() }),
           );
         },
       },
