@@ -4,6 +4,7 @@ Short, concrete procedures for the things that will go wrong. Each one says how 
 
 | Situation | Runbook |
 |---|---|
+| Put a test environment in the cloud, with a demo user | [deploy-test-environment.md](deploy-test-environment.md) |
 | Mail is not going out, or customers say they got nothing | [mail.md](mail.md) |
 | A scheduled job stopped (reminders, outbox, waitlist) | [jobs.md](jobs.md) |
 | Subscriptions look wrong, a payment webhook failed | [billing.md](billing.md) |
