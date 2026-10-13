@@ -26,21 +26,28 @@ const admin = createClient(url, secret, { auth: { persistSession: false, autoRef
 const password = `${randomBytes(9).toString("base64url")}-Aa1`;
 
 // 1. the user (confirmed, so no mail is needed)
+// The Auth admin API is called with the key in the `apikey` header ONLY. New-format secret keys (sb_secret_...) are not JWTs: the client library would also
+// send them as `Authorization: Bearer`, which the Auth server refuses on admin routes. The gateway turns `apikey` into the service identity.
+const adminApi = async (path, init = {}) => {
+  const res = await fetch(`${url}/auth/v1/admin${path}`, { ...init, headers: { apikey: secret, "Content-Type": "application/json" } });
+  const body = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, body, message: body?.msg || body?.message || body?.error_description || `HTTP ${res.status}` };
+};
 let userId;
-const created = await admin.auth.admin.createUser({ email, password, email_confirm: true });
-let printedPassword = created.error ? null : password;
-if (created.error) {
-  const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
-  const existing = data?.users.find((u) => u.email?.toLowerCase() === email);
-  if (!existing) fail(`could not create the user: ${created.error.message}`);
+const created = await adminApi("/users", { method: "POST", body: JSON.stringify({ email, password, email_confirm: true }) });
+let printedPassword = created.ok ? password : null;
+if (!created.ok) {
+  const listed = await adminApi("/users?page=1&per_page=1000");
+  const existing = listed.body?.users?.find((u) => u.email?.toLowerCase() === email);
+  if (!existing) fail(`could not create the user: ${created.message}`);
   userId = existing.id;
   if (resetPassword) {
-    const r = await admin.auth.admin.updateUserById(userId, { password, email_confirm: true });
-    if (r.error) fail(`could not reset the password: ${r.error.message}`);
+    const r = await adminApi(`/users/${userId}`, { method: "PUT", body: JSON.stringify({ password, email_confirm: true }) });
+    if (!r.ok) fail(`could not reset the password: ${r.message}`);
     printedPassword = password;
   }
 } else {
-  userId = created.data.user.id;
+  userId = created.body.id;
 }
 
 // 2. the business, created the way the app does it: as that user, through the same RPCs (RLS applies)
