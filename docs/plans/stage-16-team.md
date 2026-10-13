@@ -26,7 +26,7 @@ The blocker is the assumption "one resource, the default one" that is written by
 | T10 | **Waitlist offers reserve the freed person's slot**: `waitlist_offers.resource_id` (backfilled with the default resource), `public_busy` returns the person, and an offer is made to entries whose service that person can do. Entries carry no person preference in v1. | keeps stage 13's "an offer holds the slot" correct per person |
 | T11 | **Names are public** (first names appear on the booking page, the confirmation and reminders). The settings screen says so. Mail/preview text includes "with <name>" only in a business with two or more active people. | privacy by notice; no change for solo businesses |
 | T12 | **Capability tokens do not change**: they carry the appointment id; the person is read server-side. | no token migration, no new scopes |
-| T13 | **Bounds:** at most 30 people per business (database check), names 1–80 chars, writes only through audited definer RPCs `create_staff`, `update_staff`, `set_staff_services`, `set_staff_hours` (admin or owner), never raw table grants beyond today's `update(name, active)`. | abuse and tenancy guardrails of docs/05 |
+| T13 | **Bounds:** at most 30 people per business (database check), names 1–80 chars, writes only through audited definer RPCs `create_staff`, `update_staff`, `set_service_staff`, `set_staff_hours` (admin or owner), never raw table grants beyond today's `update(name, active)`. | abuse and tenancy guardrails of docs/05 |
 
 ## Scenarios (new ids, each needs a test at the lowest falsifying layer plus an E2E where wiring matters)
 | ID | Behaviour | Layers |
