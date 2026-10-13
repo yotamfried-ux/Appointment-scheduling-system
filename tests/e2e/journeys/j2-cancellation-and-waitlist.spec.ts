@@ -11,6 +11,7 @@ const linkIn = (text: string) => text.match(/https?:\/\/\S+\/waitlist\/[\w.-]+/)
 test("A books · B waits · A cancels · B is offered and accepts · C is refused · the owner sees it all", async ({ browser, baseURL }) => {
   test.setTimeout(180_000);
   const b = await makeBusiness("barber");
+  sql(`update public.businesses set cancel_until_hours = 0 where id='${b.id}'`); // evening runs: the first free time is tomorrow morning, inside the default 24h cancel/reschedule window, so the customer-side buttons would be missing
   const A = await customerOnPhone(browser, baseURL!), B = await customerOnPhone(browser, baseURL!), C = await customerOnPhone(browser, baseURL!);
   const desk = await ownerAtDesk(browser, baseURL!);
   const aMail = mail(), bMail = mail();

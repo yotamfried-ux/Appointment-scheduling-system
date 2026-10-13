@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { BUSINESS_KINDS, type BusinessKindId } from "../../modules/tenancy/business-kind";
-import { makeBusiness, rand, type TestBusiness } from "./helpers/business";
+import { makeBusiness, rand, sql, type TestBusiness } from "./helpers/business";
 
 // Real browser, real stack: /book/[slug] → public API → Postgres, then the customer's private link /booking/[token].
 // Scenarios: BKG-01/02/03/04/09/11/13, SEC-05/06, ACC-07, UX-01/02.
@@ -198,6 +198,7 @@ test.describe("public booking page (/book/[slug])", () => {
 test.describe("customer's private link (/booking/[token])", () => {
   async function bookedWithLink(page: Page, b?: TestBusiness) {
     const biz = b ?? (await makeBusiness("barber"));
+    if (!b) sql(`update public.businesses set cancel_until_hours = 0 where id='${biz.id}'`); // evening runs: the first free time is tomorrow morning, inside the default 24h cancel/reschedule window, so the customer-side buttons would be missing
     const slot = await book(page, biz);
     const link = await page.getByTestId("manage-link").getAttribute("href");
     return { biz, slot, link: link! };
@@ -215,6 +216,7 @@ test.describe("customer's private link (/booking/[token])", () => {
     await expect(page.getByTestId("manage-reference")).toBeVisible();
     expect((await biz.db.from("appointments").select("status").eq("business_id", biz.id)).data![0].status).toBe(before); // GET ×3: still the same
     await noOverflow(page);
+    await expect(page).toHaveTitle(/.+/); // the title is streamed with the page: axe must not run before it has arrived
     expect((await axe(page)).violations).toEqual([]);
 
     await page.getByTestId("cancel-start").click();
@@ -223,6 +225,7 @@ test.describe("customer's private link (/booking/[token])", () => {
     await expect(page.getByTestId("manage-cancelled")).toBeVisible();
     expect((await biz.db.from("appointments").select("status").eq("business_id", biz.id)).data![0].status).toBe("cancelled_by_customer");
     await noOverflow(page);
+    await expect(page).toHaveTitle(/.+/); // the title is streamed with the page: axe must not run before it has arrived
     expect((await axe(page)).violations).toEqual([]);
 
     // the slot is free again for someone else

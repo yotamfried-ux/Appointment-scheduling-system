@@ -22,6 +22,7 @@ test("owner joins → first customer books on a phone → mail, reminder, resche
     return r;
   });
   const biz = (await admin().from("businesses").select("id, timezone").eq("slug", slug).single()).data!;
+  sql(`update public.businesses set cancel_until_hours = 0 where id='${biz.id}'`); // evening runs: the first free time is tomorrow morning, inside the default 24h cancel/reschedule window, so the customer-side buttons would be missing
 
   const booking = await test.step("a customer finds the link on her phone and books", async () => {
     const b = await customerBooksViaPage(phone.page, slug, { name: NAME, phone: PHONE, email: customerEmail });
