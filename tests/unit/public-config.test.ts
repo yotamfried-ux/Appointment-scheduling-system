@@ -10,3 +10,12 @@ describe("missingPublicConfig (readiness covers what the pages need)", () => {
     expect(JSON.stringify(missingPublicConfig({ url: "https://secret-host.supabase.co" }))).not.toContain("secret-host");
   });
 });
+
+import { missingServerConfig } from "@/platform/public-config";
+describe("missingServerConfig", () => {
+  it("a booking cannot be signed without a 32+ character secret: not ready, by name only", () => {
+    expect(missingServerConfig({})).toEqual(["BOOKING_TOKEN_SECRET"]);
+    expect(missingServerConfig({ bookingTokenSecret: "short" })).toEqual(["BOOKING_TOKEN_SECRET"]);
+    expect(missingServerConfig({ bookingTokenSecret: "x".repeat(32) })).toEqual([]);
+  });
+});

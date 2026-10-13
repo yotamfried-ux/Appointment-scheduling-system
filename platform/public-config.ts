@@ -7,3 +7,8 @@ export function missingPublicConfig(env: { url?: string; key?: string }): string
   if (!env.key || env.key.trim() === "") missing.push("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
   return missing;
 }
+
+/** Server-side secrets without which a customer-facing flow fails closed at the first request (a booking cannot be signed). Names only. */
+export function missingServerConfig(env: { bookingTokenSecret?: string }): string[] {
+  return (env.bookingTokenSecret ?? "").length >= 32 ? [] : ["BOOKING_TOKEN_SECRET"];
+}

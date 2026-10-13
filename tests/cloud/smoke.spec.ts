@@ -12,7 +12,9 @@ const axe = (page: Page) => new AxeBuilder({ page }).withTags(["wcag2a", "wcag2a
 type Watch = { errors: string[]; failed: string[] };
 function watch(page: Page): Watch {
   const w: Watch = { errors: [], failed: [] };
-  page.on("console", (m) => m.type() === "error" && w.errors.push(m.text().slice(0, 200)));
+  // The Vercel toolbar that Vercel itself injects into Preview pages frames vercel.live and styles itself inline; our CSP (rightly) refuses both. That is Vercel's widget, not the product.
+  const vercelToolbar = (t: string) => /vercel\.live|Applying inline style violates/.test(t) && process.env.CLOUD_URL?.includes("vercel.app") === true;
+  page.on("console", (m) => m.type() === "error" && !vercelToolbar(m.text()) && w.errors.push(m.text().slice(0, 200)));
   page.on("pageerror", (e) => w.errors.push(`pageerror: ${e.message.slice(0, 200)}`));
   page.on("response", (r) => r.status() >= 500 && w.failed.push(`${r.status()} ${new URL(r.url()).pathname}`));
   // a request the browser itself cancelled (a navigation replacing a prefetch) is not a failure of the system
@@ -90,7 +92,9 @@ test.describe("a customer books, manages and cancels", () => {
     await page.getByLabel("שם מלא").fill(`בדיקת סימולציה ${RUN}`);
     await page.getByLabel("טלפון נייד").fill(`050${RUN}`);
     await page.getByTestId("continue").click();
-    await page.getByTestId("done-title").waitFor();
+    const outcome = page.getByTestId("done-title").or(page.getByTestId("form-error"));
+    await outcome.first().waitFor({ timeout: 30_000 });
+    expect(await page.getByTestId("form-error").count(), `the booking was refused: ${await page.getByTestId("form-error").allInnerTexts()} (see the Vercel runtime log of POST /api/public/${SLUG}/bookings)`).toBe(0);
     await expect(page.getByTestId("done-status")).toBeVisible();
     await looksRight(page, "booking: done");
     await page.screenshot({ path: `test-results/shots/cloud-booked-${info.project.name}.png`, fullPage: true });
