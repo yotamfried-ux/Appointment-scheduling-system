@@ -30,10 +30,15 @@ async function looksRight(page: Page, where: string) {
 }
 
 test.describe("the deployment is alive and configured", () => {
-  test("health, readiness and the pages that need the browser configuration", async ({ request }) => {
-    expect((await request.get("/api/health")).status(), "liveness").toBe(200);
+  test("we reach the application itself (not a login wall in front of it), and it is ready", async ({ request }) => {
+    const health = await request.get("/api/health");
+    const body = await health.text();
+    // Vercel "Deployment Protection" answers an anonymous visitor with its own login page (HTTP 200 after redirects). That is not our app:
+    // every later check would be testing Vercel's page. Say so plainly.
+    expect(body, "the address is behind Vercel Deployment Protection: disable it for Preview or add the VERCEL_BYPASS secret (Protection Bypass for Automation)").not.toMatch(/Log in to Vercel|vercel\.com\/login|<html/i);
+    expect(JSON.parse(body), "liveness").toEqual({ status: "ok" });
     const ready = await request.get("/api/ready");
-    expect(ready.status(), "readiness (503 = a variable is missing or the database is unreachable: see the Vercel runtime log)").toBe(200);
+    expect(await ready.text(), "readiness (503 = a variable is missing or the database is unreachable: see the Vercel runtime log)").toBe('{"status":"ready"}');
   });
 });
 
