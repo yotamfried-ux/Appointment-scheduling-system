@@ -39,7 +39,11 @@ let printedPassword = created.ok ? password : null;
 if (!created.ok) {
   const listed = await adminApi("/users?page=1&per_page=1000");
   const existing = listed.body?.users?.find((u) => u.email?.toLowerCase() === email);
-  if (!existing) fail(`could not create the user: ${created.message}`);
+  if (!existing) {
+    // Diagnostics that never contain the key: its shape, and the server's own error code.
+    const shape = `key shape: ${secret.startsWith("sb_secret_") ? "sb_secret_" : secret.startsWith("eyJ") ? "legacy JWT" : "unrecognised"}, length ${secret.length}, surrounding whitespace: ${secret !== secret.trim()}, inner whitespace: ${/\s/.test(secret.trim())}`;
+    fail(`could not create the user (HTTP ${created.status}, code ${created.body?.error_code ?? created.body?.code ?? "none"}); ${shape}`);
+  }
   userId = existing.id;
   if (resetPassword) {
     const r = await adminApi(`/users/${userId}`, { method: "PUT", body: JSON.stringify({ password, email_confirm: true }) });
