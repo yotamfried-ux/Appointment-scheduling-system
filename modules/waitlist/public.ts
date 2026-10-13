@@ -63,7 +63,7 @@ export interface WaitlistView {
   businessName: string;
   businessSlug: string;
   timezone: string;
-  offer: { id: string; slotStartsAt: string; slotEndsAt: string; expiresAt: string } | null;
+  offer: { id: string; slotStartsAt: string; slotEndsAt: string; expiresAt: string; personName?: string | null } | null;
   booking: { startsAt: string; reference: string; status: string } | null;
   /** Single-use action links, minted fresh on every view. */
   tokens: { accept: string | null; decline: string | null; leave: string | null };

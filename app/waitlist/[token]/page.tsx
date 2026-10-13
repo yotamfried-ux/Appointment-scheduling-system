@@ -33,6 +33,7 @@ export default async function WaitlistPage({ params }: { params: Promise<{ token
   const rows: { label: string; value: React.ReactNode; id?: string }[] = [
     { label: t("business"), value: v.businessName },
     { label: t("service"), value: v.serviceName },
+    ...(v.offer?.personName ? [{ label: t("person"), value: v.offer.personName, id: "offer-person" }] : []),
     v.offer ? { label: t("when"), value: <bdi>{when(v.offer.slotStartsAt)}</bdi>, id: "offer-when" } : v.booking ? { label: t("when"), value: <bdi>{when(v.booking.startsAt)}</bdi>, id: "booked-when" } : { label: t("day"), value: formatDayLabel(v.onDate), id: "wl-day" },
     ...(!v.offer && !v.booking ? [{ label: t("window"), value: v.fromMinute === null || v.toMinute === null ? t("anyTime") : <bdi>{t("windowRange", { from: hhmm(v.fromMinute), to: hhmm(v.toMinute) })}</bdi> }] : []),
     ...(v.booking ? [{ label: t("reference"), value: <bdi className="font-mono">{v.booking.reference}</bdi>, id: "booked-reference" }] : []),

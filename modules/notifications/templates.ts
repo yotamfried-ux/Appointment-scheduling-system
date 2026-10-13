@@ -26,13 +26,13 @@ export interface NotifContext {
   type: NotificationType;
   recipient: "customer" | "owner";
   /** Set for booking messages; null for waitlist messages. */
-  appointment: { id: string; status: string; startsAt: string; endsAt: string; reference: string; serviceName: string } | null;
+  appointment: { id: string; status: string; startsAt: string; endsAt: string; reference: string; serviceName: string; /** Only in a business with two or more people. */ personName?: string | null } | null;
   /** Set for the owner's daily digest only. */
   /** Set for the owner's subscription notices only. */
   billing?: { status: string; trialEndsAt: string | null; graceUntil: string | null } | null;
   digest?: { date: string; cancelledYesterday: number; unmarked: number; tomorrow: number } | null;
   /** Set for waitlist messages; null for booking messages. */
-  offer: { id: string; status: string; slotStartsAt: string; expiresAt: string; serviceName: string; entryId: string } | null;
+  offer: { id: string; status: string; slotStartsAt: string; expiresAt: string; serviceName: string; entryId: string; personName?: string | null } | null;
   business: { name: string; slug: string; kind: BusinessKindId; timezone: string; phone: string | null };
   customer: { name: string; email: string | null };
   owner: { email: string | null };
@@ -162,6 +162,8 @@ export function render(ctx: NotifContext, opts: { appUrl: string; manageToken?: 
 
   const rows: [string, string][] = [["מועד", when]];
   if (showService) rows.push(["שירות", clean(serviceName)]);
+  const person = ctx.appointment?.personName ?? offer?.personName;
+  if (person) rows.push(["אצל", clean(person)]);
   if (owner) rows.unshift(["לקוח/ה", name]);
   else rows.unshift(["עסק", biz]);
   if (ctx.type === "waitlist_offer" && offer) rows.push(["תקף עד", new Intl.DateTimeFormat("he-IL", { timeZone: ctx.business.timezone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(offer.expiresAt))]);

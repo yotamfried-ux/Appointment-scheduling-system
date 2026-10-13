@@ -279,3 +279,29 @@ describe("fake adapter: deterministic failure injection", () => {
     await expect(send("a+reject@b.co")).rejects.toBeInstanceOf(PermanentEmailError);
   });
 });
+
+describe("the person in the message (stage 16, T11)", () => {
+  const withPerson = (personName: string | null) => ctx({ appointment: { id: "a1", status: "confirmed", startsAt: "2026-10-14T07:00:00Z", endsAt: "2026-10-14T07:30:00Z", reference: "TR-ABC123", serviceName: "תספורת גברים", personName } });
+  it("a business with a team names the person in the customer's mail and the owner's mail", () => {
+    for (const recipient of ["customer", "owner"] as const) {
+      const r = render({ ...withPerson("נועם"), recipient }, { appUrl: "https://x.example", manageToken: "tok" });
+      expect(r.text).toContain("אצל: נועם");
+      expect(r.html).toContain("נועם");
+    }
+  });
+  it("a one-person business gets exactly the old message (negative control: no row, no word)", () => {
+    const solo = render(withPerson(null), { appUrl: "https://x.example", manageToken: "tok" });
+    const old = render(ctx(), { appUrl: "https://x.example", manageToken: "tok" });
+    expect(solo.text).toBe(old.text);
+    expect(solo.text).not.toContain("אצל");
+  });
+  it("the name is escaped in HTML and cannot add a line to the text rows", () => {
+    const r = render(withPerson("<b>x</b>\nBcc: evil@example.com"), { appUrl: "https://x.example", manageToken: "tok" });
+    expect(r.html).not.toContain("<b>x</b>");
+    expect(r.text).not.toContain("\nBcc:");
+  });
+  it("a waitlist offer names the person too", () => {
+    const r = render(ctx({ type: "waitlist_offer", appointment: null, offer: { id: "o1", status: "pending", slotStartsAt: "2026-10-14T07:00:00Z", expiresAt: "2026-10-14T06:00:00Z", serviceName: "תספורת גברים", entryId: "e1", personName: "דנה" } }), { appUrl: "https://x.example", manageToken: "tok" });
+    expect(r.text).toContain("אצל: דנה");
+  });
+});

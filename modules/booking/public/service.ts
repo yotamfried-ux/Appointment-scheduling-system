@@ -220,6 +220,9 @@ export interface AppointmentView {
   attendToken: string | null;
   serviceChangeAllowed: boolean;
   movedByBusinessAt: string | null;
+  /** Stage 16: shown only when the business has two or more people. */
+  personName?: string | null;
+  teamSize?: number;
 }
 
 export async function viewAppointment(token: string): Promise<AppointmentView | null> {

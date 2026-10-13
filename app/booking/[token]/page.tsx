@@ -32,6 +32,7 @@ export default async function ManagePage({ params }: { params: Promise<{ token: 
   const rows: { label: string; value: React.ReactNode; id?: string }[] = [
     { label: t("business"), value: a.businessName },
     { label: t("service"), value: a.serviceName },
+    ...(a.personName && (a.teamSize ?? 0) >= 2 ? [{ label: t("person"), value: a.personName, id: "manage-person" }] : []),
     { label: t("when"), value: <>{formatDayLabel(start.date)} · <bdi>{hhmm(start.minutes)}</bdi></>, id: "when" },
     ...(priceLabel(a.priceMode, a.priceCents / 100) ? [{ label: t("price"), value: priceLabel(a.priceMode, a.priceCents / 100) }] : []),
     { label: t("status"), value: t(`statuses.${a.status as "confirmed"}`), id: "status" },
