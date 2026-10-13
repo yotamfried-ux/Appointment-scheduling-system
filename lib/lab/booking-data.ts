@@ -85,13 +85,15 @@ export function generateSlots(
   return slots;
 }
 
-export function formatDayLabel(iso: string, style: "long" | "short" = "long"): string {
+export function formatDayLabel(iso: string, style: "long" | "short" | "date" = "long"): string {
   const { y, m, d } = parseIso(iso);
   const date = new Date(Date.UTC(y, m - 1, d, 12));
   const opts: Intl.DateTimeFormatOptions =
     style === "long"
       ? { weekday: "long", day: "numeric", month: "long", timeZone: LAB_TIMEZONE }
-      : { weekday: "short", day: "numeric", timeZone: LAB_TIMEZONE };
+      : style === "date"
+        ? { day: "numeric", month: "long", year: "numeric", timeZone: LAB_TIMEZONE }
+        : { weekday: "short", day: "numeric", timeZone: LAB_TIMEZONE };
   return new Intl.DateTimeFormat("he-IL", opts).format(date);
 }
 

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { ownerPage } from "@/lib/auth/owner-page";
 import { myBilling } from "@/modules/billing/entitlements";
 import { IsoDate } from "@/lib/api/contracts";
+import { formatDayLabel } from "@/lib/lab/booking-data";
 import { formatMoney, formatPercent, resolvePeriod, type Preset } from "@/modules/reports/metrics";
 import { MAX_RANGE_DAYS, report, requireAdmin } from "@/modules/reports/service";
 import { systemClock, zonedParts } from "@/platform/clock";
@@ -89,7 +90,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
         </form>
         {rangeError ? <p role="alert" className="text-sm lg:col-span-2 font-medium text-destructive" data-testid="range-error">{t("rangeError")}</p> : null}
         <p className="text-xs text-muted-foreground lg:col-span-2" data-testid="range-shown">
-          <bdi dir="ltr">{period.from}</bdi> – <bdi dir="ltr">{period.to}</bdi>
+          <bdi>{formatDayLabel(period.from, "date")}</bdi> – <bdi>{formatDayLabel(period.to, "date")}</bdi>
         </p>
       </section>
 

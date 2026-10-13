@@ -7,6 +7,12 @@ import { hasEnvVars } from "../utils";
 // /book (public booking) and /api/public are added with their modules. /api/jobs and /api/webhooks carry their own authentication (cron secret, signed payloads).
 const PUBLIC_PREFIXES = ["/auth", "/login", "/api/health", "/api/ready", "/book", "/booking", "/waitlist", "/api/public", "/api/lab", "/api/jobs", "/api/webhooks", "/privacy", "/terms", "/cookies", "/accessibility", "/robots.txt", "/design"];
 
+// Signed-out visitors are sent to the login page only for pages that exist behind it; any other address is a plain 404 (a mistyped link is not a reason to ask for a password).
+const PROTECTED_PREFIXES = ["/dashboard", "/customers", "/reports", "/settings", "/onboarding", "/billing", "/api"];
+function needsSession(pathname: string) {
+  return !isPublicPath(pathname) && PROTECTED_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
 function isPublicPath(pathname: string) {
   return pathname === "/" || PUBLIC_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
@@ -56,7 +62,7 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims;
 
-  if (!user && !isPublicPath(request.nextUrl.pathname)) {
+  if (!user && needsSession(request.nextUrl.pathname)) {
     // API clients get the same JSON error contract as every other endpoint, never an HTML login page.
     if (request.nextUrl.pathname.startsWith("/api/")) {
       return NextResponse.json(

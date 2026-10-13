@@ -164,3 +164,10 @@ export function formatDuration(minutes: number): string {
   const mins = m === 0 ? "" : `${m} דק׳`;
   return hours && mins ? `${hours} ו-${mins}` : hours || mins;
 }
+
+/** Free time as a person says it: "25 ש׳", "45 דק׳", "2 ש׳ 30 דק׳" (never "25:00", which reads as a clock time). */
+export function freeLabel(minutes: number, t: (key: "stats.freeH" | "stats.freeM" | "stats.freeHM", values: { h: number; m: number }) => string): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return t(h === 0 ? "stats.freeM" : m === 0 ? "stats.freeH" : "stats.freeHM", { h, m });
+}

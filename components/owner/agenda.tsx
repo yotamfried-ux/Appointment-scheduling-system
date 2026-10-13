@@ -19,7 +19,8 @@ import { dismissAllToasts, toast } from "@/components/ui/toast";
 import { ApiClientError, ownerApi } from "@/lib/api/client";
 import type * as C from "@/lib/api/contracts";
 import { formatDayLabel } from "@/lib/lab/booking-data";
-import { dashboardReducer, fmt, gapsIn, ribbonIn, statsIn, teamOccupancyPct, type LabAppointment } from "@/lib/lab/dashboard-data";
+import { dashboardReducer, fmt, freeLabel, gapsIn, ribbonIn, statsIn, teamOccupancyPct, type LabAppointment } from "@/lib/lab/dashboard-data";
+import { cn } from "@/lib/utils";
 import { addDaysIso } from "@/modules/availability/slots";
 
 type Agenda = z.infer<typeof C.OwnerAgendaResponse>;
@@ -254,7 +255,7 @@ export function OwnerAgenda() {
           { label: t("stats.appointments"), value: String(stats.total), hint: t("stats.confirmedHint", { count: appts.filter((a) => a.status === "confirmed" || a.status === "completed").length }) },
           { label: t("stats.pending"), value: String(inbox.length), hint: t("stats.pendingHint"), tone: inbox.length > 0 ? "attention" : "default" },
           { label: t("stats.occupancy"), value: `${team ? teamOccupancyPct(shownPeople.map((p) => ({ appts: appts.filter((a) => a.personId === p.id), windows: p.windows }))) : stats.occupancyPct}%`, hint: t("stats.occupancyHint") },
-          { label: t("stats.free"), value: `${Math.floor(freeMinutes / 60)}:${String(freeMinutes % 60).padStart(2, "0")}`, hint: t("stats.freeHint") },
+          { label: t("stats.free"), value: freeLabel(freeMinutes, t), hint: t("stats.freeHint") },
         ]}
       />
 
@@ -278,7 +279,7 @@ export function OwnerAgenda() {
             <p className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground" data-testid="no-appointments">{t("agenda.noAppointments")}</p>
           )}
         </section>
-        <div className="order-first grid gap-6 lg:order-none">
+        <div className={cn("grid gap-6", inbox.length > 0 && "order-first lg:order-none")}>
           <ApprovalsPanel appointments={inbox} onAction={onApproval} busyIds={busy} />
           <WaitlistPanel
             entries={agenda.waitlist}

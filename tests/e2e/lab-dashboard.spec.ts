@@ -66,8 +66,8 @@ for (const kind of KIND_IDS) {
       const p = byStatus(await agenda(page, kind, session), "pending");
       const freeStat = page.getByText("שעות פנויות").locator("xpath=following-sibling::dd");
       const minutes = async () => {
-        const [h, m] = (await freeStat.innerText()).match(/\d+:\d+/)![0].split(":").map(Number);
-        return h * 60 + m;
+        const text = await freeStat.innerText(); // "2 ש׳ 30 דק׳", "3 ש׳" or "45 דק׳"
+        return Number(text.match(/(\d+) ש׳/)?.[1] ?? 0) * 60 + Number(text.match(/(\d+) דק׳/)?.[1] ?? 0);
       };
       const before = await minutes();
       await page.getByRole("button", { name: `דחייה · ${p.customer}` }).click();

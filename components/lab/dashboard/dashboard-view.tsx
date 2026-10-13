@@ -17,7 +17,7 @@ import { toast } from "@/components/ui/toast";
 import { ApiClientError, labApi, resolveSession, type ClientOptions } from "@/lib/api/client";
 import type * as C from "@/lib/api/contracts";
 import { formatDayLabel } from "@/lib/lab/booking-data";
-import { dashboardReducer, fmt, gapsIn, ribbonIn, statsIn, type LabAppointment } from "@/lib/lab/dashboard-data";
+import { dashboardReducer, fmt, freeLabel, gapsIn, ribbonIn, statsIn, type LabAppointment } from "@/lib/lab/dashboard-data";
 import type { BusinessKindId } from "@/modules/tenancy/business-kind";
 
 type Agenda = z.infer<typeof C.AppointmentsResponse>;
@@ -136,7 +136,7 @@ export function DashboardView({ kind, session: sessionParam }: { kind: BusinessK
               { label: t("stats.appointments"), value: String(stats.total), hint: t("stats.confirmedHint", { count: state.appointments.filter((a) => a.status === "confirmed" || a.status === "completed").length }) },
               { label: t("stats.pending"), value: String(stats.pending + stats.cancellationRequests), hint: t("stats.pendingHint"), tone: stats.pending + stats.cancellationRequests > 0 ? "attention" : "default" },
               { label: t("stats.occupancy"), value: `${stats.occupancyPct}%`, hint: t("stats.occupancyHint") },
-              { label: t("stats.free"), value: `${Math.floor(freeMinutes / 60)}:${String(freeMinutes % 60).padStart(2, "0")}`, hint: t("stats.freeHint") },
+              { label: t("stats.free"), value: freeLabel(freeMinutes, t), hint: t("stats.freeHint") },
             ]}
           />
 

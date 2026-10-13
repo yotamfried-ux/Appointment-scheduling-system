@@ -105,7 +105,7 @@ test.describe("reports: the numbers equal an independent computation", () => {
 
     // page
     await page.goto(`/reports?from=${FROM}&to=${TO}`);
-    await expect(page.getByTestId("range-shown")).toContainText(FROM);
+    await expect(page.getByTestId("range-shown")).toContainText("25 במרץ 2026");
     await expect(kpi(page, "תורים")).toContainText(String(want.appointments));
     await expect(kpi(page, "הכנסות")).toContainText(money(want.revenue));
     await expect(kpi(page, "צפוי")).toContainText(money(want.expected));
