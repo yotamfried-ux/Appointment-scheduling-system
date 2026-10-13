@@ -40,3 +40,11 @@ It prints the sign-in address, the e-mail, a generated password (shown once) and
 
 ## What this does not prove
 Real e-mail delivery (Resend, SPF/DKIM/DMARC), a payment provider, backups/PITR, or production-grade limits. Those are launch checklist items A1–A6.
+
+
+## Lessons from the first cloud deployment (what went wrong and how to tell)
+- **A deployment marked `Production` always fails here, by design.** `npm run build` runs `check-env`, which refuses test switches (`ALLOW_NON_PRODUCTION_DEFAULTS`, fake providers) in Production. The project's *Production Branch* must be `main`, so this branch deploys as **Preview**; and every variable in this runbook is set for **Preview only**. When "Redeploy" is used, pick a deployment of the branch that is *not* labelled Production (or just push a commit).
+- **Names are exact.** `NEXT_PUBLIC_SUPABASE_URL` (not `NEXT_SUPABASE_URL`), type *Config* (the `NEXT_PUBLIC_` prefix means "visible to the browser"); `SUPABASE_SECRET_KEY` has no `NEXT_PUBLIC`, type *Secret*. A variable set only for Production does not exist in Preview.
+- **`/api/ready` answers 503 `{"status":"unavailable"}` and nothing else, on purpose.** The reason is one fixed word in the Vercel runtime log (`{"event":"db_not_ready","reason":"..."}`): `not_configured` (URL or secret key missing in this environment), `invalid_key_format` (for example a line break pasted with the key), `http_401` (the database service refused the key), `unreachable_or_timeout`, `db_<code>` (the database refused the read).
+- **Migrations:** the Actions workflow `DB push (test project)` applies them. Method `api` needs only `SUPABASE_ACCESS_TOKEN`; method `cli` also needs `SUPABASE_DB_PASSWORD` (use letters and digits only: a password with `@ # % / :` breaks the connection string). It is idempotent and ends by asserting that `private.lint_violations()` is empty.
+- **The Hobby plan** refuses any cron more often than daily; `vercel.json` is daily for this reason (see `jobs.md` for the production values).
