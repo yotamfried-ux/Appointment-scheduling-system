@@ -9,13 +9,19 @@ export type AvailabilityResult = { ok: true } | { ok: false; code: AvailabilityE
 const mapError = (e: { code?: string | null } | null): AvailabilityErrorCode =>
   e?.code === "42501" ? "FORBIDDEN" : e?.code === "23P01" ? "OVERLAP" : e?.code === "23514" ? "VALIDATION" : "INTERNAL";
 
-export async function loadAvailability(supabase: SupabaseClient, businessId: string): Promise<{ rules: RuleRow[]; exceptions: ExceptionRow[]; resourceId: string | null }> {
-  const [rules, exceptions, resource] = await Promise.all([
-    supabase.from("availability_rules").select("weekday, start_minute, end_minute").eq("business_id", businessId),
-    supabase.from("availability_exceptions").select("id, on_date, kind, start_minute, end_minute, note").eq("business_id", businessId).order("on_date"),
-    supabase.from("resources").select("id").eq("business_id", businessId).eq("is_default", true).maybeSingle(),
+/** One person's weekly hours (the default person when none is named) plus the exceptions that apply to them: business-wide ones and their own (T9). */
+export async function loadAvailability(supabase: SupabaseClient, businessId: string, resourceId?: string): Promise<{ rules: RuleRow[]; exceptions: ExceptionRow[]; resourceId: string | null }> {
+  let id = resourceId ?? null;
+  if (!id) {
+    const r = await supabase.from("resources").select("id").eq("business_id", businessId).eq("is_default", true).maybeSingle();
+    id = (r.data?.id as string | undefined) ?? null;
+  }
+  if (!id) return { rules: [], exceptions: [], resourceId: null };
+  const [rules, exceptions] = await Promise.all([
+    supabase.from("availability_rules").select("weekday, start_minute, end_minute").eq("business_id", businessId).eq("resource_id", id),
+    supabase.from("availability_exceptions").select("id, on_date, kind, start_minute, end_minute, note").eq("business_id", businessId).or(`resource_id.is.null,resource_id.eq.${id}`).order("on_date"),
   ]);
-  return { rules: (rules.data ?? []) as RuleRow[], exceptions: (exceptions.data ?? []) as ExceptionRow[], resourceId: (resource.data?.id as string | undefined) ?? null };
+  return { rules: (rules.data ?? []) as RuleRow[], exceptions: (exceptions.data ?? []) as ExceptionRow[], resourceId: id };
 }
 
 export async function replaceWeeklyHours(supabase: SupabaseClient, businessId: string, hours: unknown): Promise<AvailabilityResult> {
@@ -23,8 +29,9 @@ export async function replaceWeeklyHours(supabase: SupabaseClient, businessId: s
   return error ? { ok: false, code: mapError(error) } : { ok: true };
 }
 
-export async function addException(supabase: SupabaseClient, businessId: string, resourceId: string, input: ExceptionInput): Promise<AvailabilityResult> {
-  const { error } = await supabase.from("availability_exceptions").insert({ business_id: businessId, resource_id: resourceId, ...exceptionToRow(input) });
+/** A closure or special opening of the whole business (no person): it applies to everybody (T9). */
+export async function addException(supabase: SupabaseClient, businessId: string, input: ExceptionInput): Promise<AvailabilityResult> {
+  const { error } = await supabase.from("availability_exceptions").insert({ business_id: businessId, resource_id: null, ...exceptionToRow(input) });
   return error ? { ok: false, code: mapError(error) } : { ok: true };
 }
 

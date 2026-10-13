@@ -7,7 +7,9 @@ import { SettingsPage } from "@/components/settings/settings-page";
 import { requireUser } from "@/lib/auth/session";
 import { loadAvailability } from "@/modules/availability/repo";
 import { rowsToExceptions, rowsToRules, rulesToDayHours } from "@/modules/availability/schema";
+import Link from "next/link";
 import { listServices } from "@/modules/catalog/service";
+import { listTeam } from "@/modules/team/repo";
 import { listMyBusinesses } from "@/modules/tenancy/service";
 import { systemClock } from "@/platform/clock";
 
@@ -18,16 +20,24 @@ export default async function HoursPage({ searchParams }: { searchParams: Promis
   const { supabase, claims } = await requireUser();
   const business = (await listMyBusinesses(supabase))[0];
   if (!business) redirect("/onboarding");
-  const [{ rules, exceptions }, services, tz] = await Promise.all([
+  const [{ rules, exceptions, resourceId }, services, tz, team] = await Promise.all([
     loadAvailability(supabase, business.id),
     listServices(supabase, business.id),
     supabase.from("businesses").select("timezone").eq("id", business.id).single(),
+    listTeam(supabase, business.id),
   ]);
+  const activePeople = team.filter((p) => p.active);
+  const mine = team.find((p) => p.id === resourceId);
   const active = services.filter((s) => s.active);
   const wanted = (await searchParams).service;
   const picked = active.find((s) => s.id === wanted) ?? active[0];
   return (
     <SettingsPage email={String(claims.email ?? "")} title={t("hours.title")} description={t("hours.subtitle")}>
+      {activePeople.length > 1 && mine ? (
+        <p className="rounded-lg border bg-muted/40 px-4 py-3 text-sm" data-testid="hours-team-note">
+          {t("hours.teamNote", { name: mine.name })} <Link href="/settings/team" className="font-semibold text-primary underline underline-offset-2">{t("hours.teamLink")}</Link>
+        </p>
+      ) : null}
       <HoursManager initial={rulesToDayHours(rules)} exceptions={exceptions} />
       <section aria-labelledby="preview-title" className="grid gap-4">
         <div>

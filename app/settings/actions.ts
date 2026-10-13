@@ -1,13 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { hasRequiredAssurance } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { ExceptionInput, WeeklyHoursInput } from "@/modules/availability/schema";
-import { addException, loadAvailability, removeException, replaceWeeklyHours, type AvailabilityErrorCode } from "@/modules/availability/repo";
+import { addException, removeException, replaceWeeklyHours, type AvailabilityErrorCode } from "@/modules/availability/repo";
 import { BookingRulesInput } from "@/modules/tenancy/booking-rules";
 import { ServiceInput, type CatalogErrorCode } from "@/modules/catalog/schema";
 import { saveService, setServiceActive } from "@/modules/catalog/service";
+import { createStaff, setServiceStaff, setStaffHours, updateStaff } from "@/modules/team/repo";
+import { ServiceStaffInput, StaffNameInput, StaffUpdateInput, type TeamErrorCode } from "@/modules/team/schema";
 import { listMyBusinesses } from "@/modules/tenancy/service";
 
 // Owner settings actions. The tenant is the signed-in user's business (never taken from the request); RLS enforces roles in the database.
@@ -58,9 +61,7 @@ export async function addExceptionAction(raw: unknown): Promise<Ok | Fail<Availa
   if (!c.ok) return { ok: false, code: c.error };
   const parsed = ExceptionInput.safeParse(raw);
   if (!parsed.success) return { ok: false, code: "VALIDATION" };
-  const { resourceId } = await loadAvailability(c.supabase, c.businessId);
-  if (!resourceId) return { ok: false, code: "FORBIDDEN" };
-  const r = await addException(c.supabase, c.businessId, resourceId, parsed.data);
+  const r = await addException(c.supabase, c.businessId, parsed.data);
   if (r.ok) revalidatePath("/settings/hours");
   return r;
 }
@@ -89,4 +90,48 @@ export async function saveBookingRulesAction(raw: unknown): Promise<Ok | Fail<"N
   if (!data?.length) return { ok: false, code: "FORBIDDEN" }; // RLS filtered the update: not an admin
   revalidatePath("/settings/booking");
   return { ok: true };
+}
+
+// ---------------------------------------------------------------- team (stage 16). Admins and owners only: the audited RPCs and RLS are the gate, these report their refusal.
+type TeamFail = Fail<TeamErrorCode>;
+
+export async function createStaffAction(raw: unknown): Promise<{ ok: true; id: string } | TeamFail> {
+  const c = await context();
+  if (!c.ok) return { ok: false, code: c.error };
+  const name = StaffNameInput.safeParse(raw);
+  if (!name.success) return { ok: false, code: "VALIDATION" };
+  const r = await createStaff(c.supabase, c.businessId, name.data);
+  if (r.ok) revalidatePath("/settings/team");
+  return r;
+}
+
+export async function updateStaffAction(raw: unknown): Promise<{ ok: true; futureAppointments: number } | TeamFail> {
+  const c = await context();
+  if (!c.ok) return { ok: false, code: c.error };
+  const p = StaffUpdateInput.safeParse(raw);
+  if (!p.success) return { ok: false, code: "VALIDATION" };
+  const r = await updateStaff(c.supabase, p.data.id, { name: p.data.name, active: p.data.active });
+  if (r.ok) revalidatePath("/settings/team");
+  return r;
+}
+
+export async function setServiceStaffAction(raw: unknown): Promise<Ok | TeamFail> {
+  const c = await context();
+  if (!c.ok) return { ok: false, code: c.error };
+  const p = ServiceStaffInput.safeParse(raw);
+  if (!p.success) return { ok: false, code: "VALIDATION" };
+  const r = await setServiceStaff(c.supabase, p.data.serviceId, p.data.resourceIds);
+  if (r.ok) revalidatePath("/settings/team");
+  return r;
+}
+
+export async function saveStaffHoursAction(resourceId: unknown, raw: unknown): Promise<Ok | TeamFail> {
+  const c = await context();
+  if (!c.ok) return { ok: false, code: c.error };
+  const id = z.uuid().safeParse(resourceId);
+  const hours = WeeklyHoursInput.safeParse(raw);
+  if (!id.success || !hours.success) return { ok: false, code: "VALIDATION" };
+  const r = await setStaffHours(c.supabase, id.data, hours.data);
+  if (r.ok) revalidatePath("/settings/team");
+  return r;
 }
