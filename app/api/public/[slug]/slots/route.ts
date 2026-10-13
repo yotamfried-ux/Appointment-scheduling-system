@@ -8,5 +8,5 @@ import { computeSlots } from "@/modules/booking/public/service";
 export const GET = api<{ slug: string }>(async (req, { slug }) => {
   await enforce([{ scope: "read", value: `${clientIp(req)}|${slug}`, windowSeconds: 60, max: limitFromHeader(req, 240) }]);
   const q = queryOf(SlotsQuery, req);
-  return computeSlots(await catalogOr404(slug), q.service, q.date, q.selected);
+  return computeSlots(await catalogOr404(slug), q.service, q.date, q.selected, q.person);
 }, { lab: false });

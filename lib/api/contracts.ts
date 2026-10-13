@@ -19,6 +19,8 @@ export const ServiceDto = z.object({
   priceNis: z.number().min(0),
   priceMode: z.enum(["fixed", "from", "free", "hidden"]).default("fixed"),
   group: z.boolean(),
+  /** Who can do it (null = everybody). Only meaningful when the business has two or more people. */
+  personIds: z.array(z.string()).nullable().default(null),
 });
 
 export const IntakeFieldDto = z.object({
@@ -43,17 +45,20 @@ export const BusinessDto = z.object({
   acceptingBookings: z.boolean().optional(),
 });
 
-export const ServicesResponse = z.object({ kind: KindSchema, business: BusinessDto, services: z.array(ServiceDto) });
+/** Empty for a one-person business: the page shows no "with whom?" step. */
+export const TeamMemberDto = z.object({ id: z.string(), name: z.string() });
+export const ServicesResponse = z.object({ kind: KindSchema, business: BusinessDto, services: z.array(ServiceDto), team: z.array(TeamMemberDto).default([]) });
 
 export const AvailabilityQuery = z.object({
   service: z.string().min(1),
   from: IsoDate,
   days: z.coerce.number().int().min(1).max(31),
+  person: z.string().min(1).optional(),
 });
 export const DayAvailabilityDto = z.object({ date: IsoDate, closed: z.boolean(), freeSlots: z.number().int().nonnegative() });
 export const AvailabilityResponse = z.object({ days: z.array(DayAvailabilityDto) });
 
-export const SlotsQuery = z.object({ service: z.string().min(1), date: IsoDate, selected: HHmm.optional() });
+export const SlotsQuery = z.object({ service: z.string().min(1), date: IsoDate, selected: HHmm.optional(), person: z.string().min(1).optional() });
 export const SegmentDto = z.object({
   start: z.number().int(),
   end: z.number().int(),
@@ -72,6 +77,8 @@ export const CreateBookingRequest = z
     serviceId: z.string().min(1),
     date: IsoDate,
     time: HHmm,
+    /** The person the customer named; absent = "whoever is free". */
+    personId: z.string().min(1).optional(),
     location: LocationSchema.default("business"),
     customer: z
       .object({
@@ -112,6 +119,8 @@ export const BookingDto = z.object({
   time: HHmm,
   endTime: HHmm,
   requiresApproval: z.boolean(),
+  /** Only in a business with two or more people. */
+  personName: z.string().optional(),
   /** Public bookings only: the customer's private management link (shown on screen; e-mail comes with notifications). */
   manageUrl: z.string().optional(),
 });

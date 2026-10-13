@@ -7,7 +7,8 @@ import * as C from "@/lib/api/contracts";
 import { fail } from "@/lib/api/http";
 import { normalizePhone } from "@/lib/phone";
 import { segmentsFromSlots } from "@/modules/availability/segments";
-import { addDaysIso, availabilityForRange, slotsForDay, windowsForDate, type BusyInterval, type DayException, type WeeklyRule } from "@/modules/availability/slots";
+import { addDaysIso } from "@/modules/availability/slots";
+import { eligiblePeople, orderCandidates, peopleOpenAt, teamAvailabilityForRange, teamSlotsForDay, teamWindowsForDate, type TeamBusy, type TeamException, type TeamPerson, type TeamRule } from "@/modules/availability/team";
 import { signToken, verifyToken } from "@/modules/booking/token";
 import { BUSINESS_KINDS, KIND_IDS, type BusinessKindId } from "@/modules/tenancy/business-kind";
 import { systemDb } from "@/platform/system-db";
@@ -20,9 +21,10 @@ const CatalogRpc = z.object({
     id: z.uuid(), slug: z.string(), name: z.string(), kind: z.enum(KIND_IDS), timezone: z.string(), address: z.string(),
     requiresApproval: z.boolean(), cancelUntilHours: z.number(), minNoticeMinutes: z.number(), horizonDays: z.number(), waitlistEnabled: z.boolean(), acceptingBookings: z.boolean(),
   }),
-  services: z.array(z.object({ id: z.uuid(), name: z.string(), description: z.string(), durationMinutes: z.number(), bufferMinutes: z.number(), priceCents: z.number(), priceMode: z.enum(["fixed", "from", "free", "hidden"]).default("fixed"), requiresApproval: z.boolean().nullable() })),
-  rules: z.array(z.object({ weekday: z.number(), startMinute: z.number(), endMinute: z.number() })),
-  exceptions: z.array(z.object({ date: z.string(), kind: z.enum(["closed", "open"]), startMinute: z.number().nullable(), endMinute: z.number().nullable() })),
+  services: z.array(z.object({ id: z.uuid(), name: z.string(), description: z.string(), durationMinutes: z.number(), bufferMinutes: z.number(), priceCents: z.number(), priceMode: z.enum(["fixed", "from", "free", "hidden"]).default("fixed"), requiresApproval: z.boolean().nullable(), staffIds: z.array(z.uuid()).nullable().default(null) })),
+  team: z.array(z.object({ id: z.uuid(), name: z.string() })).min(1),
+  rules: z.array(z.object({ resourceId: z.uuid(), weekday: z.number(), startMinute: z.number(), endMinute: z.number() })),
+  exceptions: z.array(z.object({ resourceId: z.uuid().nullable(), date: z.string(), kind: z.enum(["closed", "open"]), startMinute: z.number().nullable(), endMinute: z.number().nullable() })),
 });
 export type Catalog = z.infer<typeof CatalogRpc>;
 export type Resolved = { kind: "ok"; catalog: Catalog } | { kind: "redirect"; slug: string } | { kind: "not_found" };
@@ -38,8 +40,10 @@ export async function resolveCatalog(rawSlug: string): Promise<Resolved> {
 }
 
 const kindOf = (c: Catalog): BusinessKindId => c.business.kind;
-const rulesOf = (c: Catalog): WeeklyRule[] => c.rules;
-const exceptionsOf = (c: Catalog): DayException[] => c.exceptions;
+const rulesOf = (c: Catalog): TeamRule[] => c.rules;
+const exceptionsOf = (c: Catalog): TeamException[] => c.exceptions;
+/** Who may do this service, optionally narrowed to the person the customer named (T2/T3). */
+const peopleFor = (c: Catalog, svcId: string, personId?: string | null): TeamPerson[] => eligiblePeople(c.team, findService(c, svcId)?.staffIds ?? null, personId);
 
 export function toServicesResponse(c: Catalog): z.infer<typeof C.ServicesResponse> {
   const k = BUSINESS_KINDS[kindOf(c)];
@@ -56,36 +60,37 @@ export function toServicesResponse(c: Catalog): z.infer<typeof C.ServicesRespons
       waitlistEnabled: c.business.waitlistEnabled,
       acceptingBookings: c.business.acceptingBookings,
     },
-    services: c.services.map((s) => ({ id: s.id, name: s.name, description: s.description, durationMinutes: s.durationMinutes, priceNis: s.priceCents / 100, priceMode: s.priceMode, group: false })),
+    services: c.services.map((s) => ({ id: s.id, name: s.name, description: s.description, durationMinutes: s.durationMinutes, priceNis: s.priceCents / 100, priceMode: s.priceMode, group: false, personIds: s.staffIds })),
+    team: c.team.length > 1 ? c.team : [],
   };
 }
 
 const findService = (c: Catalog, id: string) => c.services.find((s) => s.id === id);
 const notFoundService = () => fail("VALIDATION_FAILED", "השירות לא נמצא.", [{ field: "service", message: "השירות לא נמצא." }]);
 
-async function busyBetween(c: Catalog, fromDate: string, days: number): Promise<BusyInterval[]> {
+async function busyBetween(c: Catalog, fromDate: string, days: number): Promise<TeamBusy[]> {
   const tz = c.business.timezone;
   const from = new Date(zonedTimeToUtc(fromDate, 0, tz).getTime() - 86_400_000);
   const to = new Date(zonedTimeToUtc(addDaysIso(fromDate, days), 0, tz).getTime() + 86_400_000);
   const { data, error } = await systemDb().rpc("public_busy", { p_business: c.business.id, p_from: from.toISOString(), p_to: to.toISOString() });
   if (error) throw new Error("busy unavailable");
-  return ((data ?? []) as { starts_at: string; blocked_until: string }[]).map((r) => ({ start: new Date(r.starts_at), end: new Date(r.blocked_until) }));
+  return ((data ?? []) as { starts_at: string; blocked_until: string; resource_id: string }[]).map((r) => ({ start: new Date(r.starts_at), end: new Date(r.blocked_until), resourceId: r.resource_id }));
 }
 
 const today = (c: Catalog) => zonedParts(systemClock.now(), c.business.timezone).date;
 const withinHorizon = (c: Catalog, date: string) => date >= today(c) && date <= addDaysIso(today(c), c.business.horizonDays);
 
-function engine(c: Catalog, svcId: string, busy: BusyInterval[]) {
+function engine(c: Catalog, svcId: string, busy: TeamBusy[], personId?: string | null) {
   const s = findService(c, svcId);
   if (!s) throw notFoundService();
-  return { s, base: { timeZone: c.business.timezone, rules: rulesOf(c), exceptions: exceptionsOf(c), durationMinutes: s.durationMinutes, bufferMinutes: s.bufferMinutes, stepMinutes: 30, busy, now: systemClock.now(), minNoticeMinutes: c.business.minNoticeMinutes } };
+  return { s, base: { people: peopleFor(c, svcId, personId), timeZone: c.business.timezone, rules: rulesOf(c), exceptions: exceptionsOf(c), durationMinutes: s.durationMinutes, bufferMinutes: s.bufferMinutes, stepMinutes: 30, busy, now: systemClock.now(), minNoticeMinutes: c.business.minNoticeMinutes } };
 }
 
-export async function computeSlots(c: Catalog, svcId: string, date: string, selected?: string): Promise<z.infer<typeof C.SlotsResponse>> {
+export async function computeSlots(c: Catalog, svcId: string, date: string, selected?: string, personId?: string): Promise<z.infer<typeof C.SlotsResponse>> {
   if (!c.business.acceptingBookings) throw fail("BOOKINGS_CLOSED", "העסק אינו מקבל כרגע תורים חדשים.");
-  const { s, base } = engine(c, svcId, await busyBetween(c, date, 1));
-  const windows = windowsForDate(date, rulesOf(c), exceptionsOf(c));
-  const slots = withinHorizon(c, date) ? slotsForDay({ ...base, date }) : [];
+  const { s, base } = engine(c, svcId, await busyBetween(c, date, 1), personId);
+  const windows = teamWindowsForDate(date, base.people, rulesOf(c), exceptionsOf(c));
+  const slots = withinHorizon(c, date) ? teamSlotsForDay({ ...base, date }) : [];
   return {
     date,
     closed: windows.length === 0,
@@ -95,10 +100,10 @@ export async function computeSlots(c: Catalog, svcId: string, date: string, sele
   };
 }
 
-export async function computeAvailability(c: Catalog, svcId: string, from: string, days: number): Promise<z.infer<typeof C.AvailabilityResponse>> {
+export async function computeAvailability(c: Catalog, svcId: string, from: string, days: number, personId?: string): Promise<z.infer<typeof C.AvailabilityResponse>> {
   if (!c.business.acceptingBookings) throw fail("BOOKINGS_CLOSED", "העסק אינו מקבל כרגע תורים חדשים.");
-  const { base } = engine(c, svcId, await busyBetween(c, from, days));
-  const r = availabilityForRange({ ...base, from, days }).map((d) => ({ date: d.date, closed: d.closed, freeSlots: withinHorizon(c, d.date) ? d.freeSlots : 0 }));
+  const { base } = engine(c, svcId, await busyBetween(c, from, days), personId);
+  const r = teamAvailabilityForRange({ ...base, from, days }).map((d) => ({ date: d.date, closed: d.closed, freeSlots: withinHorizon(c, d.date) ? d.freeSlots : 0 }));
   return { days: r };
 }
 
@@ -128,12 +133,18 @@ export async function createBooking(c: Catalog, input: C.CreateBookingInput, ide
   const svc = findService(c, input.serviceId);
   if (!svc) throw fail("SERVICE_UNAVAILABLE", "השירות כבר אינו זמין. בחרו שירות אחר.");
 
-  // Hours (TS): the requested start must be a slot the engine could ever offer on that date (ignoring who is busy).
-  const structural = slotsForDay({ date: input.date, timeZone: c.business.timezone, rules: rulesOf(c), exceptions: exceptionsOf(c), durationMinutes: svc.durationMinutes, bufferMinutes: svc.bufferMinutes, stepMinutes: 30, now: new Date(0), minNoticeMinutes: 0 });
-  const wanted = structural.find((s) => s.local === input.time);
+  // Hours (TS): the requested start must be a time at least one eligible person works (ignoring who is busy). The people open then are the candidates,
+  // ordered "fewest appointments that day, then position" (T5); a named person is the only candidate and is remembered as chosen (T6). The database tries them in order.
+  const people = peopleFor(c, svc.id, input.personId ?? null);
+  if (input.personId && people.length === 0) throw fail("INVALID_SLOT", "השעה אינה זמינה להזמנה.");
+  const open = peopleOpenAt({ date: input.date, time: input.time, timeZone: c.business.timezone, durationMinutes: svc.durationMinutes, bufferMinutes: svc.bufferMinutes, stepMinutes: 30, people, rules: rulesOf(c), exceptions: exceptionsOf(c) });
+  const wanted = teamSlotsForDay({ date: input.date, timeZone: c.business.timezone, people: open, rules: rulesOf(c), exceptions: exceptionsOf(c), busy: [], durationMinutes: svc.durationMinutes, bufferMinutes: svc.bufferMinutes, stepMinutes: 30, now: new Date(0), minNoticeMinutes: 0 }).find((s) => s.local === input.time);
   if (!wanted || !withinHorizon(c, input.date)) throw fail("INVALID_SLOT", "השעה אינה זמינה להזמנה.");
+  const dayCounts = new Map<string, number>();
+  for (const b of await busyBetween(c, input.date, 1)) if (zonedParts(b.start, c.business.timezone).date === input.date) dayCounts.set(b.resourceId, (dayCounts.get(b.resourceId) ?? 0) + 1);
+  const candidates = orderCandidates(c.team, wanted.freeIds, (id) => dayCounts.get(id) ?? 0);
 
-  const { data, error } = await systemDb().rpc("public_book", {
+  const { data, error } = await systemDb().rpc("public_book_team", {
     p_business: c.business.id,
     p_service: svc.id,
     p_starts_at: wanted.startUtc,
@@ -143,10 +154,12 @@ export async function createBooking(c: Catalog, input: C.CreateBookingInput, ide
     p_location: input.location,
     p_intake: input.intake,
     p_idem_key: idemKey,
-    p_request_hash: hashOf({ s: svc.id, d: input.date, t: input.time, l: input.location, c: [input.customer.fullName.trim(), phone, input.customer.email?.trim() ?? ""], i: input.intake }),
+    p_request_hash: hashOf({ s: svc.id, d: input.date, t: input.time, l: input.location, c: [input.customer.fullName.trim(), phone, input.customer.email?.trim() ?? ""], i: input.intake, p: input.personId ?? null }),
+    p_resources: candidates,
+    p_chosen: Boolean(input.personId),
   });
   if (error) throw mapBookingError(error);
-  const r = data as { replay: boolean; id: string; reference: string; status: "confirmed" | "pending"; startsAt: string; endsAt: string };
+  const r = data as { replay: boolean; id: string; reference: string; status: "confirmed" | "pending"; startsAt: string; endsAt: string; resourceId?: string };
   const start = new Date(r.startsAt);
   const manage = signToken({ appointmentId: r.id, scope: "view", ttlSeconds: Math.max(3600, Math.floor((start.getTime() - Date.now()) / 1000) + 7 * 86_400) });
   const end = zonedParts(new Date(r.endsAt), c.business.timezone).minutes;
@@ -161,6 +174,7 @@ export async function createBooking(c: Catalog, input: C.CreateBookingInput, ide
       time: input.time,
       endTime: `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`,
       requiresApproval: r.status === "pending",
+      personName: c.team.length > 1 ? c.team.find((p) => p.id === r.resourceId)?.name : undefined,
       manageUrl: `/booking/${manage}`,
     },
   };
@@ -249,15 +263,17 @@ export async function rescheduleWithToken(rescheduleToken: string, date: string,
   const db = systemDb();
   const { data: view } = await db.rpc("public_get_appointment", { p_id: v.payload.a });
   if (!view) return "invalid";
-  const a = view as { serviceId: string; businessSlug: string };
+  const a = view as { serviceId: string; businessSlug: string; resourceId: string; resourceChosen: boolean };
   const res = await resolveCatalog(a.businessSlug);
   if (res.kind !== "ok") return "invalid";
   const c = res.catalog;
   const changing = Boolean(newServiceId && newServiceId !== a.serviceId); // RSC-03: the database decides whether the business allows it
   const svc = findService(c, changing ? newServiceId! : a.serviceId);
   if (!svc) return "unavailable";
-  const structural = slotsForDay({ date, timeZone: c.business.timezone, rules: rulesOf(c), exceptions: exceptionsOf(c), durationMinutes: svc.durationMinutes, bufferMinutes: svc.bufferMinutes, stepMinutes: 30, now: new Date(0), minNoticeMinutes: 0 });
-  const wanted = structural.find((s) => s.local === time);
+  // T6: a customer who named the person keeps that person; otherwise anyone who can do the service and works then
+  const people = peopleFor(c, svc.id, a.resourceChosen ? a.resourceId : null);
+  const open = peopleOpenAt({ date, time, timeZone: c.business.timezone, durationMinutes: svc.durationMinutes, bufferMinutes: svc.bufferMinutes, stepMinutes: 30, people, rules: rulesOf(c), exceptions: exceptionsOf(c) });
+  const wanted = teamSlotsForDay({ date, timeZone: c.business.timezone, people: open, rules: rulesOf(c), exceptions: exceptionsOf(c), busy: [], durationMinutes: svc.durationMinutes, bufferMinutes: svc.bufferMinutes, stepMinutes: 30, now: new Date(0), minNoticeMinutes: 0 }).find((s) => s.local === time);
   if (!wanted || !withinHorizon(c, date)) return "invalid_slot";
   const first = await db.rpc("public_consume_token", { p_jti: v.payload.j, p_exp: new Date(v.payload.e * 1000).toISOString() }); // single use (SEC-06)
   if (first.error || first.data !== true) return "invalid";

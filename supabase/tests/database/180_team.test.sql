@@ -244,6 +244,13 @@ select is((select (public.waitlist_accept((select id from public.waitlist_offers
 select pg_temp.as_system();
 select is((select resource_id from public.appointments a join public.customers c on c.id = a.customer_id where c.phone = '+972508000051'), (select noam from team), 'and is booked on the person whose slot it was');
 
+-- the customer's private page knows whose appointment it is (T11: shown only when there are two or more people)
+select pg_temp.as_service();
+select is((public.public_get_appointment((select id from public.appointments where reference is not null and resource_id = (select noam from team) and status = 'confirmed' order by starts_at limit 1)) ->> 'personName'), 'נועם', 'the private page says whose appointment it is');
+select cmp_ok((public.public_get_appointment((select id from public.appointments where resource_id = (select noam from team) order by starts_at limit 1)) ->> 'teamSize')::int, '>=', 2, 'and how many people the business has (the page shows the name only from two)');
+select is((public.public_get_appointment((select id from public.appointments where business_id = (select b from ids) limit 1)) ->> 'teamSize')::int, 1, 'a one-person business reports teamSize 1');
+select pg_temp.as_system();
+
 -- ================================================================ TEAM-13: isolation and guardrails
 select pg_temp.as_user('00000000-0000-0000-0000-00000000c1a1');
 select throws_ok($$ select public.create_manual_appointment_team((select a from ids), (select cut from ids), (select day from ids) + interval '20 hours', 'ידני', '+972508000060', null, false, (select pb from ids)) $$, 'P0001', 'resource_mismatch', 'manual booking for another business'' person is refused');
