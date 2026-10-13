@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { eligiblePeople, orderCandidates, peopleOpenAt, teamAvailabilityForRange, teamSlotsForDay, teamWindowsForDate, type TeamException, type TeamPerson, type TeamRule } from "@/modules/availability/team";
+import { eligiblePeople, insideHours, orderCandidates, peopleOpenAt, teamAvailabilityForRange, teamSlotsForDay, teamWindowsForDate, type TeamException, type TeamPerson, type TeamRule } from "@/modules/availability/team";
 import { slotsForDay } from "@/modules/availability/slots";
 
 const TZ = "Asia/Jerusalem";
@@ -121,5 +121,19 @@ describe("peopleOpenAt", () => {
     expect(peopleOpenAt({ ...input, people: team, rules, exceptions: [], time: "10:00" }).map((p) => p.id)).toEqual(["a", "b"]);
     expect(peopleOpenAt({ ...input, people: team, rules, exceptions: [], time: "09:00" }).map((p) => p.id)).toEqual(["a", "c"]);
     expect(peopleOpenAt({ ...input, people: team, rules, exceptions: [], time: "13:30" }).map((p) => p.id)).toEqual([]);
+  });
+});
+
+describe("insideHours (owner bookings)", () => {
+  const rules = [rule("a", H(9), H(12)), rule("b", H(13), H(17))];
+  const args = { date: DATE, durationMinutes: 60, rules, exceptions: [] as TeamException[] };
+  it("counts the people given: a visit in b's hours is inside for b (or anyone) but not for a alone", () => {
+    expect(insideHours({ ...args, startMinute: H(14), people: [B] })).toBe(true);
+    expect(insideHours({ ...args, startMinute: H(14), people: team })).toBe(true);
+    expect(insideHours({ ...args, startMinute: H(14), people: [A] })).toBe(false); // negative control
+  });
+  it("the whole visit must fit, and a closure removes it", () => {
+    expect(insideHours({ ...args, startMinute: H(11, 30), people: [A] })).toBe(false);
+    expect(insideHours({ ...args, startMinute: H(10), people: [A], exceptions: [{ resourceId: null, date: DATE, kind: "closed" }] })).toBe(false);
   });
 });

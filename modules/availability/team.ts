@@ -82,3 +82,8 @@ export function peopleOpenAt(input: Omit<Common, "now"> & { date: string; time: 
   );
 }
 
+
+/** Is the whole visit inside somebody's opening hours that day? (owner bookings: a flag only, the owner may book anywhere; with a named person only that person counts.) */
+export function insideHours(input: { date: string; startMinute: number; durationMinutes: number; people: TeamPerson[]; rules: TeamRule[]; exceptions: TeamException[] }): boolean {
+  return teamWindowsForDate(input.date, input.people, input.rules, input.exceptions).some((w) => input.startMinute >= w.from && input.startMinute + input.durationMinutes <= w.to);
+}

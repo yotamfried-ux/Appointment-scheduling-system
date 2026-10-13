@@ -18,6 +18,9 @@ export interface LabAppointment {
   phone?: string;
   manual?: boolean;
   outOfHours?: boolean;
+  /** Real owner agenda, businesses with a team. */
+  personId?: string;
+  personName?: string;
 }
 
 const H = (h: number, m = 0) => h * 60 + m;
@@ -123,6 +126,18 @@ export function statsIn(appts: LabAppointment[], windows: Window[]) {
     cancellationRequests: active.filter((a) => a.status === "cancellationRequested").length,
     occupancyPct: capacity === 0 ? 0 : Math.round((booked / capacity) * 100),
   };
+}
+
+/** Occupancy of a team: every person's booked minutes inside their own hours over everybody's open minutes (never above 100% because two people work at once). */
+export function teamOccupancyPct(people: { appts: LabAppointment[]; windows: Window[] }[]): number {
+  let capacity = 0;
+  let booked = 0;
+  for (const p of people) {
+    const active = p.appts.filter(isBusy);
+    capacity += p.windows.reduce((sum, w) => sum + (w.to - w.from), 0);
+    booked += p.windows.reduce((sum, w) => sum + active.reduce((acc, a) => acc + Math.max(0, Math.min(a.end, w.to) - Math.max(a.start, w.from)), 0), 0);
+  }
+  return capacity === 0 ? 0 : Math.round((booked / capacity) * 100);
 }
 
 export const todayStats = (appts: LabAppointment[], from: number, to: number) => statsIn(appts, [{ from, to }]);

@@ -19,7 +19,7 @@ import { dismissAllToasts, toast } from "@/components/ui/toast";
 import { ApiClientError, ownerApi } from "@/lib/api/client";
 import type * as C from "@/lib/api/contracts";
 import { formatDayLabel } from "@/lib/lab/booking-data";
-import { dashboardReducer, fmt, gapsIn, ribbonIn, statsIn, type LabAppointment } from "@/lib/lab/dashboard-data";
+import { dashboardReducer, fmt, gapsIn, ribbonIn, statsIn, teamOccupancyPct, type LabAppointment } from "@/lib/lab/dashboard-data";
 import { addDaysIso } from "@/modules/availability/slots";
 
 type Agenda = z.infer<typeof C.OwnerAgendaResponse>;
@@ -39,13 +39,14 @@ export function OwnerAgenda() {
   const [dialog, setDialog] = useState<{ open: boolean; time: string }>({ open: false, time: "" });
   const [offering, setOffering] = useState<WaitlistEntry | null>(null);
   const [moving, setMoving] = useState<LabAppointment | null>(null);
+  const [person, setPerson] = useState<string | undefined>(undefined); // stage 16: undefined = everyone
   const [pollMs, setPollMs] = useState(10_000);
   const inFlight = useRef(false); // synchronous guard: React state is too late for a fast double click
 
   const refresh = useCallback(
     async (d: string | undefined, signal?: AbortSignal) => {
       try {
-        const agenda = await ownerApi.agenda(d, signal);
+        const agenda = await ownerApi.agenda(d, signal, person);
         dispatch({ type: "replace", appointments: agenda.appointments.map(toLab) });
         setInbox(agenda.inbox.map(toLab));
         setLoad({ status: "ready", agenda });
@@ -55,7 +56,7 @@ export function OwnerAgenda() {
         setLoad((prev) => (prev.status === "ready" ? prev : { status: "error" }));
       }
     },
-    [router],
+    [router, person],
   );
   useEffect(() => {
     const ctl = new AbortController();
@@ -156,10 +157,16 @@ export function OwnerAgenda() {
   if (load.status === "loading") return <p role="status" aria-busy="true" className="py-10 text-center text-muted-foreground">{t("loading")}</p>;
 
   const { agenda } = load;
+  const team = agenda.people.length > 1;
+  const filtering = team && agenda.person !== null;
   const windows = agenda.windows;
   const appts = state.appointments;
   const stats = statsIn(appts, windows);
-  const freeMinutes = gapsIn(appts, windows, 30).reduce((s, g) => s + (g.end - g.start), 0);
+  // One calendar: the gaps of its hours. A team: the gaps of every person's own hours, summed (someone free is not "the business is free").
+  const shownPeople = agenda.people.filter((p) => !filtering || p.id === agenda.person);
+  const freeMinutes = team
+    ? shownPeople.reduce((sum, p) => sum + gapsIn(appts.filter((a) => a.personId === p.id), p.windows, 30).reduce((s, g) => s + (g.end - g.start), 0), 0)
+    : gapsIn(appts, windows, 30).reduce((s, g) => s + (g.end - g.start), 0);
   const isPast = agenda.date < agenda.today;
   const started = (a: LabAppointment) => isPast || (agenda.now !== null && a.start <= agenda.now);
   const from = windows[0]?.from ?? 0;
@@ -219,11 +226,34 @@ export function OwnerAgenda() {
         </p>
       ) : null}
 
+      {agenda.orphans.total > 0 ? (
+        <section role="status" className="grid gap-2 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm text-warning-soft-foreground" data-testid="orphans">
+          <p className="font-medium">{t("team.orphans", { count: agenda.orphans.total })}</p>
+          <ul className="grid gap-1">
+            {agenda.orphans.items.map((o) => (
+              <li key={o.id} className="flex flex-wrap items-center justify-between gap-2">
+                <span><bdi>{o.date}</bdi> · <bdi>{fmt(o.start)}</bdi> · {o.customer} · {o.personName}</span>
+                <Button size="sm" variant="outline" onClick={() => { setPerson(undefined); go(o.date); }} data-testid={`orphan-open-${o.id}`}>{t("team.openDay")}</Button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {team ? (
+        <div role="group" aria-label={t("team.filter")} className="flex flex-wrap gap-2" data-testid="person-filter">
+          <Button size="sm" variant={agenda.person === null ? "default" : "outline"} aria-pressed={agenda.person === null} onClick={() => setPerson(undefined)} data-testid="filter-all">{t("team.everyone")}</Button>
+          {agenda.people.map((p) => (
+            <Button key={p.id} size="sm" variant={agenda.person === p.id ? "default" : "outline"} aria-pressed={agenda.person === p.id} onClick={() => setPerson(p.id)} data-testid={`filter-${p.id}`}>{p.name}</Button>
+          ))}
+        </div>
+      ) : null}
+
       <StatStrip
         stats={[
           { label: t("stats.appointments"), value: String(stats.total), hint: t("stats.confirmedHint", { count: appts.filter((a) => a.status === "confirmed" || a.status === "completed").length }) },
           { label: t("stats.pending"), value: String(inbox.length), hint: t("stats.pendingHint"), tone: inbox.length > 0 ? "attention" : "default" },
-          { label: t("stats.occupancy"), value: `${stats.occupancyPct}%`, hint: t("stats.occupancyHint") },
+          { label: t("stats.occupancy"), value: `${team ? teamOccupancyPct(shownPeople.map((p) => ({ appts: appts.filter((a) => a.personId === p.id), windows: p.windows }))) : stats.occupancyPct}%`, hint: t("stats.occupancyHint") },
           { label: t("stats.free"), value: `${Math.floor(freeMinutes / 60)}:${String(freeMinutes % 60).padStart(2, "0")}`, hint: t("stats.freeHint") },
         ]}
       />
@@ -243,7 +273,7 @@ export function OwnerAgenda() {
         <section aria-labelledby="schedule-title" className="grid gap-3">
           <h3 id="schedule-title" className="text-base font-semibold">{t("today.schedule")}</h3>
           {appts.some((a) => a.status !== "cancelled") || windows.length ? (
-            <DaySchedule appointments={appts} windows={windows} now={agenda.now} renderActions={rowActions} onAddInGap={(start) => { dismissAllToasts(); setDialog({ open: true, time: fmt(start) }); }} />
+            <DaySchedule appointments={appts} windows={windows} now={agenda.now} renderActions={rowActions} showPerson={team} showGaps={!team || filtering} onAddInGap={(start) => { dismissAllToasts(); setDialog({ open: true, time: fmt(start) }); }} />
           ) : (
             <p className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground" data-testid="no-appointments">{t("agenda.noAppointments")}</p>
           )}
@@ -262,7 +292,7 @@ export function OwnerAgenda() {
         </div>
       </div>
 
-      {moving ? <MoveDialog id={moving.id} customer={moving.customer} date={agenda.date} start={moving.start} onClose={() => setMoving(null)} onDone={(d) => (d === agenda.date ? void reload() : go(d))} /> : null}
+      {moving ? <MoveDialog id={moving.id} customer={moving.customer} date={agenda.date} start={moving.start} people={agenda.people} personId={moving.personId} onClose={() => setMoving(null)} onDone={(d) => (d === agenda.date ? void reload() : go(d))} /> : null}
       {offering ? <OfferDialog entry={offering} onClose={() => setOffering(null)} onDone={() => void reload()} /> : null}
 
       {dialog.open ? (
@@ -270,6 +300,8 @@ export function OwnerAgenda() {
           open
           onOpenChange={(o) => setDialog((d) => ({ ...d, open: o }))}
           services={agenda.services}
+          people={agenda.people}
+          defaultPerson={agenda.person ?? ""}
           date={agenda.date}
           time={dialog.time}
           onCreated={(d) => (d === agenda.date ? void reload() : go(d))}

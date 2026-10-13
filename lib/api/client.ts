@@ -93,7 +93,7 @@ export function resolveSession(fromQuery?: string | null): string {
 /** Owner API (cookie session, same-origin). The business is derived from the session on the server — it is never sent. */
 const OWNER: ClientOptions = { kind: "other", session: "owner", base: "/api/owner" };
 export const ownerApi = {
-  agenda: (date?: string, signal?: AbortSignal) => call(C.OwnerAgendaResponse, `appointments${date ? `?${qs({ date })}` : ""}`, { ...OWNER, signal }).then((r) => r.data),
+  agenda: (date?: string, signal?: AbortSignal, person?: string) => call(C.OwnerAgendaResponse, `appointments${date || person ? `?${qs({ date, person })}` : ""}`, { ...OWNER, signal }).then((r) => r.data),
   transition: (id: string, action: z.infer<typeof C.OwnerAction>) =>
     call(C.OwnerTransitionResponse, `appointments/${encodeURIComponent(id)}/transition`, OWNER, { method: "POST", body: { action } }).then((r) => r.data),
   version: (signal?: AbortSignal) => call(C.OwnerVersionResponse, "version", { ...OWNER, signal }).then((r) => r.data.version),

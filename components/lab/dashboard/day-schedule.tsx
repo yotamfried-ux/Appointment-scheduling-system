@@ -18,11 +18,11 @@ const STATUS_MAP: Record<LabAppointment["status"], { badge: AppointmentStatus; k
 
 type Row = { kind: "appt"; start: number; a: LabAppointment } | { kind: "gap"; start: number; end: number };
 
-export function DaySchedule({ appointments, windows, now, onAddInGap, renderActions }: { appointments: LabAppointment[]; windows: Window[]; now: number | null; onAddInGap: (start: number) => void; renderActions?: (a: LabAppointment) => React.ReactNode }) {
+export function DaySchedule({ appointments, windows, now, onAddInGap, renderActions, showPerson = false, showGaps = true }: { appointments: LabAppointment[]; windows: Window[]; now: number | null; onAddInGap: (start: number) => void; renderActions?: (a: LabAppointment) => React.ReactNode; showPerson?: boolean; showGaps?: boolean }) {
   const t = useTranslations();
   const rows: Row[] = [
     ...appointments.filter((a) => a.status !== "cancelled").map((a): Row => ({ kind: "appt", start: a.start, a })),
-    ...gapsIn(appointments, windows, 30).map((g): Row => ({ kind: "gap", start: g.start, end: g.end })),
+    ...(showGaps ? gapsIn(appointments, windows, 30) : []).map((g): Row => ({ kind: "gap", start: g.start, end: g.end })),
   ].sort((x, y) => x.start - y.start);
 
   return (
@@ -42,6 +42,7 @@ export function DaySchedule({ appointments, windows, now, onAddInGap, renderActi
                 ) : null}
               </p>
               <p className="truncate text-sm text-muted-foreground">
+                {showPerson && r.a.personName ? <span data-testid={`person-of-${r.a.id}`} className="font-medium text-foreground">{r.a.personName} · </span> : null}
                 {r.a.service}
                 {r.a.manual ? <> · {t("owner.agenda.manualTag")}</> : null}
                 {r.a.outOfHours ? <> · <span className="font-medium text-warning-soft-foreground">{t("owner.agenda.outOfHoursTag")}</span></> : null}

@@ -163,6 +163,9 @@ export const OwnerAppointmentDto = z.object({
   manual: z.boolean(),
   outOfHours: z.boolean(),
   note: z.string().optional(),
+  /** Whose calendar the appointment is in (stage 16). */
+  personId: z.string(),
+  personName: z.string(),
 });
 export const OwnerWaitlistEntryDto = z.object({
   id: z.string(),
@@ -194,6 +197,11 @@ export const OwnerAgendaResponse = z.object({
   version: z.string(),
   services: z.array(z.object({ id: z.string(), name: z.string(), durationMinutes: z.number().int().positive() })),
   business: z.object({ name: z.string(), kind: KindSchema }),
+  /** Stage 16. The active people and that day's hours of each; `person` is the filter in effect (null = everyone). One entry for a one-person business. */
+  person: z.string().nullable(),
+  people: z.array(z.object({ id: z.string(), name: z.string(), windows: z.array(z.object({ from: z.number().int(), to: z.number().int() })) })),
+  /** Upcoming appointments that sit with a person who is no longer active (T8): nothing moves silently, the owner moves or cancels them. */
+  orphans: z.object({ total: z.number().int().nonnegative(), items: z.array(z.object({ id: z.string(), date: IsoDate, start: z.number().int(), customer: z.string(), personName: z.string() })) }),
 });
 export const OwnerAction = z.enum(["approve", "reject", "cancel", "complete", "noShow", "approveCancellation", "declineCancellation"]);
 export const OwnerTransitionRequest = z.object({ action: OwnerAction }).strict();
@@ -208,6 +216,8 @@ export const CreateManualRequest = z
       phone: z.string().min(1, "יש להזין מספר טלפון.").refine((v) => normalizePhone(v) !== null, "מספר הטלפון אינו תקין."),
     }).strict(),
     note: z.string().trim().max(200, "ההערה ארוכה מדי.").optional(),
+    /** Absent = whoever is free. */
+    personId: z.string().min(1).optional(),
   })
   .strict();
 export type CreateManualInput = z.infer<typeof CreateManualRequest>;
@@ -255,5 +265,5 @@ export const ApiErrorBody = z.object({
 export type ApiErrorCode = (typeof ERROR_CODES)[number];
 
 // RSC-04: the owner moves a booking to another time (same service, same length).
-export const OwnerMoveRequest = z.object({ date: IsoDate, time: HHmm }).strict();
+export const OwnerMoveRequest = z.object({ date: IsoDate, time: HHmm, /** Move to another person (T7). */ personId: z.string().min(1).optional() }).strict();
 export const OwnerMoveResponse = z.object({ id: z.string(), status: z.string(), outOfHours: z.boolean() });

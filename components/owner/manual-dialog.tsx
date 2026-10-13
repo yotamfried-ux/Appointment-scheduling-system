@@ -27,9 +27,9 @@ const FIELD: Record<string, "service" | "date" | "time" | "name" | "phone" | "no
 };
 
 /** A phone call or a walk-in: the owner books it directly. Confirmed at once; the server decides conflicts and opening hours. */
-export function ManualDialog({ open, onOpenChange, services, date, time, onCreated }: { open: boolean; onOpenChange: (o: boolean) => void; services: ManualService[]; date: string; time: string; onCreated: (date: string) => void }) {
+export function ManualDialog({ open, onOpenChange, services, people = [], defaultPerson = "", date, time, onCreated }: { people?: { id: string; name: string }[]; defaultPerson?: string; open: boolean; onOpenChange: (o: boolean) => void; services: ManualService[]; date: string; time: string; onCreated: (date: string) => void }) {
   const t = useTranslations("owner.manual");
-  const [form, setForm] = useState({ service: "", date, time, name: "", phone: "", note: "" });
+  const [form, setForm] = useState({ service: "", person: defaultPerson, date, time, name: "", phone: "", note: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -48,7 +48,7 @@ export function ManualDialog({ open, onOpenChange, services, date, time, onCreat
     if (Object.keys(next).length) return;
     setBusy(true);
     try {
-      const r = await ownerApi.createManual({ serviceId: form.service, date: form.date, time: form.time, customer: { fullName: form.name, phone: form.phone }, ...(form.note.trim() ? { note: form.note } : {}) });
+      const r = await ownerApi.createManual({ serviceId: form.service, date: form.date, time: form.time, customer: { fullName: form.name, phone: form.phone }, ...(form.note.trim() ? { note: form.note } : {}), ...(form.person ? { personId: form.person } : {}) });
       toast(r.outOfHours ? t("addedOutside") : t("added"), { variant: r.outOfHours ? "warning" : "success" });
       onCreated(form.date);
       onOpenChange(false);
@@ -79,6 +79,16 @@ export function ManualDialog({ open, onOpenChange, services, date, time, onCreat
               </NativeSelect>
             )}
           </FormField>
+          {people.length > 1 ? (
+            <FormField label={t("person")}>
+              {(a) => (
+                <NativeSelect {...a} value={form.person} onChange={(e) => setForm({ ...form, person: e.target.value })} data-testid="manual-person">
+                  <option value="">{t("anyPerson")}</option>
+                  {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </NativeSelect>
+              )}
+            </FormField>
+          ) : null}
           <div className="grid gap-4 sm:grid-cols-2 sm:gap-3">
             <FormField label={t("date")} error={errors.date}>
               {(a) => <Input {...a} type="date" dir="ltr" className="text-start" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} data-testid="manual-date" />}

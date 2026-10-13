@@ -3,6 +3,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { mapTeamError, type TeamErrorCode, type TeamPersonRow } from "@/modules/team/schema";
 import type { RuleRow } from "@/modules/availability/schema";
+import type { TeamException, TeamRule } from "@/modules/availability/team";
 
 export type TeamResult<T = object> = ({ ok: true } & T) | { ok: false; code: TeamErrorCode };
 
@@ -50,4 +51,25 @@ export async function setServiceStaff(supabase: SupabaseClient, serviceId: strin
 export async function setStaffHours(supabase: SupabaseClient, resourceId: string, hours: unknown): Promise<TeamResult> {
   const { error } = await supabase.rpc("set_staff_hours", { p_resource: resourceId, p_hours: hours });
   return error ? { ok: false, code: mapTeamError(error) } : { ok: true };
+}
+
+export interface TeamCalendar {
+  /** Everybody, in team order (active first is the caller's business). */
+  people: { id: string; name: string; active: boolean }[];
+  rules: TeamRule[];
+  exceptions: TeamException[];
+}
+
+/** Everyone's hours and closures in two reads: the owner screens compute opening hours per person from this. */
+export async function loadTeamCalendar(supabase: SupabaseClient, businessId: string): Promise<TeamCalendar> {
+  const [people, rules, exceptions] = await Promise.all([
+    supabase.from("resources").select("id, name, active").eq("business_id", businessId).order("position").order("created_at"),
+    supabase.from("availability_rules").select("resource_id, weekday, start_minute, end_minute").eq("business_id", businessId),
+    supabase.from("availability_exceptions").select("resource_id, on_date, kind, start_minute, end_minute").eq("business_id", businessId),
+  ]);
+  return {
+    people: (people.data ?? []).map((p) => ({ id: p.id as string, name: p.name as string, active: p.active as boolean })),
+    rules: (rules.data ?? []).map((r) => ({ resourceId: r.resource_id as string, weekday: r.weekday as number, startMinute: r.start_minute as number, endMinute: r.end_minute as number })),
+    exceptions: (exceptions.data ?? []).map((e) => ({ resourceId: (e.resource_id as string | null) ?? null, date: e.on_date as string, kind: e.kind as "closed" | "open", startMinute: e.start_minute as number | null, endMinute: e.end_minute as number | null })),
+  };
 }

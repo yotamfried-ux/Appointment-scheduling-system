@@ -7,9 +7,9 @@ import { hasRequiredAssurance } from "@/lib/auth/session";
 import { myBilling, requireFeature } from "@/modules/billing/entitlements";
 import { createClient } from "@/lib/supabase/server";
 import { normalizePhone } from "@/lib/phone";
-import { addDaysIso, windowsForDate } from "@/modules/availability/slots";
-import { loadAvailability } from "@/modules/availability/repo";
-import { rowsToExceptions, rowsToRules } from "@/modules/availability/schema";
+import { addDaysIso } from "@/modules/availability/slots";
+import { insideHours, teamWindowsForDate } from "@/modules/availability/team";
+import { loadTeamCalendar } from "@/modules/team/repo";
 import type { BusinessKindId } from "@/modules/tenancy/business-kind";
 import { systemClock, zonedParts, zonedTimeToUtc } from "@/platform/clock";
 
@@ -38,7 +38,7 @@ const hhmmToMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice
 const statusOf = (s: string): z.infer<typeof C.OwnerStatus> =>
   s === "cancellation_requested" ? "cancellationRequested" : s === "no_show" ? "noShow" : s.startsWith("cancelled") ? "cancelled" : (s as "confirmed" | "pending" | "completed");
 
-const COLUMNS = "id, status, starts_at, ends_at, source, out_of_availability, owner_note, service_snapshot, customers(full_name, phone)";
+const COLUMNS = "id, status, starts_at, ends_at, source, out_of_availability, owner_note, resource_id, service_snapshot, customers(full_name, phone)";
 
 interface WaitlistRow {
   id: string;
@@ -59,24 +59,19 @@ interface Row {
   source: string;
   out_of_availability: boolean;
   owner_note: string | null;
+  resource_id: string;
   service_snapshot: { name: string };
   customers: { full_name: string; phone: string } | null;
 }
 
-export async function agenda(ctx: OwnerCtx, date: string): Promise<z.infer<typeof C.OwnerAgendaResponse>> {
+export async function agenda(ctx: OwnerCtx, date: string, personId?: string): Promise<z.infer<typeof C.OwnerAgendaResponse>> {
   const tz = ctx.business.timezone;
   const from = zonedTimeToUtc(date, 0, tz);
   const to = zonedTimeToUtc(addDaysIso(date, 1), 0, tz);
-  const [appts, av, svcs, inbox, dead, wl, version, billing] = await Promise.all([
-    ctx.supabase
-      .from("appointments")
-      .select(COLUMNS)
-      .eq("business_id", ctx.business.id)
-      .gte("starts_at", from.toISOString())
-      .lt("starts_at", to.toISOString())
-      .order("starts_at")
-      .limit(300),
-    loadAvailability(ctx.supabase, ctx.business.id),
+  const dayQuery = ctx.supabase.from("appointments").select(COLUMNS).eq("business_id", ctx.business.id).gte("starts_at", from.toISOString()).lt("starts_at", to.toISOString());
+  const [appts, cal, svcs, inbox, dead, wl, version, billing] = await Promise.all([
+    (personId ? dayQuery.eq("resource_id", personId) : dayQuery).order("starts_at").limit(300),
+    loadTeamCalendar(ctx.supabase, ctx.business.id),
     ctx.supabase.from("services").select("id, name, duration_minutes").eq("business_id", ctx.business.id).eq("active", true).eq("capacity", 1).order("position"),
     ctx.supabase
       .from("appointments")
@@ -104,8 +99,21 @@ export async function agenda(ctx: OwnerCtx, date: string): Promise<z.infer<typeo
     changeVersion(ctx),
     myBilling(ctx),
   ]);
+  const inactiveIds = cal.people.filter((p) => !p.active).map((p) => p.id);
+  const orphanRows = inactiveIds.length
+    ? await ctx.supabase.from("appointments").select("id, starts_at, resource_id, customers(full_name)", { count: "exact" }).eq("business_id", ctx.business.id).in("resource_id", inactiveIds).in("status", ["pending", "confirmed", "cancellation_requested"]).gt("starts_at", systemClock.now().toISOString()).order("starts_at").limit(5)
+    : null;
+  const orphans = {
+    total: orphanRows?.count ?? 0,
+    items: ((orphanRows?.data ?? []) as unknown as { id: string; starts_at: string; resource_id: string; customers: { full_name: string } | null }[]).map((o) => ({ id: o.id, date: zonedParts(new Date(o.starts_at), tz).date, start: zonedParts(new Date(o.starts_at), tz).minutes, customer: o.customers?.full_name ?? "", personName: nameOf2(cal, o.resource_id) })),
+  };
   if (appts.error || svcs.error || inbox.error || dead.error || wl.error) throw new Error("agenda unavailable");
+  const nameOf = new Map(cal.people.map((p) => [p.id, p.name]));
+  const active = cal.people.filter((p) => p.active);
+  const shown = personId ? active.filter((p) => p.id === personId) : active;
   const dto = (r: Row) => ({
+    personId: r.resource_id,
+    personName: nameOf.get(r.resource_id) ?? "",
     id: r.id,
     date: zonedParts(new Date(r.starts_at), tz).date,
     start: zonedParts(new Date(r.starts_at), tz).minutes,
@@ -123,7 +131,10 @@ export async function agenda(ctx: OwnerCtx, date: string): Promise<z.infer<typeo
   return {
     date,
     today: today.date,
-    windows: windowsForDate(date, rowsToRules(av.rules), rowsToExceptions(av.exceptions)).map((w) => ({ from: w.from, to: w.to })),
+    windows: teamWindowsForDate(date, shown, cal.rules, cal.exceptions).map((w) => ({ from: w.from, to: w.to })),
+    person: personId ?? null,
+    people: active.map((p) => ({ id: p.id, name: p.name, windows: teamWindowsForDate(date, [p], cal.rules, cal.exceptions).map((w) => ({ from: w.from, to: w.to })) })),
+    orphans,
     now: today.date === date ? today.minutes : null,
     appointments: (appts.data as unknown as Row[]).map(dto),
     inbox: (inbox.data as unknown as Row[]).map(dto),
@@ -157,6 +168,7 @@ export function mapError(e: { code?: string | null; message?: string | null }) {
   if (m.includes("invalid_transition")) return fail("INVALID_TRANSITION", "התור כבר השתנה. רעננו את הדף.");
   if (m.includes("slot_in_past") || m.includes("slot_too_far")) return fail("INVALID_SLOT", "אפשר להוסיף תור עד 24 שעות אחורה.");
   if (m.includes("service_unavailable")) return fail("SERVICE_UNAVAILABLE", "השירות אינו זמין.");
+  if (m.includes("resource_mismatch")) return fail("VALIDATION_FAILED", "האדם שנבחר אינו זמין.");
   if (m.includes("slot_unavailable")) return fail("SLOT_TAKEN", "אי אפשר להציע את השעה הזו: היא תפוסה, קרובה מדי או שכבר יש עליה הצעה.");
   if (m.includes("invalid_state")) return fail("INVALID_TRANSITION", "לממתין כבר יש הצעה או שהוא הוסר. רעננו את הדף.");
   if (m.includes("plan_required") || m.includes("plan_limit") || m.includes("billing_inactive")) return fail("PAYMENT_REQUIRED", m.includes("plan_limit") ? "הגעתם למכסת השירותים בחבילה. שדרגו כדי להוסיף." : m.includes("billing_inactive") ? "המנוי אינו פעיל, ולכן אי אפשר להוסיף תורים חדשים." : "התכונה הזו אינה כלולה במנוי הנוכחי.");
@@ -173,10 +185,13 @@ export async function createManual(ctx: OwnerCtx, input: C.CreateManualInput): P
   const { data: svc } = await ctx.supabase.from("services").select("id, duration_minutes").eq("id", input.serviceId).eq("business_id", ctx.business.id).eq("active", true).maybeSingle();
   if (!svc) throw fail("SERVICE_UNAVAILABLE", "השירות אינו זמין.");
   const startMin = hhmmToMinutes(input.time);
-  const av = await loadAvailability(ctx.supabase, ctx.business.id);
+  const cal = await loadTeamCalendar(ctx.supabase, ctx.business.id);
+  const active = cal.people.filter((p) => p.active);
+  if (input.personId && !active.some((p) => p.id === input.personId)) throw fail("VALIDATION_FAILED", "האדם שנבחר אינו פעיל.", [{ field: "personId", message: "האדם שנבחר אינו פעיל." }]);
   // AVL-10: the owner may book anywhere; whether it falls inside opening hours is computed here (the server knows the rules), never trusted from the client.
-  const inside = windowsForDate(input.date, rowsToRules(av.rules), rowsToExceptions(av.exceptions)).some((w) => startMin >= w.from && startMin + (svc.duration_minutes as number) <= w.to);
-  const { data, error } = await ctx.supabase.rpc("create_manual_appointment", {
+  // With a named person only that person's hours count; otherwise anybody's.
+  const inside = insideHours({ date: input.date, startMinute: startMin, durationMinutes: svc.duration_minutes as number, people: input.personId ? active.filter((p) => p.id === input.personId) : active, rules: cal.rules, exceptions: cal.exceptions });
+  const { data, error } = await ctx.supabase.rpc("create_manual_appointment_team", {
     p_business: ctx.business.id,
     p_service: svc.id,
     p_starts_at: zonedTimeToUtc(input.date, startMin, ctx.business.timezone).toISOString(),
@@ -184,6 +199,7 @@ export async function createManual(ctx: OwnerCtx, input: C.CreateManualInput): P
     p_phone: phone,
     p_note: input.note?.trim() || null,
     p_out_of_availability: !inside,
+    p_resource: input.personId ?? null,
   });
   if (error) throw mapError(error);
   const r = data as { id: string; reference: string };
@@ -192,13 +208,19 @@ export async function createManual(ctx: OwnerCtx, input: C.CreateManualInput): P
 
 /** RSC-04: the owner moves a booking. Whether the new time is inside opening hours is computed here (flag only, as for manual bookings): the owner may book anywhere. */
 export async function moveAppointment(ctx: OwnerCtx, id: string, input: z.infer<typeof C.OwnerMoveRequest>): Promise<z.infer<typeof C.OwnerMoveResponse>> {
-  const { data: row } = await ctx.supabase.from("appointments").select("service_snapshot").eq("id", id).maybeSingle();
+  const { data: row } = await ctx.supabase.from("appointments").select("service_snapshot, resource_id").eq("id", id).maybeSingle();
   if (!row) throw fail("NOT_FOUND", "לא נמצא.");
   const startMin = hhmmToMinutes(input.time);
   const duration = Number((row.service_snapshot as { durationMinutes?: number }).durationMinutes ?? 30);
-  const av = await loadAvailability(ctx.supabase, ctx.business.id);
-  const inside = windowsForDate(input.date, rowsToRules(av.rules), rowsToExceptions(av.exceptions)).some((w) => startMin >= w.from && startMin + duration <= w.to);
-  const { data, error } = await ctx.supabase.rpc("owner_move_appointment", { p_id: id, p_new_start: zonedTimeToUtc(input.date, startMin, ctx.business.timezone).toISOString(), p_out_of_availability: !inside });
+  const cal = await loadTeamCalendar(ctx.supabase, ctx.business.id);
+  const target = input.personId ?? (row.resource_id as string); // T7: the owner may move it to another person; otherwise it stays with the same one
+  const inside = insideHours({ date: input.date, startMinute: startMin, durationMinutes: duration, people: cal.people.filter((p) => p.id === target), rules: cal.rules, exceptions: cal.exceptions });
+  const { data, error } = await ctx.supabase.rpc("owner_move_appointment", {
+    p_id: id,
+    p_new_start: zonedTimeToUtc(input.date, startMin, ctx.business.timezone).toISOString(),
+    p_out_of_availability: !inside,
+    p_resource: input.personId && input.personId !== row.resource_id ? input.personId : null,
+  });
   if (error) {
     if ((error.message ?? "").includes("same_slot")) throw fail("VALIDATION_FAILED", "התור כבר נמצא בשעה הזו.");
     if ((error.message ?? "").includes("slot_in_past")) throw fail("INVALID_SLOT", "אי אפשר להעביר תור לשעה שכבר עברה.");
@@ -256,3 +278,5 @@ export async function waitlistSettings(ctx: OwnerCtx, input: { autoOffer?: boole
   if (error) throw mapError(error);
   if (!data?.length) throw fail("FORBIDDEN", "רק מנהל העסק יכול לשנות את ההגדרה.");
 }
+
+const nameOf2 = (cal: { people: { id: string; name: string }[] }, id: string) => cal.people.find((p) => p.id === id)?.name ?? "";

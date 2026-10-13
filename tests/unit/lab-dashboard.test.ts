@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeGaps,
+  teamOccupancyPct,
   dashboardReducer,
   initialDashboard,
   todayStats,
@@ -126,4 +127,14 @@ describe("owner actions on the same state machine (stage 5)", () => {
     const s = mk("confirmed");
     expect(dashboardReducer(s, { type: "complete", id: "nope" })).toBe(s);
   });
+});
+
+describe("teamOccupancyPct (stage 16)", () => {
+  const appt = (start: number, end: number): LabAppointment => ({ id: `${start}`, start, end, customer: "x", service: "s", status: "confirmed" });
+  it("is booked minutes over everybody's open minutes, so two people booked at once stay under 100%", () => {
+    const w = [{ from: H(9), to: H(17) }];
+    expect(teamOccupancyPct([{ appts: [appt(H(9), H(13))], windows: w }, { appts: [appt(H(9), H(13))], windows: w }])).toBe(50);
+    expect(teamOccupancyPct([{ appts: [appt(H(9), H(17))], windows: w }, { appts: [], windows: w }])).toBe(50); // negative control: one person full, one idle
+  });
+  it("nobody working is 0%, not NaN", () => expect(teamOccupancyPct([{ appts: [], windows: [] }])).toBe(0));
 });
