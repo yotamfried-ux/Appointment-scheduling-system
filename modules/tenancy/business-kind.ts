@@ -3,7 +3,7 @@
 // group support and privacy posture. Everything here is *defaults*: owners can override per business (stage 2).
 // Docs: 03 §5 (resource_id/staff), 04 CAT/AVL, 05 §2 (sensitive data for health-related kinds).
 
-export const KIND_IDS = ["barber", "beauty", "trainer", "teacher", "clinic", "other"] as const;
+export const KIND_IDS = ["barber", "beauty", "nails", "trainer", "teacher", "clinic", "other"] as const;
 export type BusinessKindId = (typeof KIND_IDS)[number];
 
 export interface Vocab {
@@ -119,6 +119,25 @@ export const BUSINESS_KINDS: Record<BusinessKindId, KindConfig> = {
     privacy: { sensitive: true, hideServiceNameInMessages: true, allowFreeTextNotesInMessages: false },
     sample: { businessName: "סטודיו נוי", address: "דיזנגוף 80, תל אביב" },
   },
+  nails: {
+    id: "nails",
+    label: "מניקוריסט/ית",
+    vocab: { appointment: "תור", appointments: "תורים", customer: "לקוח/ה", customers: "לקוחות", service: "טיפול", services: "טיפולים", provider: "מניקוריסט/ית", businessNoun: "סטודיו", pickService: "איזה טיפול תרצו?", pickServiceHint: "בחרו טיפול כדי לראות זמנים פנויים.", bookCta: "אישור התור", doneTitle: "התור נקבע!" },
+    presets: [
+      { id: "gel", name: "לק ג׳ל", description: "הכנת הציפורן, לק ג׳ל וייבוש במנורה", durationMinutes: 60, priceNis: 120 },
+      { id: "build", name: "בניית ציפורניים", description: "בניית ג׳ל או אקריליק, כולל עיצוב צורה", durationMinutes: 120, priceNis: 250 },
+      { id: "manicure", name: "מניקור", description: "טיפוח ציפורניים וגזירת קוטיקולה", durationMinutes: 45, priceNis: 90 },
+      { id: "pedicure", name: "פדיקור", description: "טיפוח כפות הרגליים והציפורניים", durationMinutes: 60, priceNis: 130 },
+      { id: "removal", name: "הסרת ג׳ל", description: "הסרה עדינה, בלי פגיעה בציפורן", durationMinutes: 30, priceNis: 50 },
+    ],
+    defaults: { slotStepMinutes: 30, bufferMinutes: 10, requireApproval: false, cancelUntilHours: 24, allowLastMinute: true, noShowTracking: true },
+    hours: week([{ from: H(9, 30), to: H(19) }], [{ from: H(9), to: H(14) }]),
+    intake: [field({ id: "sensitivities", label: "רגישויות או אלרגיות (לא חובה)", type: "text", sensitive: true, visibleToProviderOnly: true })],
+    locations: ["business", "customer"],
+    group: { supported: false, defaultCapacity: 1 },
+    privacy: { sensitive: true, hideServiceNameInMessages: true, allowFreeTextNotesInMessages: false },
+    sample: { businessName: "נייל סטודיו", address: "הרצל 12, רמת גן" },
+  },
   trainer: {
     id: "trainer",
     label: "מאמן אישי",
@@ -138,7 +157,7 @@ export const BUSINESS_KINDS: Record<BusinessKindId, KindConfig> = {
   },
   teacher: {
     id: "teacher",
-    label: "הוראה",
+    label: "מורה פרטי/ת",
     vocab: { appointment: "שיעור", appointments: "שיעורים", customer: "תלמיד/ה", customers: "תלמידים", service: "שיעור", services: "סוגי שיעורים", provider: "מורה", businessNoun: "מרכז לימוד", pickService: "איזה שיעור תרצו?", pickServiceHint: "בחרו שיעור כדי לראות מועדים פנויים.", bookCta: "אישור השיעור", doneTitle: "השיעור נקבע!" },
     presets: [
       { id: "private", name: "שיעור פרטי", description: "מותאם לתלמיד, 1 על 1", durationMinutes: 60, priceNis: 150 },

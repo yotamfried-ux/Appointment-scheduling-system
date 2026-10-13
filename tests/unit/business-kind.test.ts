@@ -7,8 +7,16 @@ const VOCAB_KEYS = [
 ] as const;
 
 describe("business kinds (adaptability across business types)", () => {
-  it("covers the six supported kinds", () => {
-    expect([...KIND_IDS].sort()).toEqual(["barber", "beauty", "clinic", "other", "teacher", "trainer"]);
+  it("covers the seven supported kinds", () => {
+    expect([...KIND_IDS].sort()).toEqual(["barber", "beauty", "clinic", "nails", "other", "teacher", "trainer"]);
+  });
+
+  it("names the professions the way their people call themselves", () => {
+    expect(getKind("teacher").label).toBe("מורה פרטי/ת");
+    expect(getKind("nails").label).toBe("מניקוריסט/ית");
+    expect(getKind("nails").vocab.appointment).toBe("תור");
+    expect(getKind("nails").presets.map((p) => p.name)).toEqual(expect.arrayContaining(["לק ג׳ל", "הסרת ג׳ל"]));
+    expect(getKind("nails").intake.map((f) => f.id)).toContain("sensitivities"); // allergies matter for gel and acrylic
   });
 
   it.each(KIND_IDS)("%s defines complete Hebrew vocabulary", (id) => {
@@ -88,8 +96,8 @@ describe("business kinds (adaptability across business types)", () => {
   });
 
   describe("privacy (docs/05 §2: health-related kinds)", () => {
-    it("clinic and beauty are marked sensitive and minimise what leaves the system", () => {
-      for (const id of ["clinic", "beauty"] as const) {
+    it("clinic, beauty and nails are marked sensitive and minimise what leaves the system", () => {
+      for (const id of ["clinic", "beauty", "nails"] as const) {
         const p = getKind(id).privacy;
         expect(p.sensitive, id).toBe(true);
         expect(p.hideServiceNameInMessages, id).toBe(true);

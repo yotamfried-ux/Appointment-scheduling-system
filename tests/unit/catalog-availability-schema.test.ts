@@ -36,7 +36,7 @@ describe("ServiceInput (CAT-01..04)", () => {
 
 describe("WeeklyHoursInput / ExceptionInput (AVL)", () => {
   it("accepts the kind defaults for every kind", () => {
-    for (const k of ["barber", "beauty", "trainer", "teacher", "clinic", "other"] as const) expect(WeeklyHoursInput.safeParse(kindHours(k)).success, k).toBe(true);
+    for (const k of ["barber", "beauty", "nails", "trainer", "teacher", "clinic", "other"] as const) expect(WeeklyHoursInput.safeParse(kindHours(k)).success, k).toBe(true);
   });
   it("rejects all-closed, overlap, inversion and wrong length", () => {
     const h = kindHours("barber");

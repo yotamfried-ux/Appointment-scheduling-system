@@ -47,7 +47,7 @@ The blocker is the assumption "one resource, the default one" that is written by
 | TEAM-14 | solo business regression: every existing spec passes unchanged | E (full suite) |
 
 ## Work order (each step ends with green local checks and a commit; CI per push)
-1. **Database** (`20261033000000_team.sql`, forward-only): `resources.position`, bound check; `service_staff`; `availability_exceptions.resource_id` nullable + backfill; `appointments.resource_chosen`; `waitlist_offers.resource_id`; cross-tenant triggers; the four RPCs; `private.pick_resource`; `public_catalog` (people, eligibility, rules/exceptions per person), `public_busy` (+person), `public_book`/manual/accept take candidates; reschedule/move honour T6/T7. pgTAP `180_team.sql` with negative controls.
+1. **Database** (`20261034000000_team.sql`, forward-only): `resources.position`, bound check; `service_staff`; `availability_exceptions.resource_id` nullable + backfill; `appointments.resource_chosen`; `waitlist_offers.resource_id`; cross-tenant triggers; the four RPCs; `private.pick_resource`; `public_catalog` (people, eligibility, rules/exceptions per person), `public_busy` (+person), `public_book`/manual/accept take candidates; reschedule/move honour T6/T7. pgTAP `180_team.sql` with negative controls.
 2. **Domain (TS):** `modules/team/*` (schemas, repo, service), `slots.ts` per person + union + candidate ordering, public/owner services and Zod contracts. Unit tests incl. property tests for the union and the ordering.
 3. **Public booking UI:** the "with whom?" step, names in the confirmation and in `/booking/[token]`. E2E on mobile-360 + desktop, axe.
 4. **Owner settings:** `/settings/team` (list, add, rename, hours, services, deactivate, public-name notice).

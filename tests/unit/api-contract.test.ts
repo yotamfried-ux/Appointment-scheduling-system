@@ -292,7 +292,7 @@ describe("notification privacy (docs/05 §2)", () => {
     expect(mail.body).toContain(svc);
     expect(mail.to).toBe("noam@example.com");
   });
-  it.each(["clinic", "beauty"] as const)("%s email does not reveal the service/treatment", async (kind) => {
+  it.each(["clinic", "beauty", "nails"] as const)("%s email does not reveal the service/treatment", async (kind) => {
     const { mail, svc } = await emailFor(kind);
     expect(mail.body).not.toContain(svc);
     expect(mail.subject).not.toContain(svc);

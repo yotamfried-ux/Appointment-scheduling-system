@@ -116,7 +116,7 @@ test.describe("design lab · onboarding adapts to the business kind", () => {
   });
 
   test("every kind's setup is completable with the defaults it seeds", async ({ page }) => {
-    for (const kind of ["barber", "beauty", "trainer", "teacher", "clinic", "other"]) {
+    for (const kind of ["barber", "beauty", "nails", "trainer", "teacher", "clinic", "other"]) {
       await page.goto("/design/onboarding");
       await page.getByLabel("שם העסק").fill("עסק לדוגמה");
       await page.getByLabel("טלפון ליצירת קשר").fill("050-1234567");
