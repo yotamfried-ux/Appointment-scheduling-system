@@ -49,7 +49,7 @@ export function ChoiceCard({
         disabled={disabled}
         onChange={() => onChange(value)}
         data-testid={testId}
-        className="peer sr-only"
+        className="peer sr-only scroll-mb-32"
       />
       {children}
     </label>

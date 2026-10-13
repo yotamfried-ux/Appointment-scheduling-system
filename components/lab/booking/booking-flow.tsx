@@ -76,6 +76,12 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
   const business = catalog.status === "ready" ? catalog.data.business : null;
   const vocab = business?.vocab;
   const service = catalog.status === "ready" ? (catalog.data.services.find((x) => x.id === s.serviceId) ?? null) : null;
+  // Stage 16: who can do the chosen service (a service without a restriction = the whole team). The "with whom?" choice appears only for two or more.
+  const people = useMemo(() => {
+    const team = catalog.status === "ready" ? catalog.data.team : [];
+    return service?.personIds && service.personIds.length > 0 ? team.filter((p) => service.personIds!.includes(p.id)) : team;
+  }, [catalog, service]);
+  const personId = s.personId && people.some((p) => p.id === s.personId) ? s.personId : null;
   const requiredIntake = useMemo(() => (business?.intake ?? []).map((f) => ({ id: f.id, required: f.required })), [business]);
 
   // Availability for the day picker (re-fetched when the service changes; latest request wins).
@@ -85,11 +91,11 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on service change
     setAvail({ status: "loading" });
     labApi
-      .availability({ ...opts, signal: ctl.signal }, { service: s.serviceId, from: LAB_TODAY, days: HORIZON })
+      .availability({ ...opts, signal: ctl.signal }, { service: s.serviceId, from: LAB_TODAY, days: HORIZON, person: personId ?? undefined })
       .then((r) => setAvail({ status: "ready", data: new Map(r.days.map((d) => [d.date, d])) }))
       .catch((e) => (e instanceof DOMException ? undefined : setAvail({ status: "error" })));
     return () => ctl.abort();
-  }, [opts, s.serviceId, availTick, s.step === "day" ? "day" : "-"]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh whenever the day step is (re)entered
+  }, [opts, s.serviceId, personId, availTick, s.step === "day" ? "day" : "-"]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh whenever the day step is (re)entered
 
   // Slots for the chosen day. The chosen time is passed so the ribbon shows it selected; keep old data while refreshing.
   const reloadSlots = useCallback(
@@ -98,12 +104,12 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
       const ctl = new AbortController();
       setSlots((prev) => (prev.status === "ready" ? prev : { status: "loading" }));
       labApi
-        .slots({ ...opts, signal: ctl.signal }, { service: s.serviceId, date: s.day, selected: selected ?? undefined })
+        .slots({ ...opts, signal: ctl.signal }, { service: s.serviceId, date: s.day, selected: selected ?? undefined, person: personId ?? undefined })
         .then((data) => setSlots({ status: "ready", data }))
         .catch((e) => (e instanceof DOMException ? undefined : setSlots({ status: "error" })));
       return () => ctl.abort();
     },
-    [opts, s.serviceId, s.day],
+    [opts, s.serviceId, s.day, personId],
   );
   useEffect(() => {
     if (s.step !== "time") return;
@@ -165,6 +171,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
       date: s.day,
       time: s.time,
       location,
+      ...(personId ? { personId } : {}),
       customer: { fullName: s.details.fullName.trim(), phone: s.details.phone, ...(s.details.email.trim() ? { email: s.details.email.trim() } : {}) },
       intake: Object.fromEntries(Object.entries(intakeValues).filter(([, v]) => v.trim() !== "")),
     } as z.input<typeof C.CreateBookingRequest>;
@@ -298,6 +305,26 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
                 </ChoiceCard>
               ))}
             </div>
+            {service && people.length >= 2 ? (
+              <fieldset className="mt-6" data-testid="person-choice">
+                <legend className="mb-3 text-sm text-muted-foreground">{t("person.legend")}</legend>
+                <div className="divide-y overflow-hidden rounded-lg border bg-card">
+                  <ChoiceCard variant="row" name="person" value="" checked={personId === null} onChange={() => dispatch({ type: "selectPerson", personId: null })} testId="person-any">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-semibold">{t("person.any")}</p>
+                      <p className="text-sm text-muted-foreground">{t("person.anyHint")}</p>
+                    </div>
+                  </ChoiceCard>
+                  {people.map((p) => (
+                    <ChoiceCard key={p.id} variant="row" name="person" value={p.id} checked={personId === p.id} onChange={(v) => dispatch({ type: "selectPerson", personId: v })} testId={`person-${p.id}`}>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold">{p.name}</p>
+                      </div>
+                    </ChoiceCard>
+                  ))}
+                </div>
+              </fieldset>
+            ) : null}
           </fieldset>
         )}
 
@@ -539,6 +566,12 @@ function Confirmation({ service, booking, email, opts, doneTitle, cancelUntilHou
           <dt className="text-muted-foreground">{t("summary.service")}</dt>
           <dd className="font-semibold">{service.name}</dd>
         </div>
+        {booking.personName ? (
+          <div className="flex justify-between gap-4 p-4">
+            <dt className="text-muted-foreground">{t("summary.person")}</dt>
+            <dd className="font-semibold" data-testid="done-person">{booking.personName}</dd>
+          </div>
+        ) : null}
         <div className="flex justify-between gap-4 p-4">
           <dt className="text-muted-foreground">{t("summary.when")}</dt>
           <dd className="font-semibold" data-testid="done-when">

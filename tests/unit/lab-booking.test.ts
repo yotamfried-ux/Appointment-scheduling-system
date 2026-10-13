@@ -151,4 +151,19 @@ describe("dayBounds / slotSegments (ribbon data for the time step)", () => {
     expect(sel).toHaveLength(1);
     expect(sel[0].end - sel[0].start).toBe(svc30.durationMinutes);
   });
+
+  it("the person is part of the choice (stage 16): picking one clears day and time, changing the service forgets the person, 'whoever is free' is null", () => {
+    let s = bookingReducer(initialBookingState, { type: "selectService", serviceId: svc.id });
+    expect(s.personId).toBeNull();
+    s = bookingReducer(s, { type: "selectPerson", personId: "p1" });
+    s = bookingReducer(s, { type: "selectDay", iso: "2026-10-15" });
+    s = bookingReducer(s, { type: "selectTime", time: "10:00" });
+    s = bookingReducer(s, { type: "selectPerson", personId: null });
+    expect(s.personId).toBeNull();
+    expect(s.day).toBeNull(); // the offered times were the other person's
+    expect(s.time).toBeNull();
+    s = bookingReducer(s, { type: "selectPerson", personId: "p2" });
+    s = bookingReducer(s, { type: "selectService", serviceId: LAB_SERVICES[1].id });
+    expect(s.personId).toBeNull(); // the new service may not be done by that person
+  });
 });

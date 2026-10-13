@@ -66,8 +66,8 @@ const qs = (q: Record<string, string | number | undefined>) =>
 
 export const labApi = {
   services: (o: ClientOptions) => call(C.ServicesResponse, "services", o).then((r) => r.data),
-  availability: (o: ClientOptions, q: { service: string; from: string; days: number }) => call(C.AvailabilityResponse, `availability?${qs(q)}`, o).then((r) => r.data),
-  slots: (o: ClientOptions, q: { service: string; date: string; selected?: string }) => call(C.SlotsResponse, `slots?${qs(q)}`, o).then((r) => r.data),
+  availability: (o: ClientOptions, q: { service: string; from: string; days: number; person?: string }) => call(C.AvailabilityResponse, `availability?${qs(q)}`, o).then((r) => r.data),
+  slots: (o: ClientOptions, q: { service: string; date: string; selected?: string; person?: string }) => call(C.SlotsResponse, `slots?${qs(q)}`, o).then((r) => r.data),
   createBooking: (o: ClientOptions, body: z.input<typeof C.CreateBookingRequest>, idempotencyKey: string) =>
     call(C.CreateBookingResponse, "bookings", o, { method: "POST", body, idempotencyKey }).then((r) => r.data.booking),
   joinWaitlist: (o: ClientOptions, body: z.input<typeof C.JoinWaitlistRequest>, idempotencyKey?: string) => call(C.JoinWaitlistResponse, "waitlist", o, { method: "POST", body, idempotencyKey }).then((r) => ({ ...r.data, created: r.status === 201 })),

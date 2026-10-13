@@ -15,6 +15,8 @@ export interface BookingDetails {
 export interface BookingState {
   step: BookingStep;
   serviceId: string | null;
+  /** The person the customer named; null = whoever is free (stage 16). */
+  personId: string | null;
   day: string | null;
   time: string | null;
   details: BookingDetails;
@@ -23,6 +25,7 @@ export interface BookingState {
 export const initialBookingState: BookingState = {
   step: "service",
   serviceId: null,
+  personId: null,
   day: null,
   time: null,
   details: { fullName: "", phone: "", email: "" },
@@ -30,6 +33,7 @@ export const initialBookingState: BookingState = {
 
 export type BookingAction =
   | { type: "selectService"; serviceId: string }
+  | { type: "selectPerson"; personId: string | null }
   | { type: "selectDay"; iso: string }
   | { type: "selectTime"; time: string }
   | { type: "setDetails"; details: BookingDetails }
@@ -68,7 +72,9 @@ export function bookingReducer(s: BookingState, a: BookingAction): BookingState 
   switch (a.type) {
     // Changing an upstream choice invalidates everything downstream (the slot may no longer exist).
     case "selectService":
-      return { ...s, serviceId: a.serviceId, day: null, time: null };
+      return { ...s, serviceId: a.serviceId, personId: null, day: null, time: null };
+    case "selectPerson":
+      return { ...s, personId: a.personId, day: null, time: null };
     case "selectDay":
       return { ...s, day: a.iso, time: null };
     case "selectTime":
