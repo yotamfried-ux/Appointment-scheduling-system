@@ -54,6 +54,8 @@ test("owner joins → first customer books on a phone → mail, reminder, resche
 
   await test.step("a day before, the reminder job mails her once (and only once)", async () => {
     const now = new Date(Date.parse(appt.starts_at) - 20 * 3_600_000);
+    // The first free slot can be less than 24 h away (later in the day, or tomorrow morning): a booking made that late is skipped on purpose (NTF-02, "late_booking"). This step is about the reminder itself, so the booking is dated three days before the visit.
+    sql(`set session_replication_role = replica; update public.appointments set created_at = starts_at - interval '3 days' where id = '${appt.id}'; set session_replication_role = origin;`);
     sql(`delete from public.job_runs where job_name = 'reminders'`);
     for (let i = 0; i < 2; i++) expect((await owner.page.request.post(`/api/jobs/reminders?now=${encodeURIComponent(now.toISOString())}`, { headers: auth })).status()).toBe(200);
     await drain(owner.page.request, async () => (await rows({ id: biz.id } as never)).some((r) => r.type === "reminder" && r.status === "sent"));
