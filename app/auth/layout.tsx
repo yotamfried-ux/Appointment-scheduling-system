@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Logo } from "@/components/brand/logo";
-import { ProductPeek } from "@/components/brand/product-peek";
+import { Check } from "lucide-react";
 import { BRAND } from "@/config/brand";
 
 export default async function AuthLayout({ children }: { children: React.ReactNode }) {
@@ -23,7 +23,19 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
           <p className="text-sm font-medium text-muted-foreground">{t("eyebrow")}</p>
           <div className="grid gap-10">
             <h2 className="text-5xl leading-[1.1] font-bold tracking-tight text-balance">{t("headline")}</h2>
-            <ProductPeek title={t("peekTitle")} dayLabel={t("peekDay")} />
+            <ul className="grid gap-6" data-testid="auth-benefits">
+              {(t.raw("benefits") as { title: string; body: string }[]).map((b) => (
+                <li key={b.title} className="flex items-start gap-4">
+                  <span className="mt-1 flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground" aria-hidden>
+                    <Check className="size-4" strokeWidth={3} />
+                  </span>
+                  <div>
+                    <p className="text-lg font-semibold">{b.title}</p>
+                    <p className="text-muted-foreground">{b.body}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
           <p className="text-base text-muted-foreground">{t("footnote")}</p>
         </div>

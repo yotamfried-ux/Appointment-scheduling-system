@@ -4,7 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { AuthButton } from "@/components/auth-button";
 import { Logo } from "@/components/brand/logo";
-import { ProductPeek } from "@/components/brand/product-peek";
+import { BookingPreview } from "@/components/brand/booking-preview";
 import { LegalFooter } from "@/components/legal/legal-footer";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Button } from "@/components/ui/button";
@@ -65,7 +65,7 @@ export default async function Home() {
             </p>
           </div>
           <div className="mx-auto w-full max-w-md lg:max-w-none">
-            <ProductPeek title={t("hero.peekTitle")} dayLabel={t("hero.peekDay")} />
+            <BookingPreview business={t("customer.mockBusiness")} service={t("customer.mockService")} pick={t("customer.mockPick")} confirm={t("customer.mockConfirm")} notice={t("hero.notice")} />
           </div>
         </section>
 
@@ -133,17 +133,14 @@ export default async function Home() {
               ))}
             </ul>
           </div>
-          <div className="mx-auto w-full max-w-sm rounded-lg border bg-card p-5 shadow-pop" aria-hidden data-testid="customer-mock">
-            <p className="text-sm text-muted-foreground">{t("customer.mockBusiness")}</p>
-            <p className="mt-1 text-lg font-semibold">{t("customer.mockService")}</p>
-            <p className="mt-4 mb-2 text-sm font-medium">{t("customer.mockPick")}</p>
-            <div className="grid grid-cols-4 gap-2 text-center text-sm font-medium tabular-nums">
-              {["09:00", "09:30", "10:30", "11:00", "13:00", "14:30", "15:00", "16:30"].map((h, i) => (
-                <span key={h} className={i === 2 ? "rounded-md bg-primary px-2 py-2.5 text-primary-foreground" : "rounded-md border px-2 py-2.5"}>{h}</span>
-              ))}
-            </div>
-            <p className="mt-5 rounded-md bg-primary px-4 py-3 text-center text-sm font-semibold text-primary-foreground">{t("customer.mockConfirm")}</p>
-          </div>
+          <ul className="mx-auto grid w-full max-w-sm gap-3" aria-hidden data-testid="customer-mock">
+            {(t.raw("customer.messages") as { when: string; text: string }[]).map((m) => (
+              <li key={m.text} className="rounded-xl border bg-card px-4 py-3 shadow-sm">
+                <p className="text-xs text-muted-foreground">{m.when}</p>
+                <p className="mt-0.5 text-sm font-medium">{m.text}</p>
+              </li>
+            ))}
+          </ul>
         </section>
 
         {/* faq */}
