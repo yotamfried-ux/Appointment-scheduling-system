@@ -17,3 +17,15 @@ Jobs: `outbox` (every 5 min), `reminders` (15), `waitlist` (5), `maintenance` (d
 5. A row stuck in `running` for hours is a crashed run; it is ignored by the next one (the lease expires) and is never deleted by maintenance.
 
 **Done when:** `/api/jobs/health` is 200. Reminders missed during an outage are **not** re-sent for appointments that already started (that is deliberate: a reminder after the fact is noise).
+
+
+## Cron schedules: test (Hobby) vs production
+`vercel.json` currently holds **daily** schedules, because the free Hobby plan refuses anything more frequent and the project cannot even be created with `*/5`. With daily runs the system works but mail, reminders and waitlist offers go out once a day, which is **not acceptable for production**.
+Before launch (checklist A3) either use a Pro plan and restore these values in `vercel.json`, or call the four URLs from another scheduler with `Authorization: Bearer $CRON_SECRET`:
+
+```json
+{ "path": "/api/jobs/outbox",      "schedule": "*/5 * * * *" },
+{ "path": "/api/jobs/reminders",   "schedule": "*/15 * * * *" },
+{ "path": "/api/jobs/waitlist",    "schedule": "*/5 * * * *" },
+{ "path": "/api/jobs/maintenance", "schedule": "20 3 * * *" }
+```
