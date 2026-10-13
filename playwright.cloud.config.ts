@@ -8,6 +8,7 @@ if (!baseURL) throw new Error("CLOUD_URL is required (the address of the deploym
 
 export default defineConfig({
   testDir: "tests/cloud",
+  globalSetup: "./tests/cloud/share-setup.ts",
   fullyParallel: false,
   workers: 1,
   retries: 1,
@@ -15,6 +16,7 @@ export default defineConfig({
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL,
+    ...(process.env.CLOUD_SHARE ? { storageState: "test-results/cloud-share-state.json" } : {}),
     locale: "he-IL",
     timezoneId: "Asia/Jerusalem",
     trace: "retain-on-failure",
