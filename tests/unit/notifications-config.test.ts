@@ -74,3 +74,23 @@ describe("cron authorization", () => {
     expect(await call(undefined)).toBe("UNAUTHENTICATED");
   });
 });
+
+describe("appUrl (every e-mail link)", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it("configured address wins, then the Vercel deployment's own address, never localhost on Vercel", async () => {
+    const { appUrl } = await import("@/modules/notifications/config");
+    vi.stubEnv("APP_URL", "");
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "");
+    vi.stubEnv("VERCEL_BRANCH_URL", "");
+    vi.stubEnv("VERCEL_URL", "");
+    expect(appUrl()).toBe("http://127.0.0.1:3100");
+    vi.stubEnv("VERCEL_URL", "x-abc.vercel.app");
+    expect(appUrl()).toBe("https://x-abc.vercel.app");
+    vi.stubEnv("VERCEL_BRANCH_URL", "x-git-branch.vercel.app");
+    expect(appUrl()).toBe("https://x-git-branch.vercel.app");
+    vi.stubEnv("NEXT_PUBLIC_SITE_URL", "https://tori-app.co.il/");
+    expect(appUrl()).toBe("https://tori-app.co.il");
+    vi.stubEnv("APP_URL", "https://app.example.co.il");
+    expect(appUrl()).toBe("https://app.example.co.il");
+  });
+});

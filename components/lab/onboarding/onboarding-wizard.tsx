@@ -34,7 +34,7 @@ type FinishResult = { ok: true; slug: string } | { ok: false; code: string };
  * Lab mode (no props): prototype, nothing is saved. Real mode (`onFinish`): the last step saves through a Server Action
  * and the done screen shows the slug the server actually assigned.
  */
-export function OnboardingWizard({ onFinish, email }: { onFinish?: (payload: unknown) => Promise<FinishResult>; email?: string } = {}) {
+export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payload: unknown) => Promise<FinishResult>; email?: string; host?: string } = {}) {
   const t = useTranslations("onboarding");
   const [s, dispatch] = useReducer(onboardingReducer, initialOnboarding);
   const [touched, setTouched] = useState(false);
@@ -51,7 +51,7 @@ export function OnboardingWizard({ onFinish, email }: { onFinish?: (payload: unk
 
   const stepIndex = VISIBLE.indexOf(s.step as (typeof VISIBLE)[number]);
   const slug = savedSlug ?? suggestSlug(s.business.name);
-  const link = `${process.env.NEXT_PUBLIC_SITE_HOST ?? "tori.example"}/book/${slug}`;
+  const link = `${host ?? "tori.example"}/book/${slug}`;
   const next = async () => {
     if (saving) return;
     setTouched(true);

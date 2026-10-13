@@ -12,6 +12,8 @@ import { PageHeader } from "@/components/patterns/page-header";
 import { ownerPage } from "@/lib/auth/owner-page";
 import { requireUser } from "@/lib/auth/session";
 import { myBilling } from "@/modules/billing/entitlements";
+import { CopyLink } from "@/components/owner/copy-link";
+import { bookingUrl, siteHost } from "@/lib/site";
 import { BUSINESS_KINDS, type BusinessKindId } from "@/modules/tenancy/business-kind";
 import { listMyBusinesses } from "@/modules/tenancy/service";
 
@@ -25,7 +27,7 @@ export default async function DashboardPage() {
   const { ctx } = await ownerPage();
   const billing = await myBilling(ctx);
   const deletion = await deletionStatus(ctx);
-  const host = process.env.NEXT_PUBLIC_SITE_HOST ?? "tori.example";
+  const host = await siteHost();
 
   return (
     <AppShell email={String(claims.email ?? "")} width="max-w-6xl" nav={<OwnerNav current="calendar" />}>
@@ -41,7 +43,10 @@ export default async function DashboardPage() {
         </div>
         <div className="flex flex-col gap-1 p-4 sm:flex-row sm:justify-between sm:gap-4">
           <dt className="text-muted-foreground">{t("linkLabel")}</dt>
-          <dd className="min-w-0 font-semibold [overflow-wrap:anywhere]"><bdi data-testid="biz-link">{`${host}/book/${b.slug}`}</bdi></dd>
+          <dd className="flex min-w-0 flex-wrap items-center gap-2 font-semibold [overflow-wrap:anywhere]">
+            <a href={bookingUrl(host, b.slug)} target="_blank" rel="noopener" className="rounded-sm underline-offset-4 hover:underline"><bdi data-testid="biz-link">{`${host}/book/${b.slug}`}</bdi></a>
+            <CopyLink url={bookingUrl(host, b.slug)} />
+          </dd>
         </div>
         <div className="flex flex-col gap-1 p-4 sm:flex-row sm:justify-between sm:gap-4">
           <dt className="text-muted-foreground">{t("status")}</dt>

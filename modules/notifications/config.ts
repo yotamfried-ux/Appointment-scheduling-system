@@ -23,7 +23,12 @@ export function emailProvider(): EmailPort {
   throw new Error("unknown EMAIL_PROVIDER");
 }
 
-export const appUrl = () => (process.env.APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL ?? "http://127.0.0.1:3100").replace(/\/$/, "");
+/** The public address used in every e-mail link. Configured value first; on Vercel with nothing configured (a Preview) the deployment's own stable address, so links never point at localhost. */
+export function appUrl(): string {
+  const vercel = process.env.VERCEL_BRANCH_URL || process.env.VERCEL_URL;
+  const v = process.env.APP_URL || process.env.NEXT_PUBLIC_SITE_URL || (vercel ? `https://${vercel}` : "http://127.0.0.1:3100");
+  return v.replace(/\/$/, "");
+}
 
 /** Addresses are never stored in the log or the suppression list — only this keyed hash. */
 export function addressHash(address: string): string {
