@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
-import { makeBusiness } from "./helpers/business";
+import { makeBusiness, sql } from "./helpers/business";
 
 // Visual integrity of the public customer pages at every step: no overflow, no clipped text, WCAG 2.2 AA, centered main column.
 // Screenshots go to test-results/shots for a human look (automated checks never replace looking).
@@ -32,6 +32,7 @@ async function check(page: Page, where: string, shot: string) {
 test("public booking pages are balanced at every step", async ({ page }) => {
   await page.context().setExtraHTTPHeaders({ "x-forwarded-for": `10.9.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}` });
   const b = await makeBusiness("clinic");
+  sql(`update public.businesses set cancel_until_hours = 0 where id='${b.id}'`); // "the first free time" is tomorrow morning when the test runs in the evening: inside the default 24h window there is no cancel button
   await page.goto(`/book/${b.slug}`);
   await check(page, "step 1 service", "book-1-service");
   await page.getByTestId(`service-${b.services[0].id}`).check({ force: true });
