@@ -14,7 +14,7 @@ Status words: PASS = behavior proven by a test in this repository; NOT TESTED = 
 | `email_suppressions` | indefinite (hash) | none | schema | decision needed (a suppression should outlive the customer it protects) |
 | `audit_log` | append-only, never deleted | none (`audit_log is append-only` test); holds actor uuid and counters, no personal fields | `010_tenancy`, `110_identity_hardening`, `140_account_lifecycle` | PASS (retention period still a counsel question) |
 | Supabase backups | **unknown** | provider plan | none | NOT TESTED |
-| Restore after deletion (deleted data reappears from a restore) | **unknown** | runbook `docs/runbooks/restore.md` exists; no drill evidence | NOT TESTED |
+| Restore after deletion (deleted data reappears from a restore) | **unknown** | runbook `docs/runbooks/restore.md`; logical restore drill script exists (`scripts/drills/restore.sh`); does not model deletions replayed after a restore | PARTIAL |
 | Vercel logs | **unknown** | provider plan | none | NOT TESTED |
 
 Copy that must not over-promise: the privacy draft promises only what the table shows (customer detail deletion by the business, de-identified appointment facts kept). It does not say that backups or logs vanish immediately; keep it that way.

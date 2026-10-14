@@ -21,7 +21,7 @@ Product: "תורים", multi-tenant appointment-booking SaaS for small businesse
 | Database registration / notice duty, DPO, security-level classification | `NOT_ASSESSED` (conditional by thresholds; counsel) | library DATA |
 | Section 11 collection notice | `READY_FOR_COUNSEL`: notices exist at booking and sign-up; completeness is counsel's call | audit-checklist 9 |
 | Data Security Regulations 2017 | `NOT_ASSESSED` classification; controls exist (RLS, MFA, audit log, rate limits) | docs/05 |
-| Serious security-incident reporting | `NOT_ASSESSED`; no incident runbook with roles yet (gap P1) | audit-checklist 39 |
+| Serious security-incident reporting | `NOT_ASSESSED`; incident runbook drafted 2026-10-14 (`docs/runbooks/incident.md`); roles to be named | audit-checklist 39 |
 | Consumer Protection (internet cancellation, subscriptions) | `NOT_ASSESSED`; billing not live; the customer-booking cancellation window is shown before confirming | audit-checklist 45-47 |
 | Accessibility regulation, SI 5568 | `NOT_ASSESSED` whether it binds this operator; WCAG 2.2 AA automated checks pass (axe on all public and owner pages); no external audit | audit-checklist 50-52 |
 | Electronic marketing rules | `NOT_APPLICABLE` today: the product sends operational mail only (confirmation, reminder, waitlist offer, digest). Becomes applicable the day any promotional message exists | audit-checklist 21-24 |
@@ -38,7 +38,7 @@ Product: "תורים", multi-tenant appointment-booking SaaS for small businesse
 | 5 | Terms, consumer rights, accessibility | `READY_FOR_COUNSEL` | terms/subscription draft; governing law line says "per the final legal text" |
 | 6 | Cookies, trackers, marketing | `READY_FOR_COUNSEL` | no optional trackers; test fails if any appears |
 | 7 | User data rights | `READY_FOR_COUNSEL` | owner export + customer anonymise + account deletion with 14-day grace, all tested; end-customer direct request path is "ask the business" ([privacy-rights-workflow.md](privacy-rights-workflow.md)) |
-| 8 | Technical and legal security | `PARTIAL` | strong controls, see audit-checklist F; open: leaked-password protection off on the Supabase project, no incident runbook with roles, no restore drill evidence in this session |
+| 8 | Technical and legal security | `PARTIAL` | strong controls, see audit-checklist F; open: leaked-password protection off on the Supabase project, incident runbook only drafted (roles unnamed), PITR restore not drilled on a production project |
 | 9 | Vendors and IP | `PARTIAL` | [processors-and-transfers.md](processors-and-transfers.md); no DPAs on file; OSS licence scan not run in this session |
 | 10 | Platform and industry rules | `BLOCKED` for health-adjacent kinds until counsel decides (intake sensitive fields) | business-kind.ts |
 | 11 | Review approval | `NOT_ASSESSED` | no named reviewer; an AI cannot sign |

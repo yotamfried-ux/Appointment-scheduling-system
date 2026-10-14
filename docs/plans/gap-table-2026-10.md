@@ -19,9 +19,9 @@ Sources: UX = Engineering-OS `docs/ui-ux/*`; LEGAL = `docs/legal-compliance/*`; 
 | UX | Two empty panels pushed today's schedule down on mobile | medium | panels first only when something needs a decision | UX patterns (dashboard hierarchy) | before/after screenshots in `docs/evidence/ux/` | **Done** |
 | Web | no sitemap, no canonical, no Open Graph | medium | added | LAUNCH W10, W11, W16 | `seo.spec.ts` | **Done** (preview image open, see P2) |
 | Retention | Appointments and customers of an active business have no age limit | medium | counsel/owner sets a period; then a maintenance step | LEGAL 31 | pgTAP on the new rule | **Open (decision)** |
-| Security | No incident-response runbook with roles and a notification decision record | medium | write `docs/runbooks/incident.md` from the library SEC template (owner names the roles) | LEGAL 39, LAUNCH OPS | runbook drill in staging | **Open** |
+| Security | No incident-response runbook with roles and a notification decision record | medium | draft written (`docs/runbooks/incident.md`); owner names the roles; rehearse once in staging | LEGAL 39, LAUNCH OPS | rehearsal log | **Draft done, roles Open** |
 | Security | Supabase Auth leaked-password protection disabled (advisor WARN) | medium | enable in the Supabase dashboard (provider paid tier) | LEGAL 37 | advisor clean | **Open (owner)** |
-| Operations | No restore drill, no alert test, cron daily on the test plan | high before launch | drill from `docs/runbooks/restore.md`; synthetic failure to the alert destination; paid-plan cron (A3) | LAUNCH 38, 39, gate 9 | drill log | **Open (owner/ops)** |
+| Operations | Point-in-time restore not drilled (a logical rehearsal exists), no alert test, cron daily on the test plan | high before launch | PITR drill on the production project per `docs/runbooks/restore.md`; synthetic failure to the alert destination; paid-plan cron (A3) | LAUNCH 38, 39, gate 9 | drill log | **Open (owner/ops)** |
 | Vendors | No DPAs; production region unknown | high before launch | counsel + owner; fill `processors-and-transfers.md` | LEGAL 41 | signed documents | **Open (owner)** |
 
 ## P2 - product quality

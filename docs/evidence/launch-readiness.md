@@ -10,15 +10,15 @@ Revision: branch `claude/optimistic-hypatia-wh3zo3`. Environments: local stack (
 | 1 | Scope | PARTIAL | web only, Hebrew/RTL, Israel, no real payments, small businesses (docs/00, docs/evidence/cloud-test-environment.md) | operator identity, production region (owner) |
 | 2 | Build | PARTIAL | CI builds the commit that is tested; Vercel builds the same commit; check-env gate refuses test switches in Production | a tagged release artifact for a production deploy (none yet) |
 | 3 | Primary task | PASS (cloud, customer side) | cloud simulation on the Preview (GitHub Actions run 38466327951): visitor, customer booking on `demo-barber`, manage page, cancel; the booking row is checked through the product, not mocked. Owner side NOT TESTED in the cloud (needs `CLOUD_OWNER_EMAIL`/`PASSWORD`); owner side PASS locally (E2E user journeys) | owner run in the cloud |
-| 4 | Recovery | PARTIAL | duplicate submit, stale action, double click, concurrent last-slot race, token replay, network failure paths are in E2E | offline/background tests; restore drill |
+| 4 | Recovery | PARTIAL | duplicate submit, stale action, double click, concurrent last-slot race, token replay, network failure paths are in E2E; logical restore rehearsal (`scripts/drills/restore.sh`) and database-down drill documented in the runbooks | offline/background tests; Supabase point-in-time recovery drill on the production project |
 | 5 | Security/privacy | PARTIAL | [../legal/audit-checklist.md](../legal/audit-checklist.md) F, tenant isolation tests, CI scanners green | incident runbook, leaked-password protection, notice completion |
 | 6 | Payment/transaction | NOT APPLICABLE | no charging; manual billing, stated in the UI | revisit when a provider is connected |
 | 7 | Site metadata | PASS (local) / NOT TESTED (production domain) | sitemap, robots, canonical, Open Graph, titles tested by `tests/e2e/seo.spec.ts` | production domain, Search Console, social preview image |
 | 8 | Testing eligibility | NOT APPLICABLE | no store | - |
-| 9 | Operation | PARTIAL | `/api/health` and `/api/ready` (now also fails when the booking signing secret is missing), job heartbeat view, runbooks (database, jobs, mail, restore, billing, secrets) | alerts tested with a synthetic failure; named on-call; backup restore drill; cron frequency (daily on the test plan, A3) |
+| 9 | Operation | PARTIAL | `/api/health` and `/api/ready` (now also fails when the booking signing secret is missing), job heartbeat view, runbooks (database, jobs, mail, restore, billing, secrets) | alerts tested with a synthetic failure; named on-call; point-in-time restore drill on the production project; cron frequency (daily on the test plan, A3) |
 | 10 | Owner authorization | NOT GRANTED | - | explicit decision by the owner and counsel sign-off on public text |
 
-**Decision: NO_GO for a public launch.** Blockers (library release-block list): no qualified sign-off on binding legal text; operator identity and production environment do not exist yet; backups/restore not drilled; sensitive intake fields undecided. This is the expected state of a product before its production project exists; it is not a defect list of the code.
+**Decision: NO_GO for a public launch.** Blockers (library release-block list): no qualified sign-off on binding legal text; operator identity and production environment do not exist yet; point-in-time recovery not drilled on a production project; sensitive intake fields undecided. This is the expected state of a product before its production project exists; it is not a defect list of the code.
 
 ## 2. Web checklist (library W1-W26)
 | # | Item | Status | Evidence / gap |
@@ -26,7 +26,7 @@ Revision: branch `claude/optimistic-hypatia-wh3zo3`. Environments: local stack (
 | W1 | domain, DNS, TLS, canonical redirects | NOT TESTED | no production domain; the Preview has a trusted TLS certificate on `vercel.app` |
 | W2 | production and staging separated, no test keys or demo endpoints in production | PARTIAL | Preview and Production env scoped separately; `npm run check:env` fails a Production build that carries a test switch or placeholder (unit tests); Preview answers `x-robots-tag: noindex` (seen in the cloud responses) |
 | W3 | auth callbacks, e-mail domain, reset and invite links, CORS/origins for the canonical host | PARTIAL | sign-in works on the Preview; links built from the configured address, falling back to the deployment host on Vercel (`appUrl()`, unit-tested); Supabase redirect allow-list is a dashboard setting: owner (B9) |
-| W4 | migrations, backups plus restore test, cron, storage ACL, rate limits | PARTIAL | migrations applied by workflow and pgTAP in CI; rate limits tested; **restore test NOT TESTED**; no file storage in the product |
+| W4 | migrations, backups plus restore test, cron, storage ACL, rate limits | PARTIAL | migrations applied by workflow and pgTAP in CI; rate limits tested; logical restore rehearsal exists (`scripts/drills/restore.sh`); **point-in-time restore on the production project NOT TESTED**; no file storage in the product |
 | W5 | deliverability (SPF/DKIM/DMARC; delivered confirmation and reset) | NOT TESTED | mail provider not live (A4); fake provider in test |
 | W6 | health, alerts, escalation, rollback | PARTIAL | health and readiness verified in the cloud (including after the readiness fix); alerts and rollback rehearsal not done |
 | W7 | crawlable public pages, private pages not indexable | PASS (local) | `seo.spec.ts`; private pages are behind login or noindex; robots lists the public set |
