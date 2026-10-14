@@ -3,7 +3,7 @@ import { LegalPage } from "@/components/legal/legal-page";
 import { A11Y } from "@/lib/legal/content";
 import { LEGAL } from "@/lib/legal/config";
 
-export const metadata = { title: "הצהרת נגישות" };
+export const metadata = { title: "הצהרת נגישות", alternates: { canonical: "/accessibility" } };
 
 export default async function Page() {
   const t = await getTranslations("legal.a11y");

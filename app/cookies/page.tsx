@@ -4,7 +4,7 @@ import { LegalPage } from "@/components/legal/legal-page";
 import { COOKIES_ESSENTIAL } from "@/lib/legal/content";
 import { LEGAL } from "@/lib/legal/config";
 
-export const metadata = { title: "עוגיות" };
+export const metadata = { title: "עוגיות", alternates: { canonical: "/cookies" } };
 
 export default async function Page() {
   const t = await getTranslations("legal.cookiesPage");

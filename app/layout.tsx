@@ -18,6 +18,8 @@ export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
   title: { default: "קביעת תורים", template: "%s · קביעת תורים" },
   description: "מערכת קביעת תורים לעסקים קטנים",
+  applicationName: "תורים",
+  openGraph: { siteName: "תורים", locale: "he_IL", type: "website" },
 };
 
 export const viewport: Viewport = {

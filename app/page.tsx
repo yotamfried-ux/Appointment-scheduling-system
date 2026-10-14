@@ -1,4 +1,5 @@
 import { ArrowLeft, Bell, CalendarCheck, Check, ChevronDown, Hourglass, ShieldCheck, Smartphone, UserX, Users } from "lucide-react";
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
@@ -15,6 +16,18 @@ const FEATURE_ICONS = [Smartphone, Bell, Hourglass, Users, UserX, ShieldCheck] a
 type Step = { title: string; body: string };
 type Item = { title: string; body: string };
 type Faq = { q: string; a: string };
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("home");
+  const title = `תורים: ${t("hero.title")}`;
+  const description = t("hero.subtitle");
+  return {
+    title: { absolute: title },
+    description,
+    alternates: { canonical: "/" },
+    openGraph: { type: "website", locale: "he_IL", siteName: "תורים", title, description, url: "/" },
+  };
+}
 
 export default async function Home() {
   const t = await getTranslations("home");
