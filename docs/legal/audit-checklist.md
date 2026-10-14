@@ -51,7 +51,7 @@ Engineering status only (PASS / PARTIAL / FAIL / NOT TESTED / NOT APPLICABLE), p
 | 36 | no PII in logs, no service key in frontend | PASS | `scripts/check-bundle.sh`, Gitleaks and Trivy in CI; logs carry fixed event words |
 | 37 | MFA, access review, transport and at-rest encryption | PARTIAL | MFA (TOTP) built and tested; TLS and HSTS set; at-rest encryption is the provider's; access review process not written |
 | 38 | audit logging, vulnerability management | PARTIAL | audit_log append-only; CodeQL, OSV, Trivy, Gitleaks in CI (green on the last runs); logical restore rehearsal exists and is scripted (`scripts/drills/restore.sh`, runbook `restore.md`); Supabase point-in-time recovery itself NOT TESTED (needs the production project) |
-| 39 | incident plan with roles | **PARTIAL (draft written today)** | `docs/runbooks` has no incident-response page with roles and notification decision record |
+| 39 | incident plan with roles | **PARTIAL (draft written today)** | the runbook index had no incident page; `docs/runbooks/incident.md` drafted 2026-10-14 (first hour, decision record); roles still to be named by the owner; `docs/05` §11 holds the earlier outline |
 | 40 | no "100% secure" claims | PASS | privacy draft says no system is fully immune |
 | extra | Supabase advisor | PARTIAL | security advisor: leaked-password protection is disabled (Auth setting; requires the provider's paid tier, owner action); 8 INFO "RLS enabled, no policy" are intentional service-only tables |
 
