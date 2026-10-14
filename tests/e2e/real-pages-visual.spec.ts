@@ -47,6 +47,7 @@ async function check(page: Page, where: string, centered: string[] = []) {
 }
 
 test("real pages: no overflow, no axe violations, balanced layout (mobile + desktop)", async ({ page }) => {
+  test.setTimeout(90_000); // one long walk through ~15 pages with axe on each; it sat at ~30 s, right on the default limit
   // public pages
   await page.goto("/");
   await check(page, "home", ["main#main"]);
