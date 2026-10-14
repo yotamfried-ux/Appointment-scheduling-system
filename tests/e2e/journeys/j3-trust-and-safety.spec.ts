@@ -106,8 +106,9 @@ test("repeat no-shows are held, then turned away politely; the owner can forgive
       headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `race-${i}-${Math.random().toString(36).slice(2)}` },
     })));
     const codes = res.map((r) => r.status()).sort();
-    expect(codes.filter((c) => c === 201)).toHaveLength(1);
-    expect(codes.filter((c) => c === 409)).toHaveLength(9);
+    const why = `statuses ${codes.join(",")}; first body ${(await res[0].text()).slice(0, 300)}`;
+    expect(codes.filter((c) => c === 201), why).toHaveLength(1);
+    expect(codes.filter((c) => c === 409), why).toHaveLength(9);
   });
 
   await test.step("a staff member sees the calendar but cannot export, delete the account or change the rules", async () => {

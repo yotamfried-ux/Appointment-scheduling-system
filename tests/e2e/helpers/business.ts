@@ -86,11 +86,23 @@ async function getRetrying(request: APIRequestContext, url: string) {
   }
 }
 
-export async function firstDayWithSlots(request: APIRequestContext, b: TestBusiness, nth = 0) {
+export async function firstDayWithSlots(request: APIRequestContext, b: TestBusiness, nth = 0, minSlots = 12) {
   const av = C.AvailabilityResponse.parse(await (await getRetrying(request, `/api/public/${b.slug}/availability?service=${b.services[0].id}&from=${todayLocal(2)}&days=30`)).json());
-  const date = av.days.filter((d) => d.freeSlots > 0)[nth].date;
-  const sl = C.SlotsResponse.parse(await (await getRetrying(request, `/api/public/${b.slug}/slots?service=${b.services[0].id}&date=${date}`)).json());
-  return { date, times: sl.slots.map((s) => s.time) };
+  const slotsOf = async (date: string) => C.SlotsResponse.parse(await (await getRetrying(request, `/api/public/${b.slug}/slots?service=${b.services[0].id}&date=${date}`)).json()).slots.map((s) => s.time);
+  // Tests index into the day's times (times[8], times[9]...). The first bookable day can be a short day (Friday, a holiday-like window), so take the nth day that has
+  // at least `minSlots` times (a weekday-dependent failure the first weekday it fell on a Friday). If no day is long enough, the longest one wins.
+  let seen = 0;
+  let longest: { date: string; times: string[] } | null = null;
+  for (const d of av.days.filter((x) => x.freeSlots > 0)) {
+    const times = await slotsOf(d.date);
+    if (!longest || times.length > longest.times.length) longest = { date: d.date, times };
+    if (times.length >= minSlots) {
+      if (seen === nth) return { date: d.date, times };
+      seen++;
+    }
+  }
+  if (!longest) throw new Error("no bookable day in the next 30 days");
+  return longest;
 }
 
 import { execFileSync } from "node:child_process";
