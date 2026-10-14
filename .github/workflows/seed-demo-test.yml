@@ -1,0 +1,65 @@
+name: Seed demo user (test project)
+# Creates ONE confirmed demo user and a published demo business on a TEST Supabase project (scripts/seed-demo.mjs), by hand only.
+# Needs the repository secret SUPABASE_SECRET_KEY (Supabase → Project settings → API Keys → Secret keys), entered by the owner in GitHub.
+# The generated password is printed once in this run's log: use a private repository, sign in, and change it. Never run this against production.
+on:
+  workflow_dispatch:
+    inputs:
+      project_ref:
+        description: Supabase project ref
+        required: true
+        default: datohhabfakiacvndvle
+      confirm:
+        description: Type the project ref again to confirm
+        required: true
+      email:
+        description: E-mail of the demo owner (the sign-in name)
+        required: true
+      app_url:
+        description: Address of the deployment (for the printed links)
+        required: true
+        default: https://appointment-scheduling-sys-git-a8bb97-yotamfried-7101s-projects.vercel.app
+      publishable_key:
+        description: Publishable key of the project (public by design)
+        required: true
+        default: sb_publishable_q1wI0MnNT1KIYBCpImeC8w_x0eO4Hsr
+      reset_password:
+        description: Set a new password if the user already exists
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: seed-demo-test
+  cancel-in-progress: false
+
+jobs:
+  seed:
+    name: seed demo
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse unless the ref was typed twice
+        env:
+          REF: ${{ inputs.project_ref }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          [ "$REF" = "$CONFIRM" ] || { echo "project_ref and confirm differ: refusing"; exit 1; }
+          [[ "$REF" =~ ^[a-z]{20}$ ]] || { echo "not a project ref: refusing"; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Create the demo user and business
+        env:
+          REF: ${{ inputs.project_ref }}
+          DEMO_EMAIL: ${{ inputs.email }}
+          APP_URL: ${{ inputs.app_url }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ inputs.publishable_key }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          RESET: ${{ inputs.reset_password }}
+        run: |
+          export NEXT_PUBLIC_SUPABASE_URL="https://${REF}.supabase.co"
+          args=(--confirm-project="$REF")
+          [ "$RESET" = "true" ] && args+=(--reset-password)
+          node scripts/seed-demo.mjs "${args[@]}"

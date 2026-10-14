@@ -1,0 +1,76 @@
+name: DB push (test project)
+# Applies supabase/migrations to ONE Supabase project, by hand only. For the test environment (docs/runbooks/deploy-test-environment.md).
+# Repository secrets, entered by the owner in GitHub (never in chat or in a file):
+#   SUPABASE_ACCESS_TOKEN  (Supabase account → Access Tokens)         used by both methods
+#   SUPABASE_DB_PASSWORD   (the database password of the project)     used by method "cli" only
+# method "api": scripts/apply-migrations-api.mjs through the Management API (token only, no database password).
+# method "cli": supabase link + db push.
+on:
+  workflow_dispatch:
+    inputs:
+      project_ref:
+        description: Supabase project ref (the 20 characters in its URL)
+        required: true
+        default: datohhabfakiacvndvle
+      confirm:
+        description: Type the project ref again to confirm
+        required: true
+      method:
+        description: How to apply
+        type: choice
+        options: [api, cli]
+        default: api
+permissions:
+  contents: read
+concurrency:
+  group: db-push-test
+  cancel-in-progress: false
+
+jobs:
+  push:
+    name: supabase db push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse unless the ref was typed twice
+        env:
+          REF: ${{ inputs.project_ref }}
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          [ "$REF" = "$CONFIRM" ] || { echo "project_ref and confirm differ: refusing"; exit 1; }
+          [[ "$REF" =~ ^[a-z]{20}$ ]] || { echo "not a project ref: refusing"; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 22, cache: npm }
+
+      - name: Apply through the Management API
+        if: inputs.method == 'api'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          REF: ${{ inputs.project_ref }}
+        run: node scripts/apply-migrations-api.mjs "$REF"
+
+      - name: Install (cli method)
+        if: inputs.method == 'cli'
+        run: npm ci
+      - name: Link the project (cli method)
+        if: inputs.method == 'cli'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          REF: ${{ inputs.project_ref }}
+        run: npx supabase link --project-ref "$REF"
+      - name: Reconcile the history of the first migration (cli method)
+        if: inputs.method == 'cli'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          npx supabase migration repair --status reverted 20261013073942 || true
+          npx supabase migration repair --status applied 20261011000000
+      - name: Push the remaining migrations (cli method)
+        if: inputs.method == 'cli'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: npx supabase db push --yes

@@ -1,0 +1,9 @@
+# Security-relevant paths require owner review (docs/05 §7).
+/supabase/migrations/   @yotamfried-ux
+/supabase/tests/        @yotamfried-ux
+/.github/               @yotamfried-ux
+/proxy.ts               @yotamfried-ux
+/next.config.ts         @yotamfried-ux
+/lib/security/          @yotamfried-ux
+/platform/              @yotamfried-ux
+/docs/05-security-architecture.md @yotamfried-ux

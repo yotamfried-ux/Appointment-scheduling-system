@@ -1,0 +1,38 @@
+name: Claude PR review
+# Inert until the repository owner enables it:
+#   1. add secret CLAUDE_CODE_OAUTH_TOKEN
+#   2. add repository variable CLAUDE_REVIEW_ENABLED=true
+# Findings are advisory evidence; they never replace the deterministic gates in ci.yml / security.yml.
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+permissions:
+  contents: read
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    if: ${{ vars.CLAUDE_REVIEW_ENABLED == 'true' && github.event.pull_request.head.repo.full_name == github.repository && !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 1 }
+      - uses: anthropics/claude-code-action@1d6de8cb0c237e7c15e9e1bdf973826ebae490cc # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+            Review this PR against CLAUDE.md and docs/05-security-architecture.md.
+            Priorities: (1) tenant isolation / RLS / authorization, (2) security guardrails in CLAUDE.md,
+            (3) correctness vs the scenario IDs cited in the PR, (4) tests: negative controls present,
+            (5) Hebrew/RTL + accessibility for UI changes. Use inline comments for specific issues.
+          claude_args: '--allowed-tools "mcp__github_inline_comment__create_inline_comment,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"'
