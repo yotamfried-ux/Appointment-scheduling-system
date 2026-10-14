@@ -51,7 +51,8 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
   const headingRef = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
 
-  const [session] = useState(() => resolveSession(sessionParam));
+  // A real business needs no browser-side session id (the server keys everything by the business and the customer); only the design lab keeps one per tab, so a real visitor stores nothing.
+  const [session] = useState(() => (base ? "public" : resolveSession(sessionParam)));
   const opts = useMemo<ClientOptions>(() => ({ kind, session, limit, base }), [kind, session, limit, base]);
 
   const [catalog, setCatalog] = useState<Load<Catalog>>(initialCatalog ? { status: "ready", data: initialCatalog } : { status: "loading" });

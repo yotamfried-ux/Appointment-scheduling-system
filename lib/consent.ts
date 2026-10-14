@@ -1,6 +1,6 @@
 // Cookie/tracking consent (CMP-01). Today the site sets ONLY essential cookies, so there is nothing to ask and no banner is shown (a banner without a real
 // choice is noise). This module is the gate for the day an optional category exists: register it in OPTIONAL_CATEGORIES and the banner appears by itself,
-// and `allowed()` stays false until the visitor has chosen. tests/e2e/consent-cookies.spec.ts fails if anything non-essential is set or loaded without it.
+// and `allowed()` stays false until the visitor has chosen. tests/e2e/consent-cookies.spec.ts (cookies, browser storage, origins) and the "no tracking without consent" block of legal-calendar.spec.ts fail if anything non-essential is set or loaded without it.
 export const CONSENT_COOKIE = "tori_consent";
 export const CONSENT_DAYS = 180;
 
