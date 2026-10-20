@@ -16,7 +16,6 @@ describe("business kinds (adaptability across business types)", () => {
     expect(getKind("nails").label).toBe("מניקוריסט/ית");
     expect(getKind("nails").vocab.appointment).toBe("תור");
     expect(getKind("nails").presets.map((p) => p.name)).toEqual(expect.arrayContaining(["לק ג׳ל", "הסרת ג׳ל"]));
-    expect(getKind("nails").intake.map((f) => f.id)).toContain("sensitivities"); // allergies matter for gel and acrylic
   });
 
   it.each(KIND_IDS)("%s defines complete Hebrew vocabulary", (id) => {
@@ -112,12 +111,9 @@ describe("business kinds (adaptability across business types)", () => {
       }
     });
 
-    it("sensitive intake fields are optional and visible to the provider only", () => {
+    it("no business kind collects sensitive intake fields (owner decision 2026-10-20; reopen with counsel before adding any)", () => {
       for (const id of KIND_IDS) {
-        for (const f of getKind(id).intake.filter((x) => x.sensitive)) {
-          expect(f.required, `${id}.${f.id}`).toBe(false);
-          expect(f.visibleToProviderOnly, `${id}.${f.id}`).toBe(true);
-        }
+        expect(getKind(id).intake.filter((x) => x.sensitive), id).toEqual([]);
       }
     });
   });

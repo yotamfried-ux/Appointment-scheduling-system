@@ -5,14 +5,14 @@ Product: "תורים", multi-tenant appointment-booking SaaS for small businesse
 ## 1. Scope facts (from the library's Phase A)
 | Fact | Value | Source |
 |---|---|---|
-| Operator legal entity, address, contact | **unknown** (owner decision; `NEXT_PUBLIC_LEGAL_CONTACT` is a visible placeholder) | docs/08 A6 |
-| Markets | Israel, Hebrew/RTL. EU/UK/US targeting: none in code (no locale/currency/ads); **not assessed** by counsel | code |
+| Operator legal entity, address, contact | name **D2R**; tax registration not yet opened; mailbox not yet given (`NEXT_PUBLIC_LEGAL_CONTACT` is a visible placeholder). See [open-decisions.md](open-decisions.md) G-01, G-02 | owner, 2026-10-20 |
+| Markets | Israel only (owner decision 2026-10-20), Hebrew/RTL. EU/UK/US targeting: none in code (no locale/currency/ads) | code |
 | Audiences | B2B: business owners (account holders, SaaS customers). B2C: end customers of each business (no account; name, phone, optional e-mail) | schema |
 | Roles | Platform vs tenant business: **TO_REVIEW** (for end-customer data the business is likely the controller and the platform a processor; owner/counsel decision) | privacy draft section "who we are" |
-| Minors / health | Business kinds include clinic/therapy/trainer/beauty/nails. Optional intake fields marked `sensitive` exist (allergies, fitness goal incl. "rehabilitation", reason for visit). **COUNSEL_REQUIRED** | `modules/tenancy/business-kind.ts` |
-| Money movement | None live: billing provider is manual/fake. Prices for customers are display only (no payment taken by the platform) | `modules/billing`, A3/A5 |
+| Minors / health | Business kinds include clinic/therapy/trainer/beauty/nails. Sensitive intake fields (allergies, fitness goal, reason for visit) were **removed** on 2026-10-20 and a unit test fails if one returns; free-text notes could still receive health data, so the terms forbid it. Row 10 is therefore no longer blocked by this, but notes remain a residual risk | `modules/tenancy/business-kind.ts` |
+| Money movement | None live: billing provider is manual/fake (future provider: Grow, owner decision 2026-10-20). Prices for customers are display only (no payment taken by the platform) | `modules/billing`, A3/A5 |
 | Trackers | None: no analytics, ads, third-party embeds, error tracker. Only essential cookies | `lib/consent.ts` (`OPTIONAL_CATEGORIES` empty), `tests/e2e/consent-cookies.spec.ts` |
-| Hosting regions | Cloud test DB: Supabase `ap-southeast-1` (Singapore) per Supabase console; functions ran in Vercel `iad1`/`pdx1` per runtime logs; **production regions, backup location: unknown** | Supabase MCP `get_project`, Vercel runtime logs |
+| Hosting regions | Cloud test DB: Supabase `ap-southeast-1` (Singapore) per Supabase console; functions ran in Vercel `iad1`/`pdx1` per runtime logs; **production target: Vercel `fra1` + Supabase `eu-central-1` (Frankfurt), not yet created; backup location: unknown** | Supabase MCP `get_project`, Vercel runtime logs |
 
 ## 2. Regimes considered
 | Regime | Status | Why |
@@ -31,7 +31,7 @@ Product: "תורים", multi-tenant appointment-booking SaaS for small businesse
 ## 3. Legal evidence matrix (library RELEASE-LEGAL-QUALITY-GATE, 11 rows)
 | # | Row | Status | Evidence / gap |
 |---|---|---|---|
-| 1 | Legal entity and markets | `BLOCKED` | operator identity unknown (A6) |
+| 1 | Legal entity and markets | `BLOCKED` until registration details and mailbox exist | name D2R known; registration number, address and mailbox open (G-01, G-02) |
 | 2 | Current law sources and scope | `READY_FOR_COUNSEL` | regimes and official URLs listed in this file; verified date 2026-10-14 is the library's, counsel must re-verify |
 | 3 | Personal-data inventory | `READY_FOR_COUNSEL` | [data-map.md](data-map.md) |
 | 4 | Public privacy notices | `READY_FOR_COUNSEL` | `lib/legal/content.ts` drafts, matched to behavior in [audit-checklist.md](audit-checklist.md) items 11-12; retention and server location still say "will be detailed before launch" (honest, but must be filled) |
@@ -40,10 +40,10 @@ Product: "תורים", multi-tenant appointment-booking SaaS for small businesse
 | 7 | User data rights | `READY_FOR_COUNSEL` | owner export + customer anonymise + account deletion with 14-day grace, all tested; end-customer direct request path is "ask the business" ([privacy-rights-workflow.md](privacy-rights-workflow.md)) |
 | 8 | Technical and legal security | `PARTIAL` | strong controls, see audit-checklist F; open: leaked-password protection off on the Supabase project, incident runbook only drafted (roles unnamed), PITR restore not drilled on a production project |
 | 9 | Vendors and IP | `PARTIAL` | [processors-and-transfers.md](processors-and-transfers.md); no DPAs on file; OSS licence scan not run in this session |
-| 10 | Platform and industry rules | `BLOCKED` for health-adjacent kinds until counsel decides (intake sensitive fields) | business-kind.ts |
+| 10 | Platform and industry rules | `READY_FOR_COUNSEL`: sensitive intake fields removed; health-adjacent kinds remain selectable (clinic), so notes are the residual risk and the terms forbid sensitive data | business-kind.ts, unit test |
 | 11 | Review approval | `NOT_ASSESSED` | no named reviewer; an AI cannot sign |
 
 **Overall: `READY_FOR_COUNSEL`, release authorization NOT GRANTED.**
 
 ## 4. Questions only a lawyer or the owner can answer
-1. Operator entity, address, contact (A6). 2. Roles: is each business the controller of its customers' data and the platform a processor; is a DPA with subprocessor list needed. 3. Registration/DPO/security-level thresholds under Amendment 13. 4. Whether sensitive intake answers (allergies, rehabilitation goal, visit reason) may be collected at all, and under what notice, for each business kind. 5. Hosting region and transfer basis for production (test DB is in Singapore). 6. Retention periods for appointments and customers of an active business (today: indefinite until the business or the customer is removed). 7. Applicability of internet-cancellation rules to booking cancellation and to the SaaS subscription. 8. Whether the accessibility regulation binds the operator and at what level. 9. Wording of terms: liability, governing law, forum. 10. Incident-notification roles.
+1. Operator entity, address, contact (A6). 2. Roles: is each business the controller of its customers' data and the platform a processor; is a DPA with subprocessor list needed. 3. Registration/DPO/security-level thresholds under Amendment 13. 4. Whether sensitive intake answers (allergies, rehabilitation goal, visit reason) may be collected at all, and under what notice, for each business kind. 5. Hosting region and transfer basis for production (test DB is in Singapore). 6. ~~Retention periods~~ decided: 3 years after last activity, implemented (D-05). 7. Applicability of internet-cancellation rules to booking cancellation and to the SaaS subscription. 8. Whether the accessibility regulation binds the operator and at what level. 9. Wording of terms: liability, governing law, forum. 10. Incident-notification roles.

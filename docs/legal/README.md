@@ -6,6 +6,7 @@ Prepared with the Engineering-OS legal-compliance library (PR 298, `docs/legal-c
 
 | File | What it is |
 |---|---|
+| [open-decisions.md](open-decisions.md) | **start here**: what the owner decided, what was built, and the gaps to close before production |
 | [legal-qualification.md](legal-qualification.md) | scope facts, regimes considered (applies / conditional / not assessed), 11-row legal evidence matrix with status, open questions for counsel |
 | [data-map.md](data-map.md) | personal-data ledger and processing register, from the schema |
 | [processors-and-transfers.md](processors-and-transfers.md) | vendors, what each receives, locations known and unknown |

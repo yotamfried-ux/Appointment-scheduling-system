@@ -31,6 +31,13 @@ export function WeekPicker({
 }) {
   const t = useTranslations("booking.day");
   const [page, setPage] = useState(0);
+  // "First available" can pick a day on another page: show the page that holds the chosen day (adjusting state while rendering, as React recommends for derived state).
+  const [seen, setSeen] = useState<string | null>(value);
+  if (seen !== value) {
+    setSeen(value);
+    const i = value ? days.findIndex((d) => d.iso === value) : -1;
+    if (i >= 0) setPage(Math.floor(i / 7));
+  }
   const pages = Math.ceil(days.length / 7);
   const week = days.slice(page * 7, page * 7 + 7);
   const month = fmt(week[0].iso, { month: "long", year: "numeric" });

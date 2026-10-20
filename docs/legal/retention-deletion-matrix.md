@@ -10,7 +10,7 @@ Status words: PASS = behavior proven by a test in this repository; NOT TESTED = 
 | Whole business (owner request) | 14-day grace after the owner types the business name, customers are told, then purge incl. members' `auth.users` rows | `maintenance` cron job `purge_deleted_businesses` | `140_account_lifecycle.test.sql`, E2E `account.spec.ts` | PASS |
 | Technical rows (rate counters 1 day, token uses 1 day, idempotency 30 days, job runs 30 days, processed domain events 90 days) | listed | `maintenance_run` (daily) | `20261021000000_maintenance.sql`, pgTAP | PASS |
 | `notification_log` | with the business (rows hold a hash of the address, no body) | business purge | schema | **PARTIAL: no age-based purge while a business is active** (gap P2) |
-| Appointments and waitlist of an active business | **indefinite** | owner anonymise per customer, or purge | none (no age rule) | **NOT DECIDED: counsel/owner must set a period (gap P1)** |
+| Customer identity of an active business | **3 years after the customer's last activity** (owner decision 2026-10-20) | `retention_anonymize` in the daily maintenance job (same erasure as the owner's "delete personal details"; appointment facts stay without identity) | pgTAP `190_retention` | PASS |
 | `email_suppressions` | indefinite (hash) | none | schema | decision needed (a suppression should outlive the customer it protects) |
 | `audit_log` | append-only, never deleted | none (`audit_log is append-only` test); holds actor uuid and counters, no personal fields | `010_tenancy`, `110_identity_hardening`, `140_account_lifecycle` | PASS (retention period still a counsel question) |
 | Supabase backups | **unknown** | provider plan | none | NOT TESTED |

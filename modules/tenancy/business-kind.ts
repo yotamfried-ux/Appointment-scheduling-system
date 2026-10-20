@@ -113,7 +113,7 @@ export const BUSINESS_KINDS: Record<BusinessKindId, KindConfig> = {
     ],
     defaults: { slotStepMinutes: 30, bufferMinutes: 10, requireApproval: false, cancelUntilHours: 24, allowLastMinute: true, noShowTracking: true },
     hours: week([{ from: H(9, 30), to: H(19) }], [{ from: H(9), to: H(14) }]),
-    intake: [field({ id: "sensitivities", label: "רגישויות או אלרגיות (לא חובה)", type: "text", sensitive: true, visibleToProviderOnly: true })],
+    intake: [],            // owner decision 2026-10-20: no sensitive intake fields are collected
     locations: ["business"],
     group: { supported: false, defaultCapacity: 1 },
     privacy: { sensitive: true, hideServiceNameInMessages: true, allowFreeTextNotesInMessages: false },
@@ -132,7 +132,7 @@ export const BUSINESS_KINDS: Record<BusinessKindId, KindConfig> = {
     ],
     defaults: { slotStepMinutes: 30, bufferMinutes: 10, requireApproval: false, cancelUntilHours: 24, allowLastMinute: true, noShowTracking: true },
     hours: week([{ from: H(9, 30), to: H(19) }], [{ from: H(9), to: H(14) }]),
-    intake: [field({ id: "sensitivities", label: "רגישויות או אלרגיות (לא חובה)", type: "text", sensitive: true, visibleToProviderOnly: true })],
+    intake: [],            // owner decision 2026-10-20: no sensitive intake fields are collected
     locations: ["business", "customer"],
     group: { supported: false, defaultCapacity: 1 },
     privacy: { sensitive: true, hideServiceNameInMessages: true, allowFreeTextNotesInMessages: false },
@@ -149,7 +149,7 @@ export const BUSINESS_KINDS: Record<BusinessKindId, KindConfig> = {
     ],
     defaults: { slotStepMinutes: 60, bufferMinutes: 0, requireApproval: false, cancelUntilHours: 24, allowLastMinute: false, noShowTracking: true },
     hours: week([{ from: H(6), to: H(10) }, { from: H(17), to: H(21) }], [{ from: H(7), to: H(11) }]),
-    intake: [field({ id: "goal", label: "מטרה (לא חובה)", type: "select", options: ["כושר כללי", "ירידה במשקל", "חיזוק", "שיקום"], sensitive: true, visibleToProviderOnly: true })],
+    intake: [],            // owner decision 2026-10-20: no sensitive intake fields are collected
     locations: ["business", "customer", "online"],
     group: { supported: true, defaultCapacity: 8 },
     privacy: { sensitive: false, hideServiceNameInMessages: false, allowFreeTextNotesInMessages: false },
@@ -186,7 +186,7 @@ export const BUSINESS_KINDS: Record<BusinessKindId, KindConfig> = {
     ],
     defaults: { slotStepMinutes: 30, bufferMinutes: 10, requireApproval: true, cancelUntilHours: 24, allowLastMinute: false, noShowTracking: true },
     hours: week([{ from: H(8), to: H(16) }], [{ from: H(8), to: H(12) }]),
-    intake: [field({ id: "reason", label: "מה מביא אתכם? (לא חובה)", type: "select", options: ["ייעוץ ראשון", "המשך טיפול", "אחר"], sensitive: true, visibleToProviderOnly: true })],
+    intake: [],            // owner decision 2026-10-20: no sensitive intake fields are collected
     locations: ["business", "online"],
     group: { supported: false, defaultCapacity: 1 },
     privacy: { sensitive: true, hideServiceNameInMessages: true, allowFreeTextNotesInMessages: false },

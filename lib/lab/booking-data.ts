@@ -4,6 +4,11 @@
 export const LAB_TODAY = "2026-10-14"; // a Wednesday
 export const LAB_TIMEZONE = "Asia/Jerusalem";
 
+/** Today's date (YYYY-MM-DD) in the business time zone. The design lab keeps its fixed LAB_TODAY; real businesses use the real date. */
+export function todayInBusinessZone(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: LAB_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+}
+
 export interface LabService {
   id: string;
   name: string;

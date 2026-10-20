@@ -17,7 +17,7 @@ import { toast } from "@/components/ui/toast";
 import { ApiClientError, labApi, resolveSession, type ClientOptions } from "@/lib/api/client";
 import type * as C from "@/lib/api/contracts";
 import { priceLabel } from "@/lib/price";
-import { dayPart, formatDayLabel, LAB_TODAY, type LabDay } from "@/lib/lab/booking-data";
+import { dayPart, formatDayLabel, LAB_TODAY, todayInBusinessZone, type LabDay } from "@/lib/lab/booking-data";
 import { bookingReducer, canContinue, detailsValid, initialBookingState, STEP_ORDER, type BookingStep } from "@/lib/lab/booking-flow";
 import { normalizePhone } from "@/lib/phone";
 import { cn } from "@/lib/utils";
@@ -53,6 +53,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
 
   // A real business needs no browser-side session id (the server keys everything by the business and the customer); only the design lab keeps one per tab, so a real visitor stores nothing.
   const [session] = useState(() => (base ? "public" : resolveSession(sessionParam)));
+  const [today] = useState(() => (base ? todayInBusinessZone() : LAB_TODAY)); // a real business is booked from the real date; only the design lab uses the fixed prototype day
   const opts = useMemo<ClientOptions>(() => ({ kind, session, limit, base }), [kind, session, limit, base]);
 
   const [catalog, setCatalog] = useState<Load<Catalog>>(initialCatalog ? { status: "ready", data: initialCatalog } : { status: "loading" });
@@ -92,11 +93,11 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on service change
     setAvail({ status: "loading" });
     labApi
-      .availability({ ...opts, signal: ctl.signal }, { service: s.serviceId, from: LAB_TODAY, days: HORIZON, person: personId ?? undefined })
+      .availability({ ...opts, signal: ctl.signal }, { service: s.serviceId, from: today, days: HORIZON, person: personId ?? undefined })
       .then((r) => setAvail({ status: "ready", data: new Map(r.days.map((d) => [d.date, d])) }))
       .catch((e) => (e instanceof DOMException ? undefined : setAvail({ status: "error" })));
     return () => ctl.abort();
-  }, [opts, s.serviceId, personId, availTick, s.step === "day" ? "day" : "-"]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh whenever the day step is (re)entered
+  }, [opts, today, s.serviceId, personId, availTick, s.step === "day" ? "day" : "-"]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh whenever the day step is (re)entered
 
   // Slots for the chosen day. The chosen time is passed so the ribbon shows it selected; keep old data while refreshing.
   const reloadSlots = useCallback(
@@ -136,11 +137,11 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
 
   const days: LabDay[] = useMemo(
     () => Array.from({ length: HORIZON }, (_, i) => {
-      const iso = addDays(LAB_TODAY, i);
+      const iso = addDays(today, i);
       const a = avail.status === "ready" ? avail.data.get(iso) : undefined;
       return { iso, weekday: weekdayOf(iso), closed: a?.closed ?? weekdayOf(iso) === 6 };
     }),
-    [avail],
+    [avail, today],
   );
   const hasFree = (iso: string) => (avail.status === "ready" ? (avail.data.get(iso)?.freeSlots ?? 0) > 0 : false);
   const firstAvailable = avail.status === "ready" ? days.find((d) => hasFree(d.iso)) : undefined;
@@ -336,7 +337,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
               <InlineError message={t("day.loadError")} retry={t("loadError.retry")} onRetry={() => setAvailTick((n) => n + 1)} />
             ) : (
               <div aria-busy={avail.status !== "ready"} className={cn(avail.status !== "ready" && "pointer-events-none opacity-60")}>
-                <WeekPicker days={days} value={s.day} onChange={(iso) => dispatch({ type: "selectDay", iso })} today={LAB_TODAY} hasFree={hasFree} />
+                <WeekPicker days={days} value={s.day} onChange={(iso) => dispatch({ type: "selectDay", iso })} today={today} hasFree={hasFree} />
               </div>
             )}
             {firstAvailable ? (

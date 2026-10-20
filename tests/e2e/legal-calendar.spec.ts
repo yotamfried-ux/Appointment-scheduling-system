@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { LEGAL } from "../../lib/legal/config";
 import { firstDayWithSlots, loginAs, makeBusiness, publicBook, sql, type TestBusiness } from "./helpers/business";
 
 // Stage 10: the customer's ICS file (CAL-05, BKG-16), the legal pages (CMP-03/04), no tracking without consent (CMP-01), versioned acceptance (CMP-03).
@@ -114,7 +115,7 @@ test.describe("legal pages (CMP-03/04)", () => {
     test(`${path}: titled, versioned, flagged as a draft, linked from the footer, accessible and balanced`, async ({ page }) => {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
-      await expect(page.getByTestId("legal-version")).toContainText("גרסה 2026-10-12");
+      await expect(page.getByTestId("legal-version")).toContainText(`גרסה ${LEGAL[path.slice(1) as "terms" | "privacy" | "cookies" | "accessibility"].version}`);
       await expect(page.getByTestId("legal-draft")).toContainText("טרם נבדק משפטית"); // never presented as final legal text
       const links = page.getByTestId("legal-footer").getByRole("link");
       await expect(links).toHaveCount(4);
@@ -229,7 +230,7 @@ test.describe("accepting a new version of the terms (CMP-03)", () => {
     await page.getByTestId("legal-agree").check();
     await page.getByTestId("legal-submit").click();
     await expect(page).toHaveURL(/\/dashboard$/);
-    expect(rows()).toBe("privacy:2026-10-12\nterms:2026-10-12");
+    expect(rows()).toBe(`privacy:${LEGAL.privacy.version}\nterms:${LEGAL.terms.version}`);
     await page.goto("/reports");
     await expect(page).toHaveURL(/\/reports$/);
 
@@ -240,7 +241,7 @@ test.describe("accepting a new version of the terms (CMP-03)", () => {
     await page.getByTestId("legal-agree").check();
     await page.getByTestId("legal-submit").click();
     await expect(page).toHaveURL(/\/dashboard$/);
-    expect(rows()).toBe("privacy:2026-10-12\nterms:2026-01-01\nterms:2026-10-12");
+    expect(rows()).toBe(`privacy:${LEGAL.privacy.version}\nterms:2026-01-01\nterms:${LEGAL.terms.version}`);
 
     // the page is closed to people who are not signed in; the API is not blocked by the gate (it guards the screens)
     const anon = await context.browser()!.newContext();

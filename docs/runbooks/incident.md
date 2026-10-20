@@ -2,13 +2,13 @@
 
 Written from the Engineering-OS legal library (SECURITY-AND-INCIDENT-LAW) and the product's own controls. Roles are placeholders until the owner names people. Nothing here is legal advice: whether an event must be reported, to whom and by when is decided by counsel for the actual facts (the library notes there is no universal 72-hour rule in Israel; deadlines must be researched per incident and vendor contracts may set shorter ones).
 
-## 1. Roles (owner fills in; one person may hold several)
+## 1. Roles (decision 2026-10-20: one person runs the system, so every role is the owner)
 | Role | Person | Contact | Does |
 |---|---|---|---|
-| Incident lead | _owner to name_ | | decides severity, keeps the record, is the only one who speaks externally |
-| Technical responder | _owner to name_ | | contains, investigates, restores |
-| Legal contact | _counsel to name_ | | decides notification duties and wording |
+| Incident lead, technical responder, legal contact | the owner of D2R | **the D2R mailbox - not yet given (gap G-02 in [open decisions](../legal/open-decisions.md)); every alert must be routed to it** | decides severity, keeps the record, contains, investigates, restores, decides notification duties and wording, is the only one who speaks externally |
 | Vendor contacts | Supabase, Vercel, Resend support channels | | provider-side logs, key rotation, takedown |
+
+Single-person limitation: there is no second person to catch a missed alert. Until a deputy exists, the alert routes (Vercel, Supabase, GitHub, uptime) must all reach the one D2R mailbox plus a phone notification, and the owner decides in advance who to call (counsel or a trusted technical contact) if unreachable for more than a day.
 
 ## 2. What counts as an incident
 Exposed secret or key; one business seeing another's data; a leaked export; unauthorized admin access; mail sent to the wrong recipients; data loss or a bad restore; a vendor breach notice; a vulnerability report from outside.
