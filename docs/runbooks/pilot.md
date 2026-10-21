@@ -1,6 +1,6 @@
 # Closed pilot: first real business (2026-10-21)
 
-One real business (the owner's mother), no payment, started on `https://turim.d2ryf.com`. This is a pilot of the product, not a public launch: nobody else is invited. Decision: owner, 2026-10-21 ("based on what exists"). The legal texts still carry the draft banner until the owner approves them in writing (open-decisions G-10).
+One real business (the owner's mother), no payment, started on `https://turim.d2ryf.com`. This is a pilot of the product, not a public launch: nobody else is invited. Decision: owner, 2026-10-21 ("based on what exists"). The legal texts are presented as official since 2026-10-21 on the owner's instruction (open-decisions G-10); no lawyer reviewed them.
 
 ## Before she signs up
 - [ ] the owner signed up once himself and the verification e-mail arrived from `@mail.d2ryf.com` with a working link
