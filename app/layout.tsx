@@ -2,7 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { connection } from "next/server";
 import { NextIntlClientProvider } from "next-intl";
-import { getTranslations } from "next-intl/server";
+import { getMessages, getTranslations } from "next-intl/server";
+import { clientNamespacesFor, pickNamespaces } from "@/i18n/client-messages";
 import { ThemeProvider } from "next-themes";
 import { ConsentBanner } from "@/components/legal/consent-banner";
 import { Toaster } from "@/components/ui/toast";
@@ -32,8 +33,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   // page must render per request. Static prerendering would ship scripts WITHOUT a nonce
   // and the browser would block them (found by tests/e2e/foundation.spec.ts).
   await connection();
-  const nonce = (await headers()).get("x-nonce") ?? undefined;
+  const h = await headers();
+  const nonce = h.get("x-nonce") ?? undefined;
   const t = await getTranslations("common");
+  const messages = pickNamespaces(await getMessages(), clientNamespacesFor(h.get("x-pathname")));
   return (
     <html lang="he" dir="rtl" suppressHydrationWarning>
       <body className="font-sans antialiased">
@@ -43,7 +46,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         >
           {t("skipToContent")}
         </a>
-        <NextIntlClientProvider>
+        <NextIntlClientProvider messages={messages}>
           <ThemeProvider nonce={nonce} attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
             {children}
             <ConsentBanner />

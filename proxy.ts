@@ -13,6 +13,7 @@ export async function proxy(request: NextRequest) {
   // The CSP + nonce must be on the *request* too so Next.js can stamp the nonce
   // onto its own scripts during rendering.
   request.headers.set("x-nonce", nonce);
+  request.headers.set("x-pathname", request.nextUrl.pathname); // lets the root layout send a public page only the messages it needs
   request.headers.set("content-security-policy", csp);
 
   const response = await updateSession(request);

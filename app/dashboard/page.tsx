@@ -9,7 +9,8 @@ import { DeletionBanner } from "@/components/owner/deletion-banner";
 import { deletionStatus } from "@/modules/account/service";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import { PageHeader } from "@/components/patterns/page-header";
-import { ownerPage } from "@/lib/auth/owner-page";
+import { createClient } from "@/lib/supabase/server";
+import { ownerContext } from "@/modules/booking/owner/service";
 import { requireUser } from "@/lib/auth/session";
 import { myBilling } from "@/modules/billing/entitlements";
 import { CopyLink } from "@/components/owner/copy-link";
@@ -20,11 +21,13 @@ import { listMyBusinesses } from "@/modules/tenancy/service";
 // Auth is enforced in proxy.ts AND re-checked here (defense in depth, docs/05 §4.2). The agenda itself is fetched from /api/owner (RLS as the signed-in user).
 export default async function DashboardPage() {
   const t = await getTranslations("dashboard");
-  const { supabase, claims } = await requireUser();
-  // Independent reads run together: each used to wait for the one before it (one database round trip each).
-  const [businesses, { ctx }, host] = await Promise.all([listMyBusinesses(supabase), ownerPage(), siteHost()]);
-  if (businesses.length === 0) redirect("/onboarding");
+  const supabase = await createClient();
+  // First wave: the session/MFA/terms gate and the reads that do not depend on it run together (the gate redirects away if it fails; the reads are row-level-secured as the signed-in user, so nothing is exposed meanwhile).
+  const [{ claims }, businesses, owner, host] = await Promise.all([requireUser(), listMyBusinesses(supabase), ownerContext().catch(() => null), siteHost()]);
+  if (businesses.length === 0 || !owner) redirect("/onboarding");
+  const ctx = owner;
   const b = businesses[0];
+  // Second wave: what needs the business id.
   const [billing, deletion] = await Promise.all([myBilling(ctx), deletionStatus(ctx)]);
 
   return (
