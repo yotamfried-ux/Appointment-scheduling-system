@@ -64,7 +64,13 @@ const qs = (q: Record<string, string | number | undefined>) =>
   new URLSearchParams(Object.entries(q).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])).toString();
 
 export const labApi = {
-  services: (o: ClientOptions) => call<z.infer<typeof C.ServicesResponse>>("services", o).then((r) => r.data),
+  // Servers that predate a field omit it; the contract's defaults used to be applied by the zod parse that the browser no longer runs, so they are applied here.
+  services: (o: ClientOptions) =>
+    call<z.infer<typeof C.ServicesResponse>>("services", o).then(({ data }) => ({
+      ...data,
+      team: data.team ?? [],
+      services: data.services.map((s) => ({ ...s, priceMode: s.priceMode ?? "fixed", personIds: s.personIds ?? null })),
+    })),
   availability: (o: ClientOptions, q: { service: string; from: string; days: number; person?: string }) => call<z.infer<typeof C.AvailabilityResponse>>(`availability?${qs(q)}`, o).then((r) => r.data),
   slots: (o: ClientOptions, q: { service: string; date: string; selected?: string; person?: string }) => call<z.infer<typeof C.SlotsResponse>>(`slots?${qs(q)}`, o).then((r) => r.data),
   createBooking: (o: ClientOptions, body: z.input<typeof C.CreateBookingRequest>, idempotencyKey: string) =>
