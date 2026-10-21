@@ -45,7 +45,22 @@ select relname, pg_size_pretty(pg_total_relation_size(oid)) from pg_class
 where relnamespace = 'public'::regnamespace and relkind = 'r' order by pg_total_relation_size(oid) desc limit 10;
 ```
 
-## 5. Costs that are not the database
+## 5. Storage audit (2026-10-21, measured on the 800k-appointment drill)
+How the bytes are spent, per appointment (table + indexes):
+| Table | Per row | Of which indexes | Note |
+|---|---|---|---|
+| `appointments` | ~530 B | ~205 B (5 indexes) | the largest index is `(business_id, customer_id, starts_at)` at 62 MB / 800k rows; both it and `(business_id, starts_at)` serve real queries (customer detail, report, agenda) |
+| `notification_log` | ~390 B | ~120 B | one row per message; now capped at 90 days (migration `20261040`), so its steady state is the last 90 days only, not the whole history |
+| `customers` | ~210 B | ~80 B | |
+
+What the audit found, and what was deliberately left alone:
+- **No over-fetching:** no `select *` anywhere in the application; every list is paged or limited; counts use `head: true`. Nothing to change.
+- **The one growth that was unbounded** was `notification_log` (about 37% of all bytes) and it is bounded now.
+- **Repeated short text** (`status`, `location`, `source`, `currency` stored as text, `service_snapshot` as JSON): about 80-100 B per appointment, roughly 15%. Converting them to enums or small integers would save that, but it is a rewrite of a live schema and every function that reads them, for a gain that only matters in the millions of appointments. Not done; revisit if the database ever approaches the included disk.
+- **`appointments_reference_key`** (unique index on the confirmation number, 41 MB per 800k rows, ~8% of the table's bytes) guarantees no two appointments share a number. The application never looks an appointment up by that number, so the index only protects uniqueness for support and customers who quote it. Kept; if support never looks appointments up by number, a shorter or non-unique reference would save it.
+- **Indexes that back a constraint or the booking guarantee** (the no-double-booking exclusion index, `(appointment_id, type)` message idempotency, the `(business_id, phone)` customer key) are not candidates for removal.
+
+## 6. Costs that are not the database
 - **Add-ons:** point-in-time recovery is a separate monthly charge of a different order than the base plan; daily backups are included. Decide on PITR when there are paying customers (see gap G-06 in `docs/legal/open-decisions.md`).
 - **Projects:** each additional project is billed (the dashboard quoted $10 a month for a micro compute). The Singapore test project was deleted for that reason.
 - **Vercel** bills function time, so fewer database calls per request lower that bill as well.
