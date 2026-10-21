@@ -6,7 +6,8 @@ import { catalogOr404 } from "@/modules/booking/public/resolve";
 import { computeSlots } from "@/modules/booking/public/service";
 
 export const GET = api<{ slug: string }>(async (req, { slug }) => {
-  await enforce([{ scope: "read", value: `${clientIp(req)}|${slug}`, windowSeconds: 60, max: limitFromHeader(req, 240) }]);
+  const q0 = [{ scope: "read", value: `${clientIp(req)}|${slug}`, windowSeconds: 60, max: limitFromHeader(req, 240) }];
+  const [, catalog] = await Promise.all([enforce(q0), catalogOr404(slug)]); // the rate-limit write and the catalog read do not depend on each other
   const q = queryOf(SlotsQuery, req);
-  return computeSlots(await catalogOr404(slug), q.service, q.date, q.selected, q.person);
+  return computeSlots(catalog, q.service, q.date, q.selected, q.person);
 }, { lab: false });

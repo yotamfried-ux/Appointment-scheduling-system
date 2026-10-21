@@ -21,13 +21,11 @@ import { listMyBusinesses } from "@/modules/tenancy/service";
 export default async function DashboardPage() {
   const t = await getTranslations("dashboard");
   const { supabase, claims } = await requireUser();
-  const businesses = await listMyBusinesses(supabase);
+  // Independent reads run together: each used to wait for the one before it (one database round trip each).
+  const [businesses, { ctx }, host] = await Promise.all([listMyBusinesses(supabase), ownerPage(), siteHost()]);
   if (businesses.length === 0) redirect("/onboarding");
   const b = businesses[0];
-  const { ctx } = await ownerPage();
-  const billing = await myBilling(ctx);
-  const deletion = await deletionStatus(ctx);
-  const host = await siteHost();
+  const [billing, deletion] = await Promise.all([myBilling(ctx), deletionStatus(ctx)]);
 
   return (
     <AppShell email={String(claims.email ?? "")} width="max-w-6xl" nav={<OwnerNav current="calendar" />}>

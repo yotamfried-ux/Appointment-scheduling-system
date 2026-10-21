@@ -25,10 +25,11 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   const q = (one(sp.q) ?? "").slice(0, 80);
   const sort = (SORTS as readonly string[]).includes(one(sp.sort) ?? "") ? (one(sp.sort) as CustomerSort) : "last_visit";
   const page = Math.min(10_000, Math.max(1, Math.floor(Number(one(sp.page))) || 1));
-  const list = await listCustomers(ctx, { q, sort, page });
+  const mayExport = ctx.role === "admin" || ctx.role === "owner";
+  const [list, billing] = await Promise.all([listCustomers(ctx, { q, sort, page }), mayExport ? myBilling(ctx) : null]); // two independent reads, one wait
   const day = (iso: string) => zonedParts(new Date(iso), ctx.business.timezone).date.split("-").reverse().join(".");
   const href = (p: number) => `/customers?${new URLSearchParams({ ...(q ? { q } : {}), sort, page: String(p) })}`;
-  const isAdmin = (ctx.role === "admin" || ctx.role === "owner") && (await myBilling(ctx)).features.export;
+  const isAdmin = mayExport && Boolean(billing?.features.export);
 
   return (
     <AppShell email={email} width="max-w-6xl" nav={<OwnerNav current="customers" />}>
