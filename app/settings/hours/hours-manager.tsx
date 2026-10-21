@@ -125,6 +125,7 @@ function ExceptionsManager({ exceptions }: { exceptions: ExceptionRow[] }) {
       )}
 
       <form
+        method="post"
         noValidate
         aria-label={t("add")}
         className="grid gap-4 rounded-lg border bg-card p-4 sm:p-5"

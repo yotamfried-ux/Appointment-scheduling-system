@@ -41,7 +41,7 @@ export function UpdatePasswordForm() {
 
   return (
     <AuthCard title={t("update.title")} description={t("update.description")}>
-      <form onSubmit={onSubmit} noValidate className="grid gap-5">
+      <form method="post" onSubmit={onSubmit} noValidate className="grid gap-5">
         <FormError message={serverError} />
         <FormField label={t("newPassword")} hint={t("passwordHint")} error={errors.password?.message}>
           {(a) => <PasswordInput {...a} autoComplete="new-password" {...register("password")} />}

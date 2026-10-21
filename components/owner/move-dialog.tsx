@@ -45,7 +45,7 @@ export function MoveDialog({ id, customer, date, start, people = [], personId, o
           <DialogTitle className="[overflow-wrap:anywhere]">{t("title", { name: customer })}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={submit} noValidate className="grid gap-4" data-testid="move-form">
+        <form method="post" onSubmit={submit} noValidate className="grid gap-4" data-testid="move-form">
           {people.length > 1 ? (
             <FormField label={t("person")} error={undefined}>
               {(a) => (

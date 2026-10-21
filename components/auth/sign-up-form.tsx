@@ -54,7 +54,7 @@ export function SignUpForm() {
         </>
       }
     >
-      <form onSubmit={onSubmit} noValidate className="grid gap-5">
+      <form method="post" onSubmit={onSubmit} noValidate className="grid gap-5">
         <FormError message={serverError} />
         <FormField label={t("email")} error={errors.email?.message}>
           {(a) => <Input {...a} type="email" autoComplete="email" inputMode="email" placeholder={t("emailPlaceholder")} {...register("email")} />}

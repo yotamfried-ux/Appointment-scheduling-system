@@ -99,6 +99,7 @@ function AddPerson({ full }: { full: boolean }) {
   if (full) return <p className="text-sm text-muted-foreground" data-testid="team-full">{t("errors.limit")}</p>;
   return (
     <form
+      method="post"
       noValidate
       aria-label={t("people.add")}
       className="grid gap-3 rounded-lg border bg-card p-4 sm:grid-cols-[1fr_auto] sm:items-end"

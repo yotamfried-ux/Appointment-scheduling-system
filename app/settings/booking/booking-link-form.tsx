@@ -56,7 +56,7 @@ export function BookingLinkForm({ prefix, initial }: { prefix: string; initial: 
   const error = check === "invalid" ? t("invalid") : check === "taken" ? t("taken") : check === "rate" ? t("rate") : check === "error" ? t("error") : undefined;
 
   return (
-    <form onSubmit={submit} noValidate className="grid max-w-xl gap-4" data-testid="booking-link-form">
+    <form method="post" onSubmit={submit} noValidate className="grid max-w-xl gap-4" data-testid="booking-link-form">
       <div className="grid gap-1">
         <h2 className="text-lg font-semibold">{t("title")}</h2>
         <p className="text-sm text-muted-foreground">{t("lead")}</p>

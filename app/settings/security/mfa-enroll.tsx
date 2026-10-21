@@ -41,6 +41,7 @@ export function MfaEnroll({ enrolled }: { enrolled: boolean }) {
     );
   return (
     <form
+      method="post"
       noValidate
       className="mx-auto grid w-full max-w-sm gap-4"
       onSubmit={async (e) => {

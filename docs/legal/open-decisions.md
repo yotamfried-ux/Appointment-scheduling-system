@@ -1,4 +1,4 @@
-# Decisions and gaps before a real production launch (updated 2026-10-20)
+# Decisions and gaps before a real production launch (updated 2026-10-21)
 
 Owner: the owner of D2R (the only person who runs the system). This file is the single list of what is decided, what is built, and what must still be closed **before the product takes real customers in production**. It is engineering evidence, not legal advice; it approves nothing. Status words: DECIDED, BUILT, GAP (must close before production), LATER (after launch), TO DECIDE.
 
@@ -36,6 +36,9 @@ Note on D-10: the library says generic drafts are not a substitute for legal rev
 | G-11 | Accessibility: external audit, Israeli regulation applicability | the statement says no external audit; whether the regulation binds a small operator is unchecked | owner | check applicability; commission an audit if required; until then do not claim compliance |
 | G-12 | Upgrade path for other roles | one person is a single point of failure for incidents | owner | name a deputy or an on-call contact when there is a first paying customer |
 | G-13 | Cancellation and "consumer" status of the end customer | internet-transaction cancellation rules might apply to a customer's booking if a business charges a fee | owner | stays low risk while the platform takes no payment; revisit when businesses charge deposits |
+| G-14 | Standard form contracts: review of the terms for unfair clauses | the Standard Form Contracts Law (1982) lets a court void unfair terms of a contract written in advance. The terms contain a liability cap, an indemnity from the business, a Tel Aviv jurisdiction clause and a right to update the terms | owner (counsel if ever involved) | the update clause already requires the owner to accept a material change before continuing; keep it that way. Do not add silent unilateral changes, a US-style arbitration or a class-action waiver. Re-read the four clauses against the Engineering-OS legal-compliance guide (docs/legal-compliance) before the first outside customer |
+| G-15 | Data Security Regulations 2017: classification of the database and the written documents it may require | the regulations tie duties (access list, written security procedure, incident log, periodic review) to the security level of the database. The level was never assessed | owner + counsel (a privacy specialist consult), me for the paperwork | controls and their evidence are mapped in [data-security-baseline.md](data-security-baseline.md); the classification itself is counsel's call (G-07) |
+| G-16 | Marketing: section 30A of the Communications Law | any promotional e-mail or SMS needs prior explicit consent, an opt-out in every message and a record. Operational mail (confirmation, reminder, waitlist offer) is not promotion | me, when the first promotion exists | same gate as G-09: nothing promotional is sent before consent storage, unsubscribe and suppression exist and are tested |
 
 ## C. Region and speed
 

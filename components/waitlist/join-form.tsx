@@ -63,7 +63,7 @@ export function WaitlistJoinForm({ slug, services, initialService }: { slug: str
     );
 
   return (
-    <form onSubmit={submit} noValidate className="grid gap-5" data-testid="waitlist-form">
+    <form method="post" onSubmit={submit} noValidate className="grid gap-5" data-testid="waitlist-form">
       <FormField label={t("service")} error={errors.service}>
         {(a) => (
           <NativeSelect {...a} value={f.service} onChange={(e) => setF({ ...f, service: e.target.value })} data-testid="wl-service">
