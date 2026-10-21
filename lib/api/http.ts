@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 import { ZodError, type ZodType } from "zod";
 import type { ApiErrorCode } from "@/lib/api/contracts";
-import { dbWasUnavailable, runInDbScope } from "@/platform/db-timeout";
+import { dbTiming, dbWasUnavailable, runInDbScope } from "@/platform/db-timeout";
 import { isProductionLike } from "@/lib/env";
 
 export class ApiError extends Error {
@@ -59,9 +59,18 @@ export const labEnabled = () => !isProductionLike();
 
 type Ctx<P> = { params: Promise<P> };
 
+/** Where the time went, for the speed test and for browser dev tools. Not sent from production (VERCEL_ENV=production). */
+function serverTiming(started: number): Record<string, string> {
+  if (process.env.VERCEL_ENV === "production") return {};
+  const db = dbTiming();
+  const total = Math.round(performance.now() - started);
+  return { "Server-Timing": `app;dur=${total}${db ? `, db;dur=${Math.round(db.ms)};desc="${db.calls} calls"` : ""}` };
+}
+
 export function api<P = Record<string, never>>(handler: (req: Request, params: P, ctx: { requestId: string }) => Promise<Response | object>, opts: { lab?: boolean } = {}) {
   const lab = opts.lab ?? true;
   return async (req: Request, ctx: Ctx<P>) => {
+    const started = performance.now();
     const requestId = `req_${crypto.randomUUID().slice(0, 8)}`;
     const base = { "Cache-Control": "no-store", "x-request-id": requestId };
     try {
@@ -75,11 +84,12 @@ export function api<P = Record<string, never>>(handler: (req: Request, params: P
           throw e;
         }
       });
+      const timing = serverTiming(started);
       if (out instanceof Response) {
-        Object.entries(base).forEach(([k, v]) => out.headers.set(k, v));
+        Object.entries({ ...base, ...timing }).forEach(([k, v]) => out.headers.set(k, v));
         return out;
       }
-      return NextResponse.json(out, { headers: base });
+      return NextResponse.json(out, { headers: { ...base, ...timing } });
     } catch (e) {
       if (e instanceof ApiError) {
         return NextResponse.json({ error: { code: e.code, message: e.message, requestId, ...(e.details ? { details: e.details } : {}) } }, { status: e.status, headers: { ...base, ...(e.headers ?? {}) } });

@@ -9,27 +9,27 @@ const PASSWORD = process.env.CLOUD_OWNER_PASSWORD;
 const N = 7;
 
 const median = (xs: number[]) => [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)];
-async function time(request: APIRequestContext, path: string): Promise<{ ms: number; status: number }[]> {
-  const out: { ms: number; status: number }[] = [];
+async function time(request: APIRequestContext, path: string): Promise<{ ms: number; status: number; timing: string }[]> {
+  const out: { ms: number; status: number; timing: string }[] = [];
   await request.get(path); // warm-up: a cold function start is a different question
   for (let i = 0; i < N; i++) {
     const t = performance.now();
     const r = await request.get(path);
     await r.body();
-    out.push({ ms: performance.now() - t, status: r.status() });
+    out.push({ ms: performance.now() - t, status: r.status(), timing: r.headers()["server-timing"] ?? "" });
   }
   return out;
 }
 
 test("how fast are the main pages and calls", async ({ request, page }, info) => {
-  const rows: { name: string; ms: number; max: number; budget: number; status: number }[] = [];
+  const rows: { name: string; ms: number; max: number; budget: number; status: number; server: string }[] = [];
   const measure = async (r: APIRequestContext, name: string, path: string, budgetOverFloor: number, floor: number) => {
     const xs = await time(r, path);
-    rows.push({ name, ms: Math.round(median(xs.map((x) => x.ms))), max: Math.round(Math.max(...xs.map((x) => x.ms))), budget: floor + budgetOverFloor, status: xs[0].status });
+    rows.push({ name, ms: Math.round(median(xs.map((x) => x.ms))), max: Math.round(Math.max(...xs.map((x) => x.ms))), budget: floor + budgetOverFloor, status: xs[0].status, server: xs[xs.length - 1].timing });
   };
 
   const floorMs = median((await time(request, "/api/health")).map((x) => x.ms));
-  rows.push({ name: "floor: /api/health (no database)", ms: Math.round(floorMs), max: Math.round(floorMs), budget: 0, status: 200 });
+  rows.push({ name: "floor: /api/health (no database)", ms: Math.round(floorMs), max: Math.round(floorMs), budget: 0, status: 200, server: "" });
 
   const services = (await (await request.get(`/api/public/${SLUG}/services`)).json()) as { services: { id: string }[] };
   const svc = services.services[0].id;
@@ -52,7 +52,7 @@ test("how fast are the main pages and calls", async ({ request, page }, info) =>
     for (const p of ["customers", "reports", "settings/services", "settings/team", "settings/billing"]) await measure(r, `owner: /${p}`, `/${p}`, 900, floorMs);
   }
 
-  const table = ["| address | median ms | slowest ms | status |", "|---|---|---|---|", ...rows.map((r) => `| ${r.name} | ${r.ms} | ${r.max} | ${r.status} |`)].join("\n");
+  const table = ["| address | median ms | slowest ms | status | server time (API calls only: app / waiting for the database) |", "|---|---|---|---|---|", ...rows.map((r) => `| ${r.name} | ${r.ms} | ${r.max} | ${r.status} | ${r.server} |`)].join("\n");
   console.log(`\nSPEED (${info.project.name}, median of ${N}, from the test machine)\n${table}\n`);
   info.annotations.push({ type: "speed", description: table });
   const over = rows.filter((r) => r.budget > 0 && r.ms > r.budget).map((r) => `${r.name}: ${r.ms} ms > ${r.budget} ms`);
