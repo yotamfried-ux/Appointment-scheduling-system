@@ -24,8 +24,20 @@ export interface ZonedParts {
   weekday: number; // 0 = Sunday
 }
 
+// Building an Intl.DateTimeFormat is the expensive part of every conversion here (it used to be rebuilt several times per slot: ~750 ms for a 3-person, 28-day availability call).
+// A formatter has no state, so one per time zone is shared.
+const formatters = new Map<string, Intl.DateTimeFormat>();
+function formatterFor(timeZone: string): Intl.DateTimeFormat {
+  let f = formatters.get(timeZone);
+  if (!f) {
+    f = new Intl.DateTimeFormat("en-CA", { timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", weekday: "short" });
+    formatters.set(timeZone, f);
+  }
+  return f;
+}
+
 export function zonedParts(instant: Date, timeZone: string): ZonedParts {
-  const f = new Intl.DateTimeFormat("en-CA", { timeZone, hourCycle: "h23", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", weekday: "short" });
+  const f = formatterFor(timeZone);
   const p = Object.fromEntries(f.formatToParts(instant).map((x) => [x.type, x.value]));
   const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(p.weekday);
   return { date: `${p.year}-${p.month}-${p.day}`, minutes: Number(p.hour) * 60 + Number(p.minute), weekday };
@@ -42,6 +54,18 @@ function offsetMinutes(instant: Date, timeZone: string): number {
  * Local wall time -> UTC instant. For a time skipped by DST (spring forward) it shifts forward by the gap length; for a repeated hour (fall back) it returns the earlier occurrence. Both are deterministic.
  */
 export function zonedTimeToUtc(date: string, minutes: number, timeZone: string): Date {
+  // Pure function of its three arguments, and the same few hundred (date, time) pairs are asked for again and again (once per person, once per request): remember them.
+  const key = `${timeZone}|${date}|${minutes}`;
+  const hit = utcMemo.get(key);
+  if (hit !== undefined) return new Date(hit);
+  const v = computeZonedTimeToUtc(date, minutes, timeZone);
+  if (utcMemo.size >= 50_000) utcMemo.clear(); // bounded: a long-lived server never grows without limit
+  utcMemo.set(key, v.getTime());
+  return v;
+}
+const utcMemo = new Map<string, number>();
+
+function computeZonedTimeToUtc(date: string, minutes: number, timeZone: string): Date {
   const [y, m, d] = date.split("-").map(Number);
   const naive = Date.UTC(y, m - 1, d, 0, minutes);
   // Candidate offsets around the day (before / after any transition); keep the earliest instant that round-trips.
