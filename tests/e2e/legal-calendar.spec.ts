@@ -112,11 +112,12 @@ const PAGES = [
 
 test.describe("legal pages (CMP-03/04)", () => {
   for (const [path, title] of PAGES) {
-    test(`${path}: titled, versioned, flagged as a draft, linked from the footer, accessible and balanced`, async ({ page }) => {
+    test(`${path}: titled, versioned, no draft banner, linked from the footer, accessible and balanced`, async ({ page }) => {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(title);
       await expect(page.getByTestId("legal-version")).toContainText(`גרסה ${LEGAL[path.slice(1) as "terms" | "privacy" | "cookies" | "accessibility"].version}`);
-      await expect(page.getByTestId("legal-draft")).toContainText("טרם נבדק משפטית"); // never presented as final legal text
+      await expect(page.getByTestId("legal-draft")).toHaveCount(0); // the owner approved the texts as the official ones (docs/legal/legal-owner-approval.md)
+      await expect(page.getByText("טרם נבדק משפטית")).toHaveCount(0);
       const links = page.getByTestId("legal-footer").getByRole("link");
       await expect(links).toHaveCount(4);
       expect(await links.evaluateAll((a) => a.map((x) => x.getAttribute("href")))).toEqual(["/privacy", "/terms", "/cookies", "/accessibility"]);

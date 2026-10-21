@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { LegalFooter } from "@/components/legal/legal-footer";
 import type { LegalSection } from "@/lib/legal/content";
 
-/** Shared frame for the legal pages: title, version, an unmissable "draft" notice, a table of contents and the sections. */
+/** Shared frame for the legal pages: title, version, a table of contents and the sections. */
 export async function LegalPage({ title, version, effective, sections, children, testId }: { title: string; version: string; effective: string; sections: LegalSection[]; children?: React.ReactNode; testId: string }) {
   const t = await getTranslations("legal");
   return (
@@ -14,7 +14,6 @@ export async function LegalPage({ title, version, effective, sections, children,
           <h1 className="text-3xl font-bold tracking-tight text-balance">{title}</h1>
           <p className="text-sm text-muted-foreground" data-testid="legal-version">{t("version", { version, date: effective })}</p>
         </header>
-        <p role="note" className="rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm font-medium text-warning-soft-foreground" data-testid="legal-draft">{t("draft")}</p>
         {sections.length > 3 ? (
           <nav aria-label={t("toc")} className="rounded-lg border bg-card p-4">
             <p className="mb-1 text-sm font-semibold">{t("toc")}</p>
