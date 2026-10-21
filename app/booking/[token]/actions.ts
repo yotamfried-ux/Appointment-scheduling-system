@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { after } from "next/server";
+import { ipFromHeaders } from "@/lib/client-ip";
 import { enforce } from "@/modules/booking/public/rate-limit";
 import { cancelWithToken, confirmAttendanceWithToken, rescheduleWithToken, type AttendOutcome, type CancelOutcome, type RescheduleOutcome } from "@/modules/booking/public/service";
 import { signToken, verifyToken } from "@/modules/booking/token";
@@ -11,7 +12,7 @@ import { kickOutbox } from "@/modules/notifications/service";
 export async function cancelAppointmentAction(cancelToken: unknown): Promise<CancelOutcome | "rate_limited"> {
   if (typeof cancelToken !== "string") return "invalid";
   const h = await headers();
-  const ip = (h.get("x-forwarded-for")?.split(",")[0] ?? h.get("x-real-ip") ?? "unknown").trim();
+  const ip = ipFromHeaders(h);
   try {
     await enforce([{ scope: "cancel-ip", value: ip, windowSeconds: 60, max: 20 }]);
   } catch {
@@ -26,7 +27,7 @@ export async function cancelAppointmentAction(cancelToken: unknown): Promise<Can
 export async function rescheduleAppointmentAction(rescheduleToken: unknown, date: unknown, time: unknown, serviceId?: unknown): Promise<{ outcome: RescheduleOutcome | "rate_limited"; nextToken?: string }> {
   if (typeof rescheduleToken !== "string" || typeof date !== "string" || typeof time !== "string") return { outcome: "invalid" };
   const h = await headers();
-  const ip = (h.get("x-forwarded-for")?.split(",")[0] ?? h.get("x-real-ip") ?? "unknown").trim();
+  const ip = ipFromHeaders(h);
   try {
     await enforce([{ scope: "resched-ip", value: ip, windowSeconds: 60, max: 20 }]);
   } catch {
@@ -43,7 +44,7 @@ export async function rescheduleAppointmentAction(rescheduleToken: unknown, date
 export async function confirmAttendanceAction(attendToken: unknown): Promise<AttendOutcome | "rate_limited"> {
   if (typeof attendToken !== "string") return "invalid";
   const h = await headers();
-  const ip = (h.get("x-forwarded-for")?.split(",")[0] ?? h.get("x-real-ip") ?? "unknown").trim();
+  const ip = ipFromHeaders(h);
   try {
     await enforce([{ scope: "attend-ip", value: ip, windowSeconds: 60, max: 20 }]);
   } catch {
