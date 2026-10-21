@@ -11,6 +11,7 @@ import { ServiceInput, type CatalogErrorCode } from "@/modules/catalog/schema";
 import { saveService, setServiceActive } from "@/modules/catalog/service";
 import { createStaff, setServiceStaff, setStaffHours, updateStaff } from "@/modules/team/repo";
 import { ServiceStaffInput, StaffNameInput, StaffUpdateInput, type TeamErrorCode } from "@/modules/team/schema";
+import { mapRpcError } from "@/modules/tenancy/errors";
 import { listMyBusinesses } from "@/modules/tenancy/service";
 
 // Owner settings actions. The tenant is the signed-in user's business (never taken from the request); RLS enforces roles in the database.
@@ -134,4 +135,34 @@ export async function saveStaffHoursAction(resourceId: unknown, raw: unknown): P
   const r = await setStaffHours(c.supabase, id.data, hours.data);
   if (r.ok) revalidatePath("/settings/team");
   return r;
+}
+
+// ---------------------------------------------------------------- the booking link. The owner chooses the short name; the database refuses reserved or taken names and keeps the old link working as a redirect.
+const SlugInput = z.string().trim().toLowerCase().min(3).max(40).regex(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+type SlugFail = Fail<"NOT_AUTHENTICATED" | "FORBIDDEN" | "VALIDATION" | "RATE_LIMITED" | "FAILED">;
+
+export async function checkSlugAction(raw: unknown): Promise<{ ok: true; available: boolean } | SlugFail> {
+  const c = await context();
+  if (!c.ok) return { ok: false, code: c.error };
+  const p = SlugInput.safeParse(raw);
+  if (!p.success) return { ok: false, code: "VALIDATION" };
+  const { data, error } = await c.supabase.rpc("slug_available", { p_slug: p.data });
+  if (error) return { ok: false, code: mapRpcError(error) === "RATE_LIMITED" ? "RATE_LIMITED" : "FAILED" };
+  return { ok: true, available: data === true };
+}
+
+export async function changeSlugAction(raw: unknown): Promise<{ ok: true; slug: string } | Fail<"NOT_AUTHENTICATED" | "FORBIDDEN" | "VALIDATION" | "SLUG_TAKEN" | "TOO_MANY_CHANGES" | "FAILED">> {
+  const c = await context();
+  if (!c.ok) return { ok: false, code: c.error };
+  const p = SlugInput.safeParse(raw);
+  if (!p.success) return { ok: false, code: "VALIDATION" };
+  const { data, error } = await c.supabase.rpc("change_business_slug", { p_business: c.businessId, p_new_slug: p.data });
+  if (error) {
+    if ((error.message ?? "").includes("redirect_limit")) return { ok: false, code: "TOO_MANY_CHANGES" };
+    const code = mapRpcError(error);
+    return { ok: false, code: code === "SLUG_TAKEN" ? "SLUG_TAKEN" : code === "FORBIDDEN" ? "FORBIDDEN" : code === "SLUG_INVALID" ? "VALIDATION" : "FAILED" };
+  }
+  revalidatePath("/settings/booking");
+  revalidatePath("/dashboard");
+  return { ok: true, slug: (data as { slug?: string } | null)?.slug ?? p.data };
 }

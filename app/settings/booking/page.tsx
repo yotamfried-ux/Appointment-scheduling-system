@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
+import { BookingLinkForm } from "@/app/settings/booking/booking-link-form";
 import { BookingRulesForm } from "@/app/settings/booking/booking-rules-form";
 import { SettingsPage } from "@/components/settings/settings-page";
 import { requireUser } from "@/lib/auth/session";
+import { bookingUrl, siteHost } from "@/lib/site";
 import { listMyBusinesses } from "@/modules/tenancy/service";
 import type { BookingRules } from "@/modules/tenancy/booking-rules";
 
@@ -11,7 +13,7 @@ export const metadata = { title: "כללי הזמנה", robots: { index: false, 
 export default async function BookingSettingsPage() {
   const t = await getTranslations("settings.booking");
   const { supabase, claims } = await requireUser();
-  const business = (await listMyBusinesses(supabase))[0];
+  const [business, host] = await Promise.all([listMyBusinesses(supabase).then((b) => b[0]), siteHost()]);
   if (!business) redirect("/onboarding");
   const { data } = await supabase.from("businesses").select("requires_approval, cancel_until_hours, min_notice_minutes, booking_horizon_days, address, no_show_policy, no_show_threshold, block_message, attendance_alert_minutes, auto_complete_hours, digest_frequency, reschedule_service_change").eq("id", business.id).single();
   const initial: BookingRules = {
@@ -30,7 +32,10 @@ export default async function BookingSettingsPage() {
   };
   return (
     <SettingsPage email={String(claims.email ?? "")} title={t("title")} description={t("subtitle")}>
-      <BookingRulesForm initial={initial} />
+      <div className="grid gap-10">
+        <BookingLinkForm prefix={bookingUrl(host, "")} initial={business.slug} />
+        <BookingRulesForm initial={initial} />
+      </div>
     </SettingsPage>
   );
 }
