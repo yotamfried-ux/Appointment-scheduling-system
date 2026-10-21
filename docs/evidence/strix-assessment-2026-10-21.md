@@ -1,16 +1,40 @@
 # Strix local assessment — 2026-10-21
 
-**Status: NOT RUN / NO CONFIRMED FINDINGS.** This file is an execution handoff, not a penetration-test result.
+**Status: NOT RUN / NO CONFIRMED FINDINGS.** This document is a verified execution-readiness handoff, not a penetration-test result.
 
-- Target: `yotamfried-ux/Appointment-scheduling-system` on isolated branch `security/strix-local-assessment-20261021`.
-- Scope: local checkout and `127.0.0.1:3100`, local Supabase only.
-- Reference: Engineering-OS `docs/launch-readiness/twenty-checks.md`; map all confirmed findings to check IDs.
-- Prior review: `docs/evidence/security-review-2026-10-21.md`; previously documented issues must not be presented as new.
-- Runner: GitHub Actions `.github/workflows/strix-local.yml`, manual dispatch.
-- Required configuration: repository variable `STRIX_LLM`, Actions secret `LLM_API_KEY`.
-- Evidence: GitHub Actions artifact `strix-local-assessment`, including raw `strix_runs/`.
-- Missing: application commit SHA at run time, Strix CLI version, model used, actual run URL, two-tenant fixture creation, reproduction steps, findings, clean checks, and coverage gaps. These cannot be truthfully filled until execution.
+## Scope and branch
+- Repository: `yotamfried-ux/Appointment-scheduling-system`.
+- Isolated working branch: `security/strix-local-assessment-20261021`.
+- Authorized target: local checkout and local Supabase only. Production, hosted Supabase, and third-party endpoints are excluded.
+- Existing runner proposal: `.github/workflows/strix-local.yml` (manual `workflow_dispatch`).
+- Prior findings: `docs/evidence/security-review-2026-10-21.md`; do not relabel these as newly discovered.
+- Coverage mapping: Engineering-OS `docs/launch-readiness/twenty-checks.md`.
+
+## Verified in this preparation session
+- GitHub connector can read the repository and branch; workflow and `scripts/local-env.sh` contents were inspected.
+- `package.json` provides `db:start`, `build`, and local Next.js startup capability.
+- Security Agent and Engineering Run Orchestrator read `README.md` via dynamically selected GitHub MCP repository.
+- This ChatGPT execution container does **not** have a Docker executable or Strix executable.
+- No Strix runtime, local target, two-tenant fixtures, or model invocation was verified.
+
+## Critical blockers / do not dispatch until resolved
+1. **Model credential:** Strix needs a supported model/provider API accessible to the runner. An OpenRouter credential stored in n8n is **not automatically available** to a GitHub Actions job. Do not export or print secrets to make it work. Configure an authorized GitHub Actions secret or a purpose-built authenticated model gateway, then verify with a redacted preflight.
+2. **Network boundary:** The workflow starts Next.js bound to `127.0.0.1:3100`. Strix runs its own Docker sandbox, whose loopback is not necessarily the GitHub runner host. Verify sandbox-to-target connectivity using an isolated host gateway or network; do not mistake runner-host `curl` success for sandbox reachability.
+3. **Isolation enforcement:** Natural-language `--instruction` restrictions are not network controls. Ensure the sandbox has an enforceable outbound allowlist limited to the local target and dependencies, or run in a suitably isolated test environment; do not expose production credentials.
+4. **Tenant coverage:** Seed two separate tenant owners/businesses and representative bookings using only local Supabase. Verify that tenant boundaries are real before claiming IDOR/RLS tests were performed.
+5. **CLI/version:** Install from an authenticated or pinned release, inspect `strix --help` and `strix --version`, and verify actual CLI flags and output format before invoking a scan.
+6. **Workflow dispatch:** Manual `workflow_dispatch` may require the workflow file to exist on the repository default branch to be discoverable. Keep this change isolated until a reviewed dispatch mechanism is available.
+7. **Evidence:** Preserve raw Strix output, application and local DB versions, workflow run URL, redacted logs, and independent reproduction steps. A successful workflow run alone is not proof of tested security properties.
+
+## Acceptance criteria
+- [ ] Authorized runner and model credential are reachable without secret disclosure.
+- [ ] Strix CLI/version and sandbox startup verified.
+- [ ] Enforced local-only network policy verified.
+- [ ] Local Tori and Supabase reachable **from inside** the Strix sandbox.
+- [ ] Two isolated tenant fixtures created and validated.
+- [ ] Bounded assessment executed against isolated target.
+- [ ] Findings reproduced; raw evidence retained; report committed to this branch.
+- [ ] Claude handoff distinguishes confirmed issues, prior issues, hypotheses, clean checks, and untested areas.
 
 ## Claude handoff
-
-Run the manual workflow after securely setting credentials. First check the actual `strix --help` output and correct any unsupported flags. Confirm that the local server and local database are reachable from the Strix sandbox, and create two businesses with independent owners through real signup before treating tenant-isolation coverage as tested. Do not point at production. For each reproduced issue, provide ID, severity, file:line or local URL, exact HTTP reproduction, impact, minimal proposed fix, and matching Engineering-OS twenty-check ID. Clearly distinguish clean tests from untested areas. Do not modify application source as part of the pentest. Save a verified final report in `docs/evidence/` on a separate reviewed commit; preserve raw output as a workflow artifact.
+Do not modify application source during the scan. For every confirmed finding provide severity, source file and line or local endpoint, minimal reproduction, impact, proposed fix, and Engineering-OS check ID. Require separate review and regression verification for subsequent fixes.
