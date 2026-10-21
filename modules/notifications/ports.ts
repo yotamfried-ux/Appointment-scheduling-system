@@ -6,6 +6,8 @@ export interface EmailMessage {
   text: string;
   /** Provider-side duplicate protection: the same key never produces a second e-mail (Resend keeps it for 24h). */
   idempotencyKey: string;
+  /** Display name shown as the sender (the business a customer booked with). The address always stays the configured one. */
+  fromName?: string;
   /** 1-based attempt number (lets the fake adapter simulate "fails once"). */
   attempt: number;
 }

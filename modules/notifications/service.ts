@@ -96,7 +96,7 @@ async function sendOne(row: Claimed, provider: EmailPort, s: RunSummary, now: Da
         : signToken({ appointmentId: ctx.appointment!.id, scope: "view", ttlSeconds: ttl });
   const message = render(ctx, { appUrl: appUrl(), manageToken }, now);
   try {
-    const sent = await provider.send({ to, subject: message.subject, html: message.html, text: message.text, idempotencyKey: `notif-${row.id}`, attempt: row.attempts });
+    const sent = await provider.send({ to, fromName: ctx.recipient === "customer" ? ctx.business.name : undefined, subject: message.subject, html: message.html, text: message.text, idempotencyKey: `notif-${row.id}`, attempt: row.attempts });
     s.sent++;
     await finish(row.id, "sent", { provider: provider.name, messageId: sent.id, hash, preview: storesPreview(provider) ? { to: ctx.recipient, subject: message.subject, text: message.text } : undefined });
   } catch (err) {

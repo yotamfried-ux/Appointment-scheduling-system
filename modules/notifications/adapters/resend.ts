@@ -1,5 +1,14 @@
 import { PermanentEmailError, TransientEmailError, type EmailMessage, type EmailPort } from "@/modules/notifications/ports";
 
+/** The configured sender ("Name <address>" or a bare address) with a different display name. The name comes from a business owner, so it is cleaned: no angle brackets, quotes, "@" or ":" (it must never look like another address), no control characters, at most 60 characters. */
+export function composeFrom(configured: string, name?: string): string {
+  const m = /^(.*)<([^<>]+)>\s*$/.exec(configured.trim());
+  const address = (m ? m[2] : configured).trim();
+  const clean = (name ?? "").replace(/[\u0000-\u001f\u007f<>"\\@:;,]/g, " ").replace(/\s+/g, " ").trim().slice(0, 60).trim();
+  if (clean.length < 2) return configured; // nothing usable: the configured sender as is
+  return `"${clean}" <${address}>`;
+}
+
 // Resend REST adapter (https://resend.com/docs/api-reference/emails/send-email). No SDK: one endpoint, one header, fewer dependencies.
 // Status mapping: 2xx = sent · 429/5xx/409/401/403/network = transient (a rate limit, an outage or a fixable configuration) · other 4xx = permanent.
 export function resendAdapter(opts: { apiKey: string; from: string; fetchImpl?: typeof fetch; timeoutMs?: number }): EmailPort {
@@ -12,7 +21,7 @@ export function resendAdapter(opts: { apiKey: string; from: string; fetchImpl?: 
         res = await doFetch("https://api.resend.com/emails", {
           method: "POST",
           headers: { Authorization: `Bearer ${opts.apiKey}`, "Content-Type": "application/json", "Idempotency-Key": m.idempotencyKey },
-          body: JSON.stringify({ from: opts.from, to: [m.to], subject: m.subject, html: m.html, text: m.text }),
+          body: JSON.stringify({ from: composeFrom(opts.from, m.fromName), to: [m.to], subject: m.subject, html: m.html, text: m.text }),
           signal: AbortSignal.timeout(opts.timeoutMs ?? 10_000),
         });
       } catch {
