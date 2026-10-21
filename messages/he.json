@@ -290,8 +290,8 @@
       },
       "location": "איפה?",
       "locations": {
-        "business": "אצל בעל העסק",
-        "customer": "אצל הלקוח",
+        "business": "אצל העסק",
+        "customer": "אצלכם",
         "online": "אונליין"
       },
       "required": "שדה חובה.",
@@ -321,17 +321,17 @@
       "policy": "אפשר לבטל או לשנות את התור עד 24 שעות לפני המועד.",
       "policyReal": "אפשר לבטל עד {hours} שעות לפני המועד.",
       "subtitleReal": "התור נקבע. שמרו את הקישור שלמטה כדי לראות או לבטל אותו.",
-      "pendingSubtitleReal": "הבקשה ממתינה לאישור של בעל העסק. שמרו את הקישור שלמטה כדי לבדוק את הסטטוס.",
+      "pendingSubtitleReal": "הבקשה ממתינה לאישור של העסק. שמרו את הקישור שלמטה כדי לבדוק את הסטטוס.",
       "calendarToast": "בגרסה המלאה יורד כאן קובץ יומן (.ics).",
       "reference": "מספר אישור",
       "pendingTitle": "הבקשה התקבלה",
-      "pendingSubtitle": "הבקשה ממתינה לאישור של בעל העסק. נעדכן במייל.",
+      "pendingSubtitle": "הבקשה ממתינה לאישור של העסק. נעדכן במייל.",
       "emailPreview": "ההודעה שנשלחה אליכם",
       "status": "סטטוס",
       "statusConfirmed": "מאושר",
       "statusPending": "ממתין לאישור",
       "manage": "ניהול התור וביטול",
-      "manageHint": "שמרו את הקישור: הוא הדרך היחידה לנהל או לבטל את התור."
+      "manageHint": "שמרו את הקישור כדי לראות, לשנות או לבטל את התור."
     },
     "loading": "טוענים…",
     "loadError": {
@@ -934,10 +934,10 @@
       "pending": "ממתין לאישור",
       "confirmed": "מאושר",
       "cancellation_requested": "בקשת ביטול נשלחה",
-      "cancelled_by_customer": "בוטל על ידך",
+      "cancelled_by_customer": "בוטל על ידכם",
       "cancelled_by_business": "בוטל על ידי העסק",
       "completed": "הושלם",
-      "no_show": "לא הגעת"
+      "no_show": "התור לא התקיים"
     },
     "cancel": "ביטול התור",
     "cancelling": "מבטלים…",
