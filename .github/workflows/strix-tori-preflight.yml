@@ -1,0 +1,33 @@
+name: Strix Tori preflight (no scan)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Validate required configuration without exposing values
+        env:
+          STRIX_LLM: ${{ vars.STRIX_LLM }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        shell: bash
+        run: |
+          if [[ -z "$STRIX_LLM" ]]; then echo "::error::Missing repository variable STRIX_LLM"; exit 1; fi
+          if [[ -z "$LLM_API_KEY" ]]; then echo "::error::Missing repository secret LLM_API_KEY"; exit 1; fi
+          echo "Both configuration entries are present (values withheld)."
+      - name: Verify Docker runner
+        run: docker info >/dev/null && echo "Docker available"
+      - name: Verify isolated assessment branch exists
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: security/strix-local-assessment-20261021
+          persist-credentials: false
+      - name: Verify assessment workflow and local bootstrap
+        shell: bash
+        run: |
+          test -f .github/workflows/strix-local.yml
+          test -f scripts/local-env.sh
+          test -f package-lock.json
+          echo "Assessment branch files present. No scan executed."
