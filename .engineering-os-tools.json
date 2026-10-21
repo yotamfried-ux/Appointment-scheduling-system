@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "profile_seed": "web",
+  "tools": [
+    "superpowers",
+    "ui-ux-pro-max",
+    "graphify",
+    "playwright-mcp",
+    "chrome-devtools-mcp"
+  ],
+  "notes": "rtk (PreToolUse shell hook) deliberately not adopted; revisit if token cost becomes a problem. graphify adopted (repo will grow): graphify-out/ is local-only, rebuild with `npm run graph:build`."
+}

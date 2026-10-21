@@ -10,3 +10,13 @@
 5. [ארכיטקטורת סייבר ואבטחת מידע](docs/05-security-architecture.md)
 
 [יומן החלטות](docs/00-decisions.md)
+
+## פיתוח מקומי
+```bash
+npm ci
+npm run db:start                    # Supabase מקומי (Docker): DB, Auth, REST, מייל
+cp .env.example .env.local          # ואז: source scripts/local-env.sh
+npm run dev
+```
+בדיקות: `npm run check` (lint+types+unit) · `npm run build && npm run test:e2e` · `npm run db:test` · `npm run db:lint`.
+כלים וסקילים: [docs/06-tooling-register.md](docs/06-tooling-register.md) · חוקי עבודה: [CLAUDE.md](CLAUDE.md).

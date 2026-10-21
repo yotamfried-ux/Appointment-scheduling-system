@@ -1,0 +1,279 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource/ibm-plex-sans-hebrew/400.css";
+@import "@fontsource/ibm-plex-sans-hebrew/500.css";
+@import "@fontsource/ibm-plex-sans-hebrew/600.css";
+@import "@fontsource/ibm-plex-sans-hebrew/700.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Radix state variants used by the shadcn/ui components */
+@custom-variant data-open { &:where([data-state="open"]) { @slot; } }
+@custom-variant data-closed { &:where([data-state="closed"]) { @slot; } }
+@custom-variant data-checked { &:where([data-state="checked"]) { @slot; } }
+@custom-variant data-unchecked { &:where([data-state="unchecked"]) { @slot; } }
+@custom-variant data-active { &:where([data-state="active"]) { @slot; } }
+
+/* ------------------------------------------------------------------ */
+/* Design tokens — single source of truth (docs/03 §7, docs/06).       */
+/* Semantic names only; components never use raw hex.                  */
+/* Contrast of every fg/bg pair is enforced by tests/unit/tokens.test.ts */
+/* ------------------------------------------------------------------ */
+:root {
+  --radius: 0.875rem;
+
+  --background: #f4f6f5; /* porcelain */
+  --foreground: #11181a; /* ink */
+  --card: #ffffff;
+  --card-foreground: #11181a;
+  --popover: #ffffff;
+  --popover-foreground: #11181a;
+
+  --primary: #0a6b5e; /* Lagoon: brand + "available" */
+  --primary-foreground: #ffffff;
+  --secondary: #e6ece9;
+  --secondary-foreground: #1b2824;
+  --muted: #ecf0ee;
+  --muted-foreground: #4a5551;
+  --accent: #daefe9;
+  --accent-foreground: #08493f;
+
+  --success: #0a6b5e;
+  --success-foreground: #ffffff;
+  --success-soft: #daefe9;
+  --success-soft-foreground: #08493f;
+  --warning: #9a4a00; /* Ember: pending / needs attention */
+  --warning-foreground: #ffffff;
+  --warning-soft: #fcebd0;
+  --warning-soft-foreground: #7a3a00;
+  --destructive: #b42318; /* Rose */
+  --destructive-foreground: #ffffff;
+  --destructive-soft: #fce4e1;
+  --destructive-soft-foreground: #912018;
+  --info-soft: #e4e9f3; /* Slate-blue: completed / info */
+  --info-soft-foreground: #27385a;
+  --neutral-soft: #e6e9e8;
+  --neutral-soft-foreground: #3c4743;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #11181a;
+  --sidebar-primary: #0a6b5e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8efec;
+  --sidebar-accent-foreground: #11181a;
+  --sidebar-border: #dde3e0;
+  --sidebar-ring: #0a6b5e;
+
+  --border: #dde3e0; /* hairline */
+  --input: #7f8b85; /* control boundary: ≥3:1 against surfaces (WCAG 1.4.11) */
+  --ring: #0a6b5e;
+
+  --chart-1: #0a6b5e;
+  --chart-2: #9a4a00;
+  --chart-3: #27385a;
+  --chart-4: #7a4fb0;
+  --chart-5: #b42318;
+
+  /* motion */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 120ms;
+  --duration-base: 200ms;
+  --duration-slow: 320ms;
+}
+
+.dark {
+  --background: #0d1312;
+  --foreground: #e8efec;
+  --card: #141c1b;
+  --card-foreground: #e8efec;
+  --popover: #141c1b;
+  --popover-foreground: #e8efec;
+
+  --primary: #4ccdb8;
+  --primary-foreground: #06201b;
+  --secondary: #1d2826;
+  --secondary-foreground: #e8efec;
+  --muted: #18211f;
+  --muted-foreground: #a2b0ab;
+  --accent: #143a34;
+  --accent-foreground: #cff3ea;
+
+  --success: #4ccdb8;
+  --success-foreground: #06201b;
+  --success-soft: #0f3b34;
+  --success-soft-foreground: #9be9da;
+  --warning: #f0a94a;
+  --warning-foreground: #2a1700;
+  --warning-soft: #3a2a0e;
+  --warning-soft-foreground: #f7cd8a;
+  --destructive: #f2766b;
+  --destructive-foreground: #2a0b08;
+  --destructive-soft: #401b18;
+  --destructive-soft-foreground: #ffb8b0;
+  --info-soft: #1c2a47;
+  --info-soft-foreground: #b3c8f2;
+  --neutral-soft: #222c2a;
+  --neutral-soft-foreground: #bac6c1;
+
+  --sidebar: #101716;
+  --sidebar-foreground: #e8efec;
+  --sidebar-primary: #4ccdb8;
+  --sidebar-primary-foreground: #06201b;
+  --sidebar-accent: #1a2523;
+  --sidebar-accent-foreground: #e8efec;
+  --sidebar-border: #243230;
+  --sidebar-ring: #4ccdb8;
+
+  --border: #243230;
+  --input: #6f7d77;
+  --ring: #4ccdb8;
+
+  --chart-1: #4ccdb8;
+  --chart-2: #f0a94a;
+  --chart-3: #b3c8f2;
+  --chart-4: #c3a4ee;
+  --chart-5: #f2766b;
+}
+
+@theme inline {
+  --font-sans: "IBM Plex Sans Hebrew", ui-sans-serif, system-ui, "Segoe UI", Arial, sans-serif;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-success-soft-foreground: var(--success-soft-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-soft-foreground: var(--warning-soft-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-soft: var(--destructive-soft);
+  --color-destructive-soft-foreground: var(--destructive-soft-foreground);
+  --color-info-soft: var(--info-soft);
+  --color-info-soft-foreground: var(--info-soft-foreground);
+  --color-neutral-soft: var(--neutral-soft);
+  --color-neutral-soft-foreground: var(--neutral-soft-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  /* radius scale: controls 10 · panels 14 · big surfaces 18 — deliberately not one radius for everything */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  --shadow-xs: 0 1px 0 0 rgb(17 24 26 / 0.04);
+  --shadow-card: 0 1px 0 0 rgb(17 24 26 / 0.04);
+  --shadow-pop: 0 12px 32px -8px rgb(17 24 26 / 0.22), 0 2px 8px -2px rgb(17 24 26 / 0.12);
+
+  --ease-out: var(--ease-out);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-size: 1rem; /* 16px base: no iOS zoom on inputs */
+    line-height: 1.6;
+    font-variant-numeric: tabular-nums; /* times, prices and counters align */
+    font-feature-settings: "tnum" 1;
+  }
+  h1, h2, h3 { letter-spacing: -0.01em; }
+  /* fieldset defaults to min-width:min-content, which lets horizontally scrollable children blow the page out */
+  fieldset { min-width: 0; }
+  /* Mixed Hebrew/Latin content (names, emails, phones) must not reorder surrounding text. */
+  bdi, .ltr-isolate {
+    unicode-bidi: isolate;
+  }
+  input[type="email"], input[type="tel"], input[type="url"], input[type="password"] {
+    direction: ltr;
+    text-align: start;
+  }
+  input[type="email"]::placeholder, input[type="tel"]::placeholder {
+    direction: rtl;
+    text-align: start;
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  .pb-safe { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
+  .pt-safe { padding-top: max(env(safe-area-inset-top), 0px); }
+  .tap { min-height: 44px; min-width: 44px; } /* touch target ≥44px (WCAG 2.5.8 / HIG) */
+}
+
+/* ---- Time Ribbon textures (docs/07 §4): state is readable without colour ---- */
+@layer components {
+  .ribbon-free {
+    background-color: var(--success-soft);
+    box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--success) 55%, transparent);
+  }
+  .ribbon-booked {
+    background-color: var(--foreground);
+    color: var(--background);
+  }
+  .ribbon-pending {
+    background-color: var(--warning-soft);
+    background-image: repeating-linear-gradient(135deg, color-mix(in oklab, var(--warning) 45%, transparent) 0 2px, transparent 2px 7px);
+    box-shadow: inset 0 0 0 1.5px color-mix(in oklab, var(--warning) 60%, transparent);
+  }
+  .ribbon-closed {
+    background-color: var(--neutral-soft);
+    background-image: repeating-linear-gradient(135deg, color-mix(in oklab, var(--foreground) 14%, transparent) 0 1px, transparent 1px 6px);
+  }
+  .ribbon-selected {
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 28%, transparent);
+  }
+}
+@keyframes ribbon-in {
+  from { opacity: 0; transform: scaleY(0.6); }
+  to { opacity: 1; transform: scaleY(1); }
+}

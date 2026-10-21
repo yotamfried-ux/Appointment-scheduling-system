@@ -1,0 +1,5 @@
+[extend]
+useDefault = true
+[allowlist]
+description = "Generated, untracked build output (Next.js preview-mode keys are not secrets)"
+paths = ['(^|/)\.next/']

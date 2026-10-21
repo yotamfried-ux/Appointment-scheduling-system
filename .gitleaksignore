@@ -1,0 +1,13 @@
+# False positive: prose in an evidence doc (header name + the word "indistinguishable") matched generic-api-key. No secret material.
+291fa3485fcdcf5ada1f277d9bd8dd4e87d5414d:docs/evidence/stage-4.md:generic-api-key:11
+# False positive: a placeholder value in a unit test (the file no longer contains it). No secret material.
+7a14f4276a228b8daa35223571916f9029dc07b0:tests/unit/notifications-config.test.ts:generic-api-key:68
+# False positives: invented placeholder values in the check:env unit test (they exist to prove the gate accepts realistic-looking values). No secret material.
+155790493df2e5a78f19721b6971caaee4fd6dc8:tests/unit/check-env.test.ts:generic-api-key:9
+155790493df2e5a78f19721b6971caaee4fd6dc8:tests/unit/check-env.test.ts:generic-api-key:10
+155790493df2e5a78f19721b6971caaee4fd6dc8:tests/unit/check-env.test.ts:generic-api-key:11
+155790493df2e5a78f19721b6971caaee4fd6dc8:tests/unit/check-env.test.ts:generic-api-key:13
+155790493df2e5a78f19721b6971caaee4fd6dc8:tests/unit/check-env.test.ts:generic-api-key:44
+# False positive: a fixed canary value in the CI workflow (replaced by a random per-run value in the next commit). Not a secret.
+252374d9bd650ce70009293fa73f3685dce906e2:.github/workflows/ci.yml:generic-api-key:29
+252374d9bd650ce70009293fa73f3685dce906e2:.github/workflows/ci.yml:generic-api-key:32
