@@ -66,6 +66,7 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
 
   const form = draft ? (
     <form
+      method="post"
       noValidate
       aria-label={draft.id ? t("edit") : t("add")}
       className="grid gap-4 rounded-lg border bg-card p-4 sm:p-5"

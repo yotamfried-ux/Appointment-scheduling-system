@@ -26,7 +26,7 @@ export function NotesForm({ id, initial }: { id: string; initial: string }) {
     }
   }
   return (
-    <form onSubmit={save} className="grid gap-2 rounded-lg border bg-card p-4">
+    <form method="post" onSubmit={save} className="grid gap-2 rounded-lg border bg-card p-4">
       <Label htmlFor="notes" className="font-semibold">{t("notes")}</Label>
       <Textarea id="notes" value={value} onChange={(e) => setValue(e.target.value)} maxLength={500} rows={3} aria-describedby="notes-hint" data-testid="customer-notes" />
       <p id="notes-hint" className="text-xs text-muted-foreground">{t("notesHint")}</p>

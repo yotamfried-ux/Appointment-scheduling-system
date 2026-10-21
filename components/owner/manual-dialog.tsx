@@ -70,7 +70,7 @@ export function ManualDialog({ open, onOpenChange, services, people = [], defaul
           <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={submit} noValidate className="grid gap-4" data-testid="manual-form">
+        <form method="post" onSubmit={submit} noValidate className="grid gap-4" data-testid="manual-form">
           <FormField label={t("service")} error={errors.service}>
             {(a) => (
               <NativeSelect {...a} value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })} data-testid="manual-service">

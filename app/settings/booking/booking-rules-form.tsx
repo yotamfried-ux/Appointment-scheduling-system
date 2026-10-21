@@ -26,7 +26,7 @@ export function BookingRulesForm({ initial }: { initial: BookingRules }) {
   };
 
   return (
-    <form onSubmit={submit} noValidate className="grid max-w-xl gap-6" data-testid="booking-rules-form">
+    <form method="post" onSubmit={submit} noValidate className="grid max-w-xl gap-6" data-testid="booking-rules-form">
       <fieldset className="grid gap-4">
         <legend className="mb-1 text-lg font-semibold">{t("bookings")}</legend>
         <label className="flex min-h-11 items-center gap-3">

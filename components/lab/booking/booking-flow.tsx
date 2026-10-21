@@ -415,6 +415,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
 
         {s.step === "details" && service && s.day && s.time && (
           <form
+            method="post"
             noValidate
             className="mt-4 grid gap-5"
             onSubmit={(e) => {

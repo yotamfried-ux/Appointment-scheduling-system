@@ -43,7 +43,7 @@ export function OfferDialog({ entry, onClose, onDone }: { entry: WaitlistEntry; 
           <DialogTitle className="[overflow-wrap:anywhere]">{t("title", { name: entry.customer })}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
-        <form onSubmit={submit} noValidate className="grid gap-4" data-testid="offer-form">
+        <form method="post" onSubmit={submit} noValidate className="grid gap-4" data-testid="offer-form">
           <FormField label={t("time")} hint={t("hint", { service: entry.service })} error={undefined}>
             {(a) => <Input {...a} type="time" step={300} dir="ltr" className="text-start" value={time} onChange={(e) => setTime(e.target.value)} data-testid="offer-time" />}
           </FormField>

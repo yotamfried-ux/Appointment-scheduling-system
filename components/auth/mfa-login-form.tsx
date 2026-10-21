@@ -18,6 +18,7 @@ export function MfaLoginForm() {
   return (
     <AuthCard title={t("title")} description={t("description")}>
       <form
+        method="post"
         noValidate
         className="grid gap-5"
         onSubmit={async (e) => {
