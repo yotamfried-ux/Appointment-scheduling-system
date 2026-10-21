@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { authErrorKey } from "@/lib/auth/errors";
+import { authErrorKey, isExistingAccount } from "@/lib/auth/errors";
 import { createClient } from "@/lib/supabase/server";
 
 // Auth runs on the server so the session cookie is written by the server with HttpOnly (docs/05 §5.2): JavaScript in the
@@ -45,7 +45,8 @@ export async function signUpAction(input: { email: unknown; password: unknown })
     password,
     options: { emailRedirectTo: `${await origin()}/auth/confirm?next=/dashboard` },
   });
-  return error ? fail(error) : { ok: true };
+  if (error && !isExistingAccount(error)) return fail(error); // an existing address gets the same "check your e-mail" page (no account enumeration)
+  return { ok: true };
 }
 
 export async function forgotPasswordAction(input: { email: unknown }): Promise<AuthResult> {

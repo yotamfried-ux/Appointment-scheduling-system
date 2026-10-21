@@ -19,3 +19,6 @@ export function authErrorKey(error: unknown): string {
   }
   return "generic";
 }
+
+/** Sign-up for an address that already has an account: the answer must look like any other sign-up, or the form tells a stranger who is registered. */
+export const isExistingAccount = (error: unknown): boolean => !!error && typeof error === "object" && (error as { code?: unknown }).code === "user_already_exists";

@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { after } from "next/server";
+import { ipFromHeaders } from "@/lib/client-ip";
 import { enforce } from "@/modules/booking/public/rate-limit";
 import { kickOutbox } from "@/modules/notifications/service";
 import { acceptOffer, declineOffer, leaveWaitlist, type WaitlistActionOutcome } from "@/modules/waitlist/public";
@@ -10,7 +11,7 @@ import { acceptOffer, declineOffer, leaveWaitlist, type WaitlistActionOutcome } 
 export async function waitlistAction(kind: "accept" | "decline" | "leave", token: unknown): Promise<WaitlistActionOutcome | "rate_limited"> {
   if (typeof token !== "string") return "invalid";
   const h = await headers();
-  const ip = (h.get("x-forwarded-for")?.split(",")[0] ?? h.get("x-real-ip") ?? "unknown").trim();
+  const ip = ipFromHeaders(h);
   try {
     await enforce([{ scope: "wl-action-ip", value: ip, windowSeconds: 60, max: 20 }]);
   } catch {

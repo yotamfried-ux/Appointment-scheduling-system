@@ -3,12 +3,13 @@ import { createHash } from "node:crypto";
 import { fail } from "@/lib/api/http";
 import { systemDb } from "@/platform/system-db";
 import { isProductionLike } from "@/lib/env";
+import { ipFromHeaders } from "@/lib/client-ip";
 
 // Rate limiting for the public booking surface (BKG-12/13): Postgres counters, keys are hashed so no PII (IP, phone) is stored (BKG-14).
 // Layered on top of Vercel Firewall rules in production (docs/05 §5.4).
 const h = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 32);
 
-export const clientIp = (req: Request) => (req.headers.get("x-forwarded-for")?.split(",")[0] ?? req.headers.get("x-real-ip") ?? "unknown").trim();
+export const clientIp = (req: Request) => ipFromHeaders(req.headers);
 
 export interface Limit {
   scope: string;

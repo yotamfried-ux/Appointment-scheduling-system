@@ -1,0 +1,2 @@
+/** The caller's address. Behind Vercel the platform sets `x-vercel-forwarded-for` (and overwrites `x-forwarded-for`); only without it do we fall back to what the client sent, which a client can rotate to dodge a per-address limit. */
+export const ipFromHeaders = (h: Pick<Headers, "get">) => (h.get("x-vercel-forwarded-for")?.split(",")[0] ?? h.get("x-forwarded-for")?.split(",")[0] ?? h.get("x-real-ip") ?? "unknown").trim();
