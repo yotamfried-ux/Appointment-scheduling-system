@@ -2,6 +2,8 @@ import "server-only";
 // Public booking service (system path). Hours come from the TS slot engine, conflicts from the database (EXCLUDE).
 // Everything returned is customer-safe: free slots only, never other customers' data (BKG-13).
 import { createHash } from "node:crypto";
+
+const hashKey = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 32); // same key shape as the rate limiter (no address is stored, BKG-14)
 import { z } from "zod";
 import * as C from "@/lib/api/contracts";
 import { fail } from "@/lib/api/http";
@@ -37,6 +39,32 @@ export async function resolveCatalog(rawSlug: string): Promise<Resolved> {
   if (!data) return { kind: "not_found" }; // unknown and unpublished are indistinguishable (BKG-11)
   if (typeof (data as { redirect?: string }).redirect === "string") return { kind: "redirect", slug: (data as { redirect: string }).redirect };
   return { kind: "ok", catalog: CatalogRpc.parse(data) };
+}
+
+/**
+ * One database call for everything a public availability/slots request needs (rate-limit counter + catalog + busy times); see migration public_range.
+ * A refused request throws RATE_LIMITED, an unknown or unpublished business throws NOT_FOUND; an old slug is followed with the ordinary path.
+ */
+export async function loadPublicRange(rawSlug: string, from: string, days: number, limit: { value: string; windowSeconds: number; max: number }): Promise<{ catalog: Catalog; busy: TeamBusy[] }> {
+  const slug = Slug.safeParse(rawSlug);
+  if (!slug.success) throw fail("NOT_FOUND", "העסק לא נמצא או אינו מקבל תורים כרגע.");
+  const { data, error } = await systemDb().rpc("public_range", { p_slug: slug.data, p_from: from, p_days: days, p_key: `read:${hashKey(limit.value)}`, p_window_seconds: limit.windowSeconds, p_max: limit.max });
+  if (error) throw new Error("availability unavailable");
+  const d = data as { rate: { allowed: boolean; retry_after: number }; catalog?: unknown; busy?: { starts_at: string; blocked_until: string; resource_id: string }[] };
+  if (!d.rate.allowed) throw fail("RATE_LIMITED", "יותר מדי ניסיונות. נסו שוב בעוד רגע.", undefined, { "Retry-After": String(d.rate.retry_after) });
+  const cat = d.catalog as { redirect?: string } | null | undefined;
+  if (!cat) throw fail("NOT_FOUND", "העסק לא נמצא או אינו מקבל תורים כרגע.");
+  if (typeof cat.redirect === "string") {
+    const c = await catalogOr404Via(cat.redirect);
+    return { catalog: c, busy: await busyBetween(c, from, days) };
+  }
+  return { catalog: CatalogRpc.parse(cat), busy: (d.busy ?? []).map((r) => ({ start: new Date(r.starts_at), end: new Date(r.blocked_until), resourceId: r.resource_id })) };
+}
+
+async function catalogOr404Via(slug: string): Promise<Catalog> {
+  const r = await resolveCatalog(slug);
+  if (r.kind !== "ok") throw fail("NOT_FOUND", "העסק לא נמצא או אינו מקבל תורים כרגע.");
+  return r.catalog;
 }
 
 const kindOf = (c: Catalog): BusinessKindId => c.business.kind;
@@ -86,9 +114,9 @@ function engine(c: Catalog, svcId: string, busy: TeamBusy[], personId?: string |
   return { s, base: { people: peopleFor(c, svcId, personId), timeZone: c.business.timezone, rules: rulesOf(c), exceptions: exceptionsOf(c), durationMinutes: s.durationMinutes, bufferMinutes: s.bufferMinutes, stepMinutes: 30, busy, now: systemClock.now(), minNoticeMinutes: c.business.minNoticeMinutes } };
 }
 
-export async function computeSlots(c: Catalog, svcId: string, date: string, selected?: string, personId?: string): Promise<z.infer<typeof C.SlotsResponse>> {
+export async function computeSlots(c: Catalog, svcId: string, date: string, selected?: string, personId?: string, busyIn?: TeamBusy[]): Promise<z.infer<typeof C.SlotsResponse>> {
   if (!c.business.acceptingBookings) throw fail("BOOKINGS_CLOSED", "העסק אינו מקבל כרגע תורים חדשים.");
-  const { s, base } = engine(c, svcId, await busyBetween(c, date, 1), personId);
+  const { s, base } = engine(c, svcId, busyIn ?? (await busyBetween(c, date, 1)), personId);
   const windows = teamWindowsForDate(date, base.people, rulesOf(c), exceptionsOf(c));
   const slots = withinHorizon(c, date) ? teamSlotsForDay({ ...base, date }) : [];
   return {
@@ -100,9 +128,9 @@ export async function computeSlots(c: Catalog, svcId: string, date: string, sele
   };
 }
 
-export async function computeAvailability(c: Catalog, svcId: string, from: string, days: number, personId?: string): Promise<z.infer<typeof C.AvailabilityResponse>> {
+export async function computeAvailability(c: Catalog, svcId: string, from: string, days: number, personId?: string, busyIn?: TeamBusy[]): Promise<z.infer<typeof C.AvailabilityResponse>> {
   if (!c.business.acceptingBookings) throw fail("BOOKINGS_CLOSED", "העסק אינו מקבל כרגע תורים חדשים.");
-  const { base } = engine(c, svcId, await busyBetween(c, from, days), personId);
+  const { base } = engine(c, svcId, busyIn ?? (await busyBetween(c, from, days)), personId);
   const r = teamAvailabilityForRange({ ...base, from, days }).map((d) => ({ date: d.date, closed: d.closed, freeSlots: withinHorizon(c, d.date) ? d.freeSlots : 0 }));
   return { days: r };
 }
