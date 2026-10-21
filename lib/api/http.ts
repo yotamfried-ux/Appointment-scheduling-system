@@ -75,16 +75,18 @@ export function api<P = Record<string, never>>(handler: (req: Request, params: P
     const base = { "Cache-Control": "no-store", "x-request-id": requestId };
     try {
       if (lab && !labEnabled()) throw fail("NOT_FOUND", "לא נמצא."); // lab routes only; public routes are always on
+      let timing: Record<string, string> = {};
       const out = await runInDbScope(async () => {
         try {
-          return await handler(req, await ctx.params, { requestId });
+          const res = await handler(req, await ctx.params, { requestId });
+          timing = serverTiming(started); // inside the scope: only here are this request's database calls known
+          return res;
         } catch (e) {
           // the database did not answer in time: tell the caller to retry (503), not that we are broken (500)
           if (!(e instanceof ApiError) && dbWasUnavailable()) throw fail("UNAVAILABLE", "השירות עמוס או לא זמין כרגע. נסו שוב בעוד רגע.", undefined, { "Retry-After": "5" });
           throw e;
         }
       });
-      const timing = serverTiming(started);
       if (out instanceof Response) {
         Object.entries({ ...base, ...timing }).forEach(([k, v]) => out.headers.set(k, v));
         return out;
