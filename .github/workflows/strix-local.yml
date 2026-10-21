@@ -1,0 +1,65 @@
+name: Strix local-only security assessment
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  pentest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Verify local-only credentials and Docker
+        env:
+          STRIX_LLM: ${{ vars.STRIX_LLM }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          test -n "$STRIX_LLM" && test -n "$LLM_API_KEY" || { echo "::error::Set STRIX_LLM variable and LLM_API_KEY secret"; exit 1; }
+          docker info >/dev/null
+      - run: npm ci
+      - name: Start local Supabase
+        run: npm run db:start
+      - name: Build local application
+        shell: bash
+        run: |
+          source scripts/local-env.sh
+          export ALLOW_NON_PRODUCTION_DEFAULTS=1
+          export BOOKING_TOKEN_SECRET="$(openssl rand -hex 40)"
+          export CRON_SECRET="$(openssl rand -hex 24)"
+          export RESEND_WEBHOOK_SECRET="whsec_$(openssl rand -hex 24)"
+          export BILLING_PROVIDER=fake EMAIL_PROVIDER=fake
+          npm run build
+          (npx next start -H 127.0.0.1 -p 3100 > "$RUNNER_TEMP/tori-local.log" 2>&1 & echo $! > "$RUNNER_TEMP/tori.pid")
+          for i in {1..60}; do curl -fsS http://127.0.0.1:3100/ >/dev/null && exit 0; sleep 2; done
+          echo "::error::Local Tori server did not start"; exit 1
+      - name: Install Strix and check actual CLI
+        run: |
+          curl -fsSL https://strix.ai/install -o "$RUNNER_TEMP/strix-install.sh"
+          bash "$RUNNER_TEMP/strix-install.sh"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+          strix --help > "$RUNNER_TEMP/strix-help.txt"
+          strix --version > "$RUNNER_TEMP/strix-version.txt" 2>&1 || true
+      - name: Run bounded local white-box assessment
+        env:
+          STRIX_LLM: ${{ vars.STRIX_LLM }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+        run: |
+          export PATH="$HOME/.local/bin:$PATH"
+          timeout 75m strix --target . --target http://127.0.0.1:3100 --instruction "AUTHORIZED LOCAL TEST ONLY. Never contact production turim.d2ryf.com, hosted Supabase, Vercel, Resend, or other third-party targets. Use local Supabase and 127.0.0.1:3100 only. Do not modify source files or run destructive or load tests. No real emails. Do not set ALLOW_TEST_LIMIT_HEADER, ALLOW_TEST_CLOCK, or ALLOW_TEST_LEGAL_GATE. Prioritize cross-tenant RLS/IDOR, role boundaries, authentication, booking tokens, race/idempotency, input injection, cron/webhook signatures, information leakage and business logic. Rate-limit requests. Existing known findings are in docs/evidence/security-review-2026-10-21.md; do not report them as new. Reproduce each finding and label unverified hypotheses UNVERIFIED. Map to Engineering-OS twenty checks." 
+      - name: Preserve raw evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: strix-local-assessment
+          path: |
+            strix_runs/
+            docs/evidence/strix-assessment-2026-10-21.md
+          if-no-files-found: warn
+          retention-days: 30
