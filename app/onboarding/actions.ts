@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createBusiness } from "@/modules/tenancy/service";
 import { CreateBusinessInput } from "@/modules/tenancy/schema";
 import type { TenancyErrorCode } from "@/modules/tenancy/errors";
+import { sessionIsLive } from "@/lib/auth/live-session";
 
 export type CreateBusinessResult = { ok: true; slug: string } | { ok: false; code: TenancyErrorCode };
 
@@ -13,7 +14,7 @@ export type CreateBusinessResult = { ok: true; slug: string } | { ok: false; cod
 export async function createBusinessAction(raw: unknown): Promise<CreateBusinessResult> {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) return { ok: false, code: "NOT_AUTHENTICATED" };
+  if (!data?.claims || !(await sessionIsLive(supabase))) return { ok: false, code: "NOT_AUTHENTICATED" };
   if (!(await hasRequiredAssurance(supabase))) return { ok: false, code: "FORBIDDEN" };
   const parsed = CreateBusinessInput.safeParse(raw);
   if (!parsed.success) return { ok: false, code: "VALIDATION" };

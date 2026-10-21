@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { redirect } from "next/navigation";
+import { sessionIsLive } from "@/lib/auth/live-session";
 import { legalGateActive, missingAcceptances } from "@/lib/legal/gate";
 import { createClient } from "@/lib/supabase/server";
 
@@ -8,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 export const requireUser = cache(async function requireUser() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) redirect("/auth/login");
+  if (!data?.claims || !(await sessionIsLive(supabase))) redirect("/auth/login");
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
   if (aal && aal.nextLevel === "aal2" && aal.currentLevel !== "aal2") redirect("/auth/mfa");
   // CMP-03: a new version of the terms or the privacy policy must be accepted before the owner area is used again.
