@@ -73,10 +73,10 @@ const SUBJECT: Record<NotificationType, (b: string) => string> = {
 };
 
 const LEAD: Record<NotificationType, (name: string) => string> = {
-  booking_received: () => "קיבלנו את הבקשה. בעל העסק יאשר אותה בקרוב ונעדכן אותך.",
+  booking_received: () => "קיבלנו את הבקשה. העסק יאשר אותה בקרוב ונעדכן אותך.",
   booking_confirmed: () => "התור אושר.",
-  booking_declined: () => "לצערנו בעל העסק לא יכול לקבל את הבקשה במועד הזה. אפשר לבחור מועד אחר.",
-  booking_cancelled_by_business: () => "בעל העסק ביטל את התור. מצטערים על אי הנוחות, אפשר לקבוע מועד חדש.",
+  booking_declined: () => "לצערנו העסק לא יכול לקבל את הבקשה במועד הזה. אפשר לבחור מועד אחר.",
+  booking_cancelled_by_business: () => "העסק ביטל את התור. מצטערים על אי הנוחות, אפשר לקבוע מועד חדש.",
   booking_cancelled_by_customer: () => "התור בוטל לפי בקשתך.",
   reminder: () => "תזכורת: מחר יש לך תור.",
   owner_new_request: (n) => `${n} ביקש/ה תור וממתין/ה לאישור שלך.`,

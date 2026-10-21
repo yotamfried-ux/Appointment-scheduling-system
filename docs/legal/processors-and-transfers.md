@@ -14,3 +14,6 @@ What is true today about transfers: the cloud test database is outside Israel. T
 Network behavior check (item 42): the browser talks to the site and to the Supabase host named in the Content Security Policy `connect-src`; no other origin is allowed by the policy (`lib/security/csp.ts`), so a third-party SDK would be blocked as well as caught by tests.
 
 Open: DPAs and subprocessor terms for Supabase, Vercel, Resend; written contact for incidents at each; dependency licence scan (SBOM) not run in this session (OSV and Trivy run in CI and passed).
+
+## Public wording (2026-10-21, owner decision)
+The public privacy notice and terms do **not** name vendors, the data centre city or security mechanisms; they say "hosting, e-mail delivery and (later) payment processing" and "servers in the European Union", plus that reasonable security measures are used. This register stays the internal, complete list. If a regulator, a customer or a processing agreement ever requires naming a processor, add it to the notice then. Legal text version raised to 2026-10-21.

@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { admin, fakeIp, firstDayWithSlots, loginAs, makeBusiness, publicBook, signedInOwner, sql } from "../helpers/business";
 import { byType, drain, mail, rows } from "../helpers/outbox";
-import { customerBooksViaPage, customerOnPhone, noOverflow, ownerAtDesk } from "./world";
+import { chooseTime, customerBooksViaPage, customerOnPhone, noOverflow, ownerAtDesk } from "./world";
 
 // JOURNEY 3 — a customer who keeps not showing up, an impostor, a stampede for one slot, and a team member with fewer rights.
 // Crosses: owner settings · customer history · booking policy · approvals inbox · mail · RLS roles · concurrency.
@@ -67,8 +67,7 @@ test("repeat no-shows are held, then turned away politely; the owner can forgive
     await d.page.locator('input[name="service"]').first().check({ force: true });
     await d.page.getByTestId("continue").click();
     await d.page.getByRole("button", { name: /הזמן הפנוי הראשון/ }).click();
-    await d.page.getByTestId("continue").click();
-    await d.page.locator('input[name="time"]').nth(3).check({ force: true });
+    await (await chooseTime(d.page, 3)).chip.check({ force: true });
     await d.page.getByTestId("continue").click();
     await d.page.getByLabel("שם מלא").fill("דני ד׳");
     await d.page.getByLabel("טלפון נייד").fill(PHONE);
