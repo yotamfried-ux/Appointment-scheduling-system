@@ -29,10 +29,14 @@ export async function ownerContext(): Promise<OwnerCtx> {
   if (!(await hasRequiredAssurance(supabase))) throw fail("UNAUTHENTICATED", "נדרש אימות דו-שלבי.");
   // One round trip: my membership with its business embedded (a business is only visible to its members, so this is the same business as "the first one I can see").
   // Anything unexpected falls back to the two separate reads.
-  const joined = await supabase.from("business_members").select("role, businesses!inner(id, name, kind, timezone, waitlist_enabled, waitlist_auto_offer)").eq("user_id", String(data.claims.sub)).order("businesses(created_at)").limit(1);
+  const joined = await supabase.from("business_members").select("role, businesses!inner(id, name, kind, timezone, waitlist_enabled, waitlist_auto_offer, created_at)").eq("user_id", String(data.claims.sub)).order("businesses(created_at)").limit(1);
   const row = joined.data?.[0] as { role?: string; businesses?: OwnerCtx["business"] | OwnerCtx["business"][] } | undefined;
   const embedded = Array.isArray(row?.businesses) ? row?.businesses[0] : row?.businesses;
-  if (!joined.error && embedded && row?.role) return { supabase, business: embedded, role: row.role };
+  if (!joined.error && embedded && row?.role) {
+    const { id, name, kind, timezone, waitlist_enabled, waitlist_auto_offer } = embedded; // created_at is only there so the rows can be ordered by it
+    return { supabase, business: { id, name, kind, timezone, waitlist_enabled, waitlist_auto_offer }, role: row.role };
+  }
+  if (joined.error) console.error(JSON.stringify({ level: "warn", msg: "owner context: joined read failed, using the two-step read", code: joined.error.code })); // a silent fallback once hid a broken query (it cost an extra round trip on every owner request)
   const { data: rows } = await supabase.from("businesses").select("id, name, kind, timezone, waitlist_enabled, waitlist_auto_offer").order("created_at").limit(1);
   const b = rows?.[0] as OwnerCtx["business"] | undefined;
   if (!b) throw fail("FORBIDDEN", "אין עסק מקושר לחשבון.");
