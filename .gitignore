@@ -48,3 +48,7 @@ graphify-out/
 /graphify-out/
 /supabase/.branches/
 /supabase/.temp/
+
+# Strix scan output and the throw-away local test accounts
+strix_runs/
+strix-credentials.txt
