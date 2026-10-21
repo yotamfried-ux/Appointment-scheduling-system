@@ -1,13 +1,8 @@
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
 import { type NextRequest } from "next/server";
+import { safeNext } from "@/lib/auth/safe-next";
 import { createClient } from "@/lib/supabase/server";
-
-// Only same-site relative paths are allowed as the post-confirmation target (open-redirect guard, SEC-19).
-function safeNext(value: string | null): string {
-  if (value && value.startsWith("/") && !value.startsWith("//") && !value.includes("\\")) return value;
-  return "/dashboard";
-}
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

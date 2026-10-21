@@ -10,6 +10,14 @@ export type AuthResult = { ok: true } | { ok: false; errorKey: string };
 export type LoginResult = { ok: true; mfaRequired: boolean } | { ok: false; errorKey: string };
 
 async function origin(): Promise<string> {
+  // The configured address first: a forged Host / X-Forwarded-Host must never decide where the e-mail links point.
+  for (const v of [process.env.APP_URL, process.env.NEXT_PUBLIC_SITE_URL]) {
+    try {
+      if (v) return new URL(v).origin;
+    } catch {
+      /* malformed value: try the next one */
+    }
+  }
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "127.0.0.1:3000";
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("127.0.0.1") || host.startsWith("localhost") ? "http" : "https");
