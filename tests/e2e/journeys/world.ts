@@ -50,15 +50,31 @@ export async function ownerLogsIn(page: Page, email: string) {
   await page.waitForURL(/\/(dashboard|onboarding)/);
 }
 
+/** From the "first available" click on: continue to the times and return the `wanted`-th time. Late in the day "today" has only a few times left, so a journey that needs the 4th or 7th time of a day takes the next open day instead of depending on the time of day it runs. */
+export async function chooseTime(page: Page, wanted: number) {
+  const dayOf = async () => (await page.locator('input[name="day"]:checked').getAttribute("data-testid"))!.replace("day-", "");
+  let date = await dayOf();
+  await page.getByTestId("continue").click();
+  await expect(page.locator('input[name="time"]').first()).toBeVisible();
+  if ((await page.locator('input[name="time"]').count()) <= wanted) {
+    await page.getByRole("button", { name: "חזרה" }).first().click();
+    const open = page.locator('input[name="day"]:not([disabled])');
+    const at = await open.evaluateAll((els) => els.findIndex((e) => (e as HTMLInputElement).checked));
+    await open.nth(at + 1).check({ force: true });
+    date = await dayOf();
+    await page.getByTestId("continue").click();
+    await expect(page.locator('input[name="time"]').nth(wanted)).toBeAttached();
+  }
+  return { date, chip: page.locator('input[name="time"]').nth(wanted) };
+}
+
 /** A customer books through the public page, step by step, and ends on the confirmation. */
 export async function customerBooksViaPage(page: Page, slug: string, who: { name: string; phone: string; email?: string }, opts: { serviceIndex?: number; nthTime?: number } = {}) {
   await page.goto(`/book/${slug}`);
   await page.locator('input[name="service"]').nth(opts.serviceIndex ?? 0).check({ force: true });
   await page.getByTestId("continue").click();
   await page.getByRole("button", { name: /הזמן הפנוי הראשון/ }).click();
-  const date = (await page.locator('input[name="day"]:checked').getAttribute("data-testid"))!.replace("day-", "");
-  await page.getByTestId("continue").click();
-  const chip = page.locator('input[name="time"]').nth(opts.nthTime ?? 0);
+  const { date, chip } = await chooseTime(page, opts.nthTime ?? 0);
   await chip.check({ force: true });
   const time = (await chip.getAttribute("value"))!;
   await page.getByTestId("continue").click();
