@@ -30,7 +30,7 @@ set plan_id = 'pro', status = 'active', trial_ends_at = null,
 where business_id = '<business id>';
 
 -- 3. record why
-insert into public.audit_log (business_id, action, entity, entity_id, detail)
+insert into public.audit_log (business_id, action, entity, entity_id, meta)
 values ('<business id>', 'subscription.pilot_grant', 'business', '<business id>', '{"reason":"closed pilot, no payment"}');
 ```
 Check: she opens Settings, subscription: it must show an active plan, no trial countdown.
