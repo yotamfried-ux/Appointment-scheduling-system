@@ -22,8 +22,6 @@ const namespacesRead = (file: string): string[] => {
 const SHARED_FILES = ["components/legal/consent-banner.tsx", "components/theme-switcher.tsx", "components/logout-button.tsx", "app/error.tsx", "components/auth-button.tsx", "components/ui/toast.tsx", "components/brand/booking-preview.tsx"];
 const GROUPS: Record<string, { path: string; files: string[] }> = {
   booking: { path: "/book/x", files: [...SHARED_FILES, ...walk(join(ROOT, "app/book")).map((f) => f.slice(ROOT.length + 1)), ...walk(join(ROOT, "components/lab/booking")).map((f) => f.slice(ROOT.length + 1)), ...walk(join(ROOT, "components/waitlist")).map((f) => f.slice(ROOT.length + 1))] },
-  auth: { path: "/auth/login", files: [...SHARED_FILES, ...walk(join(ROOT, "components/auth")).map((f) => f.slice(ROOT.length + 1)), "components/patterns/password-input.tsx"] },
-  landing: { path: "/", files: SHARED_FILES },
 };
 
 describe("trimmed message catalogs cover what the page's client components read", () => {
@@ -41,8 +39,8 @@ describe("trimmed message catalogs cover what the page's client components read"
   }
 
   it("every listed namespace exists, and unknown paths keep everything", () => {
-    for (const p of ["/book/x", "/auth/login", "/"]) for (const ns of clientNamespacesFor(p)!) expect(Object.keys(he), `${ns} in ${p}`).toContain(ns);
-    for (const p of ["/dashboard", "/settings/team", "/customers", "/design", "/booking/abc", "/waitlist/abc", "/legal/accept"]) expect(clientNamespacesFor(p)).toBeNull();
+    for (const p of ["/book/x"]) for (const ns of clientNamespacesFor(p)!) expect(Object.keys(he), `${ns} in ${p}`).toContain(ns);
+    for (const p of ["/", "/auth/login", "/auth/sign-up", "/dashboard", "/settings/team", "/customers", "/design", "/booking/abc", "/waitlist/abc", "/legal/accept"]) expect(clientNamespacesFor(p)).toBeNull();
     expect(pickNamespaces(he, null)).toBe(he);
   });
 

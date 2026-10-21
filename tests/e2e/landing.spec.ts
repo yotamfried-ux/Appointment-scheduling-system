@@ -25,3 +25,12 @@ test("the landing page explains the product, shows what the customer sees, no pr
   await page.getByTestId("home-cta").click();
   await expect(page).toHaveURL(/\/auth\/sign-up/);
 });
+
+// A client-side navigation keeps the messages the first page loaded; the sign-up form must still show real Hebrew, never a key like "auth.signUp.title".
+test("clicking 'start' on the landing page opens sign-up with real text, not message keys", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("home-cta").click();
+  await expect(page).toHaveURL(/\/auth\/sign-up/);
+  await expect(page.getByRole("button", { name: "יצירת חשבון" })).toBeVisible();
+  await expect(page.locator("main")).not.toContainText(/\bauth\.[a-zA-Z]+/);
+});
