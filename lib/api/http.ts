@@ -121,7 +121,7 @@ export const sessionOf = (req: Request) => (req.headers.get("x-lab-session") ?? 
 /** CSRF for cookie-authenticated JSON endpoints: a state-changing request must come from this very site (browsers always send Origin on fetch POST). */
 export function assertSameOrigin(req: Request) {
   const origin = req.headers.get("origin");
-  const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host");
+  const host = req.headers.get("host"); // never x-forwarded-host: a caller can send that header, the platform sets Host itself
   let ok = false;
   try {
     ok = Boolean(origin && host && new URL(origin).host === host);

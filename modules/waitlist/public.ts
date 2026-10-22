@@ -90,7 +90,7 @@ export async function viewWaitlist(token: string): Promise<WaitlistView | null> 
   };
 }
 
-export type WaitlistActionOutcome = "accepted" | "slot_taken" | "expired" | "not_pending" | "declined" | "left" | "not_active" | "invalid";
+export type WaitlistActionOutcome = "accepted" | "slot_taken" | "expired" | "not_pending" | "declined" | "left" | "not_active" | "limit" | "invalid";
 
 async function consumed(jti: string, exp: number) {
   const r = await systemDb().rpc("public_consume_token", { p_jti: jti, p_exp: new Date(exp * 1000).toISOString() }); // single use (SEC-06)
@@ -103,7 +103,7 @@ async function act(token: string, scope: "wl_accept" | "wl_decline" | "wl_leave"
   const { data, error } = await systemDb().rpc(fn, { [arg]: v.payload.a });
   if (error) return "invalid";
   const outcome = (data as { outcome?: string } | null)?.outcome;
-  return (["accepted", "slot_taken", "expired", "not_pending", "declined", "left", "not_active"] as const).find((o) => o === outcome) ?? "invalid";
+  return (["accepted", "slot_taken", "expired", "not_pending", "declined", "left", "not_active", "limit"] as const).find((o) => o === outcome) ?? "invalid";
 }
 
 export const acceptOffer = (token: string) => act(token, "wl_accept", "waitlist_accept", "p_offer");

@@ -152,6 +152,19 @@ select public.public_cancel((select id from appt2));
 create temp table o1 as select id from public.waitlist_offers where status = 'pending' and slot_starts_at = (select day from ids) + interval '11 hours';
 grant select on o1 to service_role;
 select is((select entry_id from public.waitlist_offers where id = (select id from o1)), (select e1 from e), 'a new freed slot goes to the first in line again');
+-- Strix 2026-10-22: accepting must respect the per-customer limit of 5 future appointments, like direct booking (BKG-07)
+select pg_temp.as_system();
+insert into public.appointments (business_id, resource_id, service_id, customer_id, reference, status, starts_at, ends_at, blocked_until, service_snapshot, price_cents, currency)
+select e.business_id, (select id from public.resources where business_id = e.business_id and is_default), e.service_id, e.customer_id, 'TR-LIM0' || g, 'confirmed',
+       (select day from ids) + (20 + g) * interval '1 day' + interval '10 hours', (select day from ids) + (20 + g) * interval '1 day' + interval '10 hours 30 minutes', (select day from ids) + (20 + g) * interval '1 day' + interval '10 hours 30 minutes',
+       '{"name":"x","durationMinutes":30,"bufferMinutes":0,"priceCents":8000}'::jsonb, 8000, 'ILS'
+from public.waitlist_entries e, generate_series(1, 5) g where e.id = (select e1 from e);
+select pg_temp.as_service();
+select is((select public.waitlist_accept((select id from o1)))->>'outcome', 'limit', 'a customer already holding 5 future appointments cannot accept another through the waitlist');
+select is((select status from public.waitlist_offers where id = (select id from o1)), 'pending', '...and the offer stays pending');
+select pg_temp.as_system();
+delete from public.appointments where reference like 'TR-LIM0%';
+select pg_temp.as_service();
 select is((select public.waitlist_accept((select id from o1)))->>'outcome', 'accepted', 'WLT-01: accepting books the slot');
 select is((select status from public.appointments where starts_at = (select day from ids) + interval '11 hours' and status in ('pending','confirmed') limit 1), 'confirmed', 'the appointment is confirmed');
 select is((select status from public.waitlist_entries where id = (select e1 from e)), 'booked', 'the entry is booked');
