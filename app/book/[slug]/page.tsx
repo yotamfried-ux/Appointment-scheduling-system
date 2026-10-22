@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { LegalFooter } from "@/components/legal/legal-footer";
+import { ReportBusiness } from "@/components/legal/report-business";
 import { BookingFlow } from "@/components/lab/booking/booking-flow";
 import { resolveCatalog, toServicesResponse } from "@/modules/booking/public/service";
 
@@ -26,6 +27,7 @@ export default async function BookPage({ params }: { params: Promise<{ slug: str
   return (
     <>
       <BookingFlow kind={r.catalog.business.kind} base={`/api/public/${r.catalog.business.slug}`} initialCatalog={toServicesResponse(r.catalog)} />
+      <ReportBusiness slug={r.catalog.business.slug} />
       <LegalFooter />
     </>
   );

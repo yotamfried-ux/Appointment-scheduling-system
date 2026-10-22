@@ -8,6 +8,8 @@ export type TenancyErrorCode =
   | "BUSINESS_LIMIT"
   | "RATE_LIMITED"
   | "EMAIL_NOT_VERIFIED"
+  | "NEEDS_REVIEW"
+  | "SUSPENDED"
   | "VALIDATION"
   | "INTERNAL";
 
@@ -20,6 +22,8 @@ export function mapRpcError(err: { code?: string | null; message?: string | null
   if (msg.includes("business_limit")) return "BUSINESS_LIMIT";
   if (msg.includes("rate_limited")) return "RATE_LIMITED";
   if (msg.includes("email_not_verified")) return "EMAIL_NOT_VERIFIED";
+  if (msg.includes("needs_review")) return "NEEDS_REVIEW";
+  if (msg.includes("suspended")) return "SUSPENDED";
   if (code === "23514") return msg.includes("slug") ? "SLUG_INVALID" : "VALIDATION";
   return "INTERNAL";
 }

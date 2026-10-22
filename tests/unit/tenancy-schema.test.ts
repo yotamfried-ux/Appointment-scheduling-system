@@ -71,6 +71,8 @@ describe("mapRpcError", () => {
     [{ code: "P0001", message: "business_limit" }, "BUSINESS_LIMIT"],
     [{ code: "P0001", message: "rate_limited" }, "RATE_LIMITED"],
     [{ code: "P0001", message: "email_not_verified" }, "EMAIL_NOT_VERIFIED"],
+    [{ code: "P0001", message: "needs_review" }, "NEEDS_REVIEW"],
+    [{ code: "P0001", message: "suspended" }, "SUSPENDED"],
     [{ code: "42501", message: "permission denied" }, "FORBIDDEN"],
     [{ code: "28000", message: "not_authenticated" }, "NOT_AUTHENTICATED"],
     [{ code: "XX000", message: "relation public.secret_table does not exist" }, "INTERNAL"],
