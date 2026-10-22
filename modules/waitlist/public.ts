@@ -37,6 +37,7 @@ export async function joinWaitlist(c: Catalog, input: C.JoinWaitlistInput, idemK
   if (error) throw mapJoinError(error);
   const r = data as { replay: boolean; id: string; owner: boolean };
   const ttl = Math.max(3600, Math.floor((dayEndUtc(input.date) - Date.now()) / 1000) + 3 * 86_400);
+  if (r.replay && !r.owner) return { replay: true }; // the entry exists but this caller cannot prove it created it: no id, no link
   return { id: r.id, replay: r.replay, ...(r.owner ? { manageUrl: `/waitlist/${signToken({ appointmentId: r.id, scope: "wl_view", ttlSeconds: ttl })}` } : {}) };
 }
 

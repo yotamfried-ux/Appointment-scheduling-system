@@ -35,6 +35,15 @@ try {
   check("cookie with user.factors removed is still sent to the code page", r.s === 307 && /mfa/.test(r.h.get("location") ?? ""), `status ${r.s} ${r.h.get("location")}`);
   r = await req("/api/owner/customers", { cookie: cookieFor(tampered) });
   check("...and cannot read customers", r.s === 401, `status ${r.s}`);
+  // the same account straight against the Data API (Strix VULN-0003): the database applies the second factor too
+  const own = (await a.from("businesses").select("id")).data?.[0]?.id;
+  check("control: the session that passed the second factor sees its business through the Data API", !!own);
+  const seen = (await b.from("businesses").select("id")).data ?? [];
+  check("password-only session sees no business through the Data API", seen.length === 0, `rows ${seen.length}`);
+  const exp = await b.rpc("owner_export_account", { p_business: own });
+  check("password-only session cannot export the account through the Data API", !!exp.error, exp.error?.message ?? "no error");
+  const del = await b.rpc("request_business_deletion", { p_business: own, p_confirm_name: "x" });
+  check("password-only session cannot request deletion through the Data API", !!del.error);
   // the real second-factor session still works
   r = await req("/api/owner/appointments", { cookie: cookieFor(aal2) });
   check("a session that passed the second factor works", r.s === 200, `status ${r.s}`);

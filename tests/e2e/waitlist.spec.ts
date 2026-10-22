@@ -29,7 +29,7 @@ async function scenario(request: APIRequestContext, b: TestBusiness, n = 3) {
     const email = mail();
     const r = await join(request, b, f.date, i, { customer: { fullName: `ממתין ${i}`, phone: customer(300 + i).phone, email } });
     expect(r.status(), await r.text()).toBe(201);
-    w.push({ id: C.JoinWaitlistResponse.parse(await r.json()).id, email });
+    w.push({ id: C.JoinWaitlistResponse.parse(await r.json()).id!, email }); // a creator always gets the id
   }
   const slotStart = (await b.db.from("appointments").select("starts_at").eq("id", a.id).single()).data!.starts_at as string;
   return { f, a, w, slotStart };
@@ -70,7 +70,9 @@ test.describe("joining (WLT-08)", () => {
     expect((await first.json()).manageUrl).toMatch(/^\/waitlist\//);
     const attacker = await join(request, b, f.date, 1, { date: f.date, customer: { ...victim, email: mail() } }, { "idempotency-key": "attacker-key-0001" });
     expect(attacker.status()).toBe(200);
-    expect((await attacker.json()).manageUrl).toBeUndefined();
+    const stranger = await attacker.json();
+    expect(stranger.manageUrl).toBeUndefined();
+    expect(stranger.id).toBeUndefined(); // not even the entry's id: the position is not the stranger's to see
     const noProof = await join(request, b, f.date, 1, body);
     expect((await noProof.json()).manageUrl).toBeUndefined();
     const retry = await join(request, b, f.date, 1, body, { "idempotency-key": "victim-browser-key-1" });

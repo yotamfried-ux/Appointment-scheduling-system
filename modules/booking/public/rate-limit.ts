@@ -4,6 +4,7 @@ import { fail } from "@/lib/api/http";
 import { systemDb } from "@/platform/system-db";
 import { isProductionLike } from "@/lib/env";
 import { ipFromHeaders } from "@/lib/client-ip";
+import { mailboxKey } from "@/lib/mailbox";
 
 // Rate limiting for the public booking surface (BKG-12/13): Postgres counters, keys are hashed so no PII (IP, phone) is stored (BKG-14).
 // Layered on top of Vercel Firewall rules in production (docs/05 §5.4).
@@ -47,5 +48,5 @@ export const emailLimit = (req: Request, email: string) => {
   const test = !isProductionLike() && process.env.ALLOW_TEST_LIMIT_HEADER === "1";
   const scope = test ? (req.headers.get("x-test-email-scope") ?? crypto.randomUUID()) : "";
   const lowered = test ? Number(req.headers.get("x-test-email-limit")) : 0;
-  return { scope: "mail-addr", value: `${email.trim().toLowerCase()}|${scope}`, windowSeconds: 3600, max: Number.isInteger(lowered) && lowered > 0 && lowered < 8 ? lowered : 8 };
+  return { scope: "mail-addr", value: `${mailboxKey(email)}|${scope}`, windowSeconds: 3600, max: Number.isInteger(lowered) && lowered > 0 && lowered < 8 ? lowered : 8 };
 };

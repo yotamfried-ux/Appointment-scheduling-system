@@ -108,7 +108,8 @@ export const JoinWaitlistRequest = z
   })
   .strict();
 export type JoinWaitlistInput = z.infer<typeof JoinWaitlistRequest>;
-export const JoinWaitlistResponse = z.object({ id: z.string(), replay: z.boolean(), manageUrl: z.string().optional() });
+/** `id` and `manageUrl` are only returned to the browser that created the entry; a second submitter with the same phone number learns nothing about it. */
+export const JoinWaitlistResponse = z.object({ id: z.string().optional(), replay: z.boolean(), manageUrl: z.string().optional() });
 
 export const BookingDto = z.object({
   id: z.string(),
