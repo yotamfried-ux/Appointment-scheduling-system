@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { authErrorKey, isExistingAccount } from "@/lib/auth/errors";
 import { createClient } from "@/lib/supabase/server";
+import { enforce } from "@/modules/booking/public/rate-limit";
 
 // Auth runs on the server so the session cookie is written by the server with HttpOnly (docs/05 §5.2): JavaScript in the
 // page (XSS, extensions) can never read the tokens. Server Actions also get Next.js' Origin/Host CSRF check (SEC-05).
@@ -30,6 +31,12 @@ const str = (v: unknown, max = 256) => (typeof v === "string" && v.length > 0 &&
 export async function loginAction(input: { email: unknown; password: unknown }): Promise<LoginResult> {
   const email = str(input.email), password = str(input.password, 128);
   if (!email || !password) return { ok: false, errorKey: "invalid_credentials" };
+  // Password guessing against one account: the Auth server's own limits are per address and generous (Strix measured ~600 guesses a minute locally), so each e-mail gets 10 attempts in 10 minutes here.
+  try {
+    await enforce([{ scope: "login-email", value: email.trim().toLowerCase(), windowSeconds: 600, max: 10 }]);
+  } catch {
+    return { ok: false, errorKey: "over_request_rate_limit" };
+  }
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return fail(error) as LoginResult;

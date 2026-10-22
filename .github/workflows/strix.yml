@@ -53,7 +53,7 @@ jobs:
         run: |
           source scripts/local-env.sh
           npm run build
-          export ALLOW_NON_PRODUCTION_DEFAULTS=1 BOOKING_TOKEN_SECRET="$(openssl rand -hex 24)" CRON_SECRET="$(openssl rand -hex 16)" RESEND_WEBHOOK_SECRET="whsec_$(openssl rand -hex 16)" BILLING_PROVIDER=fake EMAIL_PROVIDER=fake PORT=3100
+          export ALLOW_NON_PRODUCTION_DEFAULTS=1 BOOKING_TOKEN_SECRET="$(openssl rand -hex 24)" CRON_SECRET="$(openssl rand -hex 16)" RESEND_WEBHOOK_SECRET="whsec_$(openssl rand -hex 16)" BILLING_WEBHOOK_SECRET="$(openssl rand -hex 24)" BILLING_PROVIDER=fake EMAIL_PROVIDER=fake PORT=3100
           nohup npx next start -p 3100 > app.log 2>&1 &
           for i in $(seq 1 40); do curl -fsS http://127.0.0.1:3100/api/health >/dev/null && exit 0; sleep 2; done
           echo "app did not start"; tail -50 app.log; exit 1
