@@ -13,6 +13,7 @@ import { createStaff, setServiceStaff, setStaffHours, updateStaff } from "@/modu
 import { ServiceStaffInput, StaffNameInput, StaffUpdateInput, type TeamErrorCode } from "@/modules/team/schema";
 import { mapRpcError } from "@/modules/tenancy/errors";
 import { listMyBusinesses } from "@/modules/tenancy/service";
+import { sessionIsLive } from "@/lib/auth/live-session";
 
 // Owner settings actions. The tenant is the signed-in user's business (never taken from the request); RLS enforces roles in the database.
 type Ok = { ok: true };
@@ -21,7 +22,7 @@ type Fail<C extends string> = { ok: false; code: C };
 async function context() {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) return { ok: false as const, error: "NOT_AUTHENTICATED" as const };
+  if (!data?.claims || !(await sessionIsLive(supabase))) return { ok: false as const, error: "NOT_AUTHENTICATED" as const };
   if (!(await hasRequiredAssurance(supabase))) return { ok: false as const, error: "FORBIDDEN" as const };
   const business = (await listMyBusinesses(supabase))[0];
   if (!business) return { ok: false as const, error: "FORBIDDEN" as const };

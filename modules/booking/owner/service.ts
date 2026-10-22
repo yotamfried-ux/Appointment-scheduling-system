@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { z } from "zod";
 import type * as C from "@/lib/api/contracts";
 import { fail } from "@/lib/api/http";
+import { sessionIsLive } from "@/lib/auth/live-session";
 import { hasRequiredAssurance } from "@/lib/auth/session";
 import { myBilling, requireFeature } from "@/modules/billing/entitlements";
 import { createClient } from "@/lib/supabase/server";
@@ -25,7 +26,7 @@ export interface OwnerCtx {
 export async function ownerContext(): Promise<OwnerCtx> {
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
-  if (!data?.claims) throw fail("UNAUTHENTICATED", "יש להתחבר מחדש.");
+  if (!data?.claims || !(await sessionIsLive(supabase))) throw fail("UNAUTHENTICATED", "יש להתחבר מחדש.");
   if (!(await hasRequiredAssurance(supabase))) throw fail("UNAUTHENTICATED", "נדרש אימות דו-שלבי.");
   // One round trip: my membership with its business embedded (a business is only visible to its members, so this is the same business as "the first one I can see").
   // Anything unexpected falls back to the two separate reads.
