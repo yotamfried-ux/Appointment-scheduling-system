@@ -90,7 +90,10 @@ test.describe("joining (WLT-08)", () => {
     expect(first.status()).toBe(201);
     expect(again.status()).toBe(200);
     expect(again.headers()["idempotent-replay"]).toBe("true");
-    expect((await again.json()).id).toBe((await first.json()).id);
+    const repeat = await again.json();
+    expect(repeat.replay).toBe(true);
+    expect(repeat.id).toBeUndefined(); // no key to prove it created the entry: the same call from a stranger gets no id (the original browser, with its key, still does: see the SEC test above)
+    expect((await first.json()).id).toBeTruthy();
     const days = C.AvailabilityResponse.parse(await (await request.get(`/api/public/${b.slug}/availability?service=${b.services[0].id}&from=${f.date}&days=14`)).json()).days.filter((d) => d.date > f.date);
     expect((await join(request, b, days[0].date, 1, data(days[0].date))).status()).toBe(201);
     expect((await join(request, b, days[1].date, 1, data(days[1].date))).status()).toBe(201);
