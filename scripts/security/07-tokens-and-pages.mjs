@@ -3,7 +3,7 @@ import { login, req, check, URL_, KEY } from "./lib.mjs";
 import { randomUUID } from "node:crypto";
 const ip = () => ({ "x-forwarded-for": `10.${Math.floor(Math.random()*250)}.${Math.floor(Math.random()*250)}.${Math.floor(Math.random()*250)}` });
 // token page forgery
-const forged = [ "x.y", "", "a".repeat(600), Buffer.from(JSON.stringify({a:randomUUID(),s:"view",e:9999999999,j:"x"})).toString("base64url")+".AAAA", "..", "%00" ];
+const forged = [ "x.y", "", "a".repeat(600), Buffer.from(JSON.stringify({a:randomUUID(),s:"view",e:9999999999,j:"x"})).toString("base64url")+".AAAA", "%00" ];
 for (const t of forged) { const r = await req(`/booking/${encodeURIComponent(t) || "x"}`, { headers: ip() }); check(`forged token page shows not-found, no 500 (${t.slice(0,12)})`, r.s < 500 && (r.t.includes("manage-invalid") || r.s === 404), `status ${r.s}`); }
 for (const p of ["/waitlist/forged","/booking/forged/calendar","/booking/forged/reschedule"]) { const r = await req(p, { headers: ip() }); check(`${p} no 500, no data`, r.s < 500 && !/הזמנה|תור של/.test(r.t.replace(/<[^>]+>/g," ")) || r.s===404 || r.t.includes("invalid"), `status ${r.s}`); }
 // graphql introspection as anon

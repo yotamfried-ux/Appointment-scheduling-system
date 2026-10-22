@@ -71,6 +71,8 @@ const ROUTES: Route[] = [
   { file: "owner/waitlist/settings/route.ts", method: "POST", url: () => "/api/owner/waitlist/settings", body: () => ({ autoOffer: true }), admin: true, ok: [200], foreignSelf: [200] },
   { file: "admin/billing/override/route.ts", method: "POST", url: () => "/api/admin/billing/override", body: (c) => ({ action: "set", businessId: c.a.id, key: "export", bool: true, reason: "בדיקת מטריצת הרשאות" }), admin: true, ok: [403], foreignSelf: [403] },
   { file: "admin/billing/subscription/route.ts", method: "POST", url: () => "/api/admin/billing/subscription", body: (c) => ({ businessId: c.a.id, planId: "pro", status: "active", reason: "בדיקת מטריצת הרשאות" }), admin: true, ok: [403], foreignSelf: [403] },
+  { file: "admin/business/suspension/route.ts", method: "POST", url: () => "/api/admin/business/suspension", body: (c) => ({ businessId: c.a.id, suspended: true, reason: "בדיקת מטריצת הרשאות" }), admin: true, ok: [403], foreignSelf: [403] },
+  { file: "admin/business/brand-review/route.ts", method: "POST", url: () => "/api/admin/business/brand-review", body: (c) => ({ businessId: c.a.id, reason: "בדיקת מטריצת הרשאות" }), admin: true, ok: [403], foreignSelf: [403] },
 ];
 
 /** Routes that are intentionally not session-authenticated, each with its own mechanism and its own test below. */

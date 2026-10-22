@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { api, assertSameOrigin, fail, parse, readJson } from "@/lib/api/http";
-import { hasRequiredAssurance } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { sessionIsLive } from "@/lib/auth/live-session";
+import { checkSession } from "@/lib/auth/live-session";
 
 // Back-office (BIL-09/SEC-10): the database decides who is a platform admin and requires MFA (aal2); this route only carries the call as the signed-in user.
 const Body = z.discriminatedUnion("action", [
@@ -15,8 +14,9 @@ export const POST = api(async (req) => {
   assertSameOrigin(req);
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
-  if (!data?.claims || !(await sessionIsLive(supabase))) throw fail("UNAUTHENTICATED", "יש להתחבר מחדש.");
-  if (!(await hasRequiredAssurance(supabase))) throw fail("UNAUTHENTICATED", "נדרש אימות דו-שלבי.");
+  const gate = data?.claims ? await checkSession(supabase, data.claims) : null;
+  if (!gate?.live) throw fail("UNAUTHENTICATED", "יש להתחבר מחדש.");
+  if (!gate.secondFactor) throw fail("UNAUTHENTICATED", "נדרש אימות דו-שלבי.");
   const b = parse(Body, await readJson(req));
   const { error } =
     b.action === "set"

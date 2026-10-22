@@ -1,15 +1,23 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+export interface SessionCheck {
+  /** The Auth server still knows this session (not logged out, not revoked). */
+  live: boolean;
+  /** The account has no verified second factor, or this session has passed it (aal2). */
+  secondFactor: boolean;
+}
+
 /**
- * Is the session behind this cookie still alive on the Auth server?
- * `getClaims()` verifies the token's signature locally, so a token stays valid until it expires even after logout or a
- * password change (found by Strix on 2026-10-21). `getUser()` asks the Auth server, which refuses a revoked session.
- * Only an answer from the Auth server that the session is gone counts as "not live": if the server cannot be reached,
- * the signed token decides, as before.
+ * What the session cookie says is not proof: `getClaims()` verifies only the token's signature, so a logged-out session keeps working until the
+ * token expires, and the factor list inside the (unsigned) cookie can be edited so that the second-factor gate sees "no factors"
+ * (Strix, 2026-10-21/22). Both are therefore decided by the Auth server: `getUser()` answers whether the session still exists and returns
+ * the account's real factor list. Only the signed token's `aal` claim says whether this session passed the second factor.
+ * If the Auth server cannot be reached nothing can be verified, so the answer is "not live": the owner area is closed rather than open.
  */
-export async function sessionIsLive(supabase: { auth: Pick<SupabaseClient["auth"], "getUser"> }): Promise<boolean> {
-  const { data, error } = await supabase.auth.getUser();
-  if (data?.user) return true;
-  const status = (error as { status?: number } | null)?.status;
-  return !(typeof status === "number" && status >= 400 && status < 500);
+export async function checkSession(supabase: { auth: Pick<SupabaseClient["auth"], "getUser"> }, claims: { aal?: unknown } | null | undefined): Promise<SessionCheck> {
+  const { data } = await supabase.auth.getUser();
+  const user = data?.user;
+  if (!user) return { live: false, secondFactor: false };
+  const hasVerifiedFactor = (user.factors ?? []).some((f) => f.status === "verified");
+  return { live: true, secondFactor: !hasVerifiedFactor || claims?.aal === "aal2" };
 }

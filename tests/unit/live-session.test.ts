@@ -1,17 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { sessionIsLive } from "@/lib/auth/live-session";
+import { checkSession } from "@/lib/auth/live-session";
 
-const client = (r: { data?: { user: unknown } | null; error?: { status?: number } | null }) => ({ auth: { getUser: async () => ({ data: r.data ?? { user: null }, error: r.error ?? null }) } }) as never;
+const client = (r: { user?: { factors?: { status: string }[] } | null }) => ({ auth: { getUser: async () => ({ data: { user: r.user ?? null }, error: null }) } }) as never;
+const verified = { factors: [{ status: "verified" }] };
 
-describe("sessionIsLive: a logged-out or revoked session must not keep working until its token expires", () => {
-  it("is live when the Auth server returns the user", async () => {
-    expect(await sessionIsLive(client({ data: { user: { id: "u" } } }))).toBe(true);
+describe("checkSession: the Auth server decides, not the cookie", () => {
+  it("a logged-out or revoked session (no user) is not live, and neither is one the server cannot be asked about", async () => {
+    expect(await checkSession(client({ user: null }), { aal: "aal1" })).toEqual({ live: false, secondFactor: false });
   });
-  it("is not live when the Auth server says the session is gone (4xx)", async () => {
-    for (const status of [400, 401, 403]) expect(await sessionIsLive(client({ error: { status } }))).toBe(false);
+  it("an account without a verified factor needs no second factor", async () => {
+    expect(await checkSession(client({ user: {} }), { aal: "aal1" })).toEqual({ live: true, secondFactor: true });
+    expect(await checkSession(client({ user: { factors: [{ status: "unverified" }] } }), { aal: "aal1" })).toEqual({ live: true, secondFactor: true });
   });
-  it("trusts the signed token when the Auth server cannot be reached (no status / 5xx)", async () => {
-    expect(await sessionIsLive(client({ error: { status: undefined } }))).toBe(true);
-    expect(await sessionIsLive(client({ error: { status: 503 } }))).toBe(true);
+  it("an account with a verified factor needs a session that passed it (aal2 in the signed token)", async () => {
+    expect(await checkSession(client({ user: verified }), { aal: "aal1" })).toEqual({ live: true, secondFactor: false });
+    expect(await checkSession(client({ user: verified }), { aal: "aal2" })).toEqual({ live: true, secondFactor: true });
+    expect(await checkSession(client({ user: verified }), undefined)).toEqual({ live: true, secondFactor: false });
+  });
+  it("editing the factor list in the cookie changes nothing: only the server's list counts", async () => {
+    // the cookie (what getSession would show) says "no factors"; the server says there is one; the token is aal1
+    expect((await checkSession(client({ user: verified }), { aal: "aal1" })).secondFactor).toBe(false);
   });
 });

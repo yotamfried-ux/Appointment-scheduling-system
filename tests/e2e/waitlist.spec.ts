@@ -29,7 +29,7 @@ async function scenario(request: APIRequestContext, b: TestBusiness, n = 3) {
     const email = mail();
     const r = await join(request, b, f.date, i, { customer: { fullName: `ממתין ${i}`, phone: customer(300 + i).phone, email } });
     expect(r.status(), await r.text()).toBe(201);
-    w.push({ id: C.JoinWaitlistResponse.parse(await r.json()).id, email });
+    w.push({ id: C.JoinWaitlistResponse.parse(await r.json()).id!, email }); // a creator always gets the id
   }
   const slotStart = (await b.db.from("appointments").select("starts_at").eq("id", a.id).single()).data!.starts_at as string;
   return { f, a, w, slotStart };
@@ -70,7 +70,9 @@ test.describe("joining (WLT-08)", () => {
     expect((await first.json()).manageUrl).toMatch(/^\/waitlist\//);
     const attacker = await join(request, b, f.date, 1, { date: f.date, customer: { ...victim, email: mail() } }, { "idempotency-key": "attacker-key-0001" });
     expect(attacker.status()).toBe(200);
-    expect((await attacker.json()).manageUrl).toBeUndefined();
+    const stranger = await attacker.json();
+    expect(stranger.manageUrl).toBeUndefined();
+    expect(stranger.id).toBeUndefined(); // not even the entry's id: the position is not the stranger's to see
     const noProof = await join(request, b, f.date, 1, body);
     expect((await noProof.json()).manageUrl).toBeUndefined();
     const retry = await join(request, b, f.date, 1, body, { "idempotency-key": "victim-browser-key-1" });
@@ -88,7 +90,10 @@ test.describe("joining (WLT-08)", () => {
     expect(first.status()).toBe(201);
     expect(again.status()).toBe(200);
     expect(again.headers()["idempotent-replay"]).toBe("true");
-    expect((await again.json()).id).toBe((await first.json()).id);
+    const repeat = await again.json();
+    expect(repeat.replay).toBe(true);
+    expect(repeat.id).toBeUndefined(); // no key to prove it created the entry: the same call from a stranger gets no id (the original browser, with its key, still does: see the SEC test above)
+    expect((await first.json()).id).toBeTruthy();
     const days = C.AvailabilityResponse.parse(await (await request.get(`/api/public/${b.slug}/availability?service=${b.services[0].id}&from=${f.date}&days=14`)).json()).days.filter((d) => d.date > f.date);
     expect((await join(request, b, days[0].date, 1, data(days[0].date))).status()).toBe(201);
     expect((await join(request, b, days[1].date, 1, data(days[1].date))).status()).toBe(201);

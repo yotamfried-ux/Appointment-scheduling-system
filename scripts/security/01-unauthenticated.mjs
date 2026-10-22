@@ -7,11 +7,11 @@ check("owner A cookie session works", me.s === 200, `status ${me.s} ${me.t.slice
 // unauthenticated access to every owner/admin route
 const ownerGets = ["/api/owner/appointments","/api/owner/customers","/api/owner/reports","/api/owner/version","/api/owner/billing","/api/owner/account/export","/api/owner/export/customers","/api/owner/export/appointments"];
 for (const p of ownerGets) { const r = await req(p); check(`unauth GET ${p} rejected`, r.s === 401 || r.s === 403, `status ${r.s}`); }
-for (const p of ["/api/owner/billing/checkout","/api/owner/billing/portal","/api/owner/account/deletion","/api/owner/waitlist/settings","/api/admin/billing/override","/api/admin/billing/subscription"]) {
+for (const p of ["/api/owner/billing/checkout","/api/owner/billing/portal","/api/owner/account/deletion","/api/owner/waitlist/settings","/api/admin/billing/override","/api/admin/billing/subscription","/api/admin/business/suspension","/api/admin/business/brand-review"]) {
   const r = await req(p, { method: "POST", body: {} }); check(`unauth POST ${p} rejected`, [401,403].includes(r.s), `status ${r.s}`);
 }
 // owner (not platform admin) on admin routes
-for (const p of ["/api/admin/billing/override","/api/admin/billing/subscription"]) {
+for (const p of ["/api/admin/billing/override","/api/admin/billing/subscription","/api/admin/business/suspension","/api/admin/business/brand-review"]) {
   const r = await req(p, { method: "POST", cookie: A.cookie, body: { business: "x", plan: "pro" } }); check(`non-admin owner POST ${p} rejected`, [401,403].includes(r.s), `status ${r.s} ${r.t.slice(0,80)}`);
 }
 // jobs

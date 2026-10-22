@@ -3,7 +3,6 @@
 import { randomUUID } from "node:crypto";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
-import { hasRequiredAssurance } from "@/lib/auth/session";
 import { billingProvider } from "@/modules/billing/config";
 import type { NormalizedEvent } from "@/modules/billing/ports";
 import { myBilling } from "@/modules/billing/entitlements";
@@ -14,7 +13,6 @@ import { ownerContext } from "@/modules/booking/owner/service";
 async function guard() {
   if (billingProvider().name !== "fake") throw new Error("not available");
   const ctx = await ownerContext();
-  if (!(await hasRequiredAssurance(ctx.supabase))) throw new Error("mfa");
   if (ctx.role !== "owner" && ctx.role !== "admin") throw new Error("forbidden");
   return ctx;
 }

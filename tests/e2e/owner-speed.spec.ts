@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { loginAs, makeBusiness } from "./helpers/business";
 
-// Round trips to the database/auth server per owner request (the API reports them in Server-Timing outside production). A silent fallback to a slower query path once added a call to every owner request unnoticed (the joined membership read was missing a column; the fallback hid it, and cost one extra round trip on every owner page and API call). With the fallback in use this reads 6. Since the Strix finding VULN-0010 the context also asks the Auth server whether the session is still live (`sessionIsLive`, one deliberate extra round trip), so the expected count is 5.
+// Round trips to the database/auth server per owner request (the API reports them in Server-Timing outside production). A silent fallback to a slower query path once added a call to every owner request unnoticed (the joined membership read was missing a column; the fallback hid it, and cost one extra round trip on every owner page and API call). With the fallback in use this reads 6. Since the Strix finding VULN-0010 the context also asks the Auth server whether the session is still live (`checkSession`, one deliberate extra round trip that also returns the real factor list), so the expected count is 5.
 test("the owner context costs one read: /api/owner/version makes exactly five calls (context 1 + live-session check 1 + the three version reads)", async ({ page }) => {
   const c = await makeBusiness("barber");
   await loginAs(page, c.ownerEmail);

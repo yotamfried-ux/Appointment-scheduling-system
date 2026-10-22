@@ -5,6 +5,8 @@ import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { publishAction } from "@/app/dashboard/actions";
 
+const PUBLISH_ERROR_KEY: Partial<Record<string, string>> = { EMAIL_NOT_VERIFIED: "email_not_verified", NEEDS_REVIEW: "needs_review", SUSPENDED: "suspended" };
+
 export function PublishButton({ businessId }: { businessId: string }) {
   const t = useTranslations("dashboard");
   const [error, setError] = useState<string | null>(null);
@@ -17,7 +19,7 @@ export function PublishButton({ businessId }: { businessId: string }) {
         onClick={() =>
           start(async () => {
             const r = await publishAction(businessId);
-            setError(r.ok ? null : t(`publishErrors.${r.code === "EMAIL_NOT_VERIFIED" ? "email_not_verified" : "generic"}`));
+            setError(r.ok ? null : t(`publishErrors.${PUBLISH_ERROR_KEY[r.code] ?? "generic"}`));
           })
         }
       >

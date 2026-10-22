@@ -1,8 +1,14 @@
 // Manual security checks against a LOCAL throw-away copy (see docs/evidence/security-pentest-2026-10-21.md). Never point this at production.
 import { createClient } from "@supabase/supabase-js";
-export const BASE = "http://127.0.0.1:3100";
+export const BASE = process.env.SEC_BASE ?? "http://127.0.0.1:3100";
 export const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL, KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 export const PASS = "Scan-Account-Pass-2026-xK9";
+export function cookieFor(session) {
+  const val = "base64-" + Buffer.from(JSON.stringify(session)).toString("base64url");
+  const name = "sb-127-auth-token"; const parts = [];
+  for (let i = 0; i < val.length; i += 3000) parts.push(val.slice(i, i + 3000));
+  return parts.length === 1 ? `${name}=${parts[0]}` : parts.map((p, i) => `${name}.${i}=${p}`).join("; ");
+}
 export async function login(label) {
   const db = createClient(URL_, KEY, { auth: { persistSession: false } });
   const { data, error } = await db.auth.signInWithPassword({ email: `${label}@scan.example.com`, password: PASS });
