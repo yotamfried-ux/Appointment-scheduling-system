@@ -71,6 +71,7 @@ test("repeat no-shows are held, then turned away politely; the owner can forgive
     await d.page.getByTestId("continue").click();
     await d.page.getByLabel("שם מלא").fill("דני ד׳");
     await d.page.getByLabel("טלפון נייד").fill(PHONE);
+    await d.page.getByLabel("אימייל").fill(dMail);
     await d.page.getByTestId("continue").click();
     await expect(d.page.getByText("נשמח לקבוע לך תור בטלפון")).toBeVisible();
     await expect(d.page.getByText(/אי-הגעות|no.?show/i)).toHaveCount(0);
@@ -87,15 +88,16 @@ test("repeat no-shows are held, then turned away politely; the owner can forgive
     await expect(d.page.getByTestId("done-title")).toBeVisible();
   });
 
-  await test.step("an impostor books with D's phone and his own e-mail: D's record and mail address are untouched", async () => {
+  await test.step("an impostor books with D's phone and his own e-mail: he gets a record of his own, D's record and mail address are untouched", async () => {
     sql(`update public.businesses set no_show_policy = 'off' where id = '${b.id}'`);
-    const before = (await admin().from("customers").select("full_name, email").eq("business_id", b.id).eq("phone", E164).single()).data!;
+    const before = (await admin().from("customers").select("full_name, email").eq("business_id", b.id).eq("email", dMail).single()).data!;
     const bad = await desk.page.request.post(`/api/public/${b.slug}/bookings`, {
       data: { serviceId: b.services[0].id, date: f.date, time: f.times[6], location: "business", customer: { fullName: "מתחזה", phone: PHONE, email: mail() }, intake: {} },
       headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `imp-${Math.random().toString(36).slice(2)}` },
     });
     expect(bad.status()).toBe(201);
-    expect((await admin().from("customers").select("full_name, email").eq("business_id", b.id).eq("phone", E164).single()).data).toEqual(before);
+    expect((await admin().from("customers").select("full_name, email").eq("business_id", b.id).eq("email", dMail).single()).data).toEqual(before);
+    expect((await admin().from("customers").select("id").eq("business_id", b.id).eq("phone", E164)).data).toHaveLength(2); // the phone selects nobody
   });
 
   await test.step("a stampede: 10 people press 'book' for the same slot at the same instant — exactly one gets it, the rest a clean conflict", async () => {

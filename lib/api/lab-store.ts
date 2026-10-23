@@ -259,8 +259,8 @@ export function createBooking(session: string, kind: BusinessKindId, input: Crea
   if (!svc) errors.push({ field: "serviceId", message: "השירות לא נמצא." });
   const phone = normalizePhone(input.customer.phone);
   if (!phone) errors.push({ field: "customer.phone", message: "מספר הטלפון אינו תקין." });
-  const email = (input.customer.email ?? "").trim();
-  if (email && !EMAIL.test(email)) errors.push({ field: "customer.email", message: "כתובת האימייל אינה תקינה." });
+  const email = input.customer.email.trim();
+  if (!EMAIL.test(email)) errors.push({ field: "customer.email", message: "כתובת האימייל אינה תקינה." });
   if (!k.locations.includes(input.location)) errors.push({ field: "location", message: "אופן קבלת השירות אינו נתמך." });
   for (const key of Object.keys(input.intake)) {
     const f = k.intake.find((x) => x.id === key);

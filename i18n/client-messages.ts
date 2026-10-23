@@ -6,7 +6,7 @@
 /** Used by the client pieces every page carries: the consent banner, the toaster, the theme switcher, the log-out button, the error screen. */
 const SHARED = ["common", "nav", "errors", "legal"] as const;
 
-const BOOKING = [...SHARED, "booking", "waitlist", "public"] as const;
+const BOOKING = [...SHARED, "booking", "waitlist", "public", "manage"] as const; // "manage": the customer's own appointment shown above the form (?m=<link>)
 
 /** null = the whole catalog. */
 export function clientNamespacesFor(pathname: string | null | undefined): readonly string[] | null {

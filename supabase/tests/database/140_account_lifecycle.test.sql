@@ -58,7 +58,7 @@ select is((select count(*)::int from public.domain_events where business_id = (s
 select is((select status from public.waitlist_entries where business_id = (select a from ids)), 'cancelled', 'the waitlist is closed');
 select is((select published_at is null and deletion_scheduled_for > now() + interval '13 days' from public.businesses where slug = 'dl-alpha'), true, 'the booking page is closed and a 14-day grace period is set');
 select pg_temp.as_service();
-select throws_ok($$ select public.public_book((select a from ids), (select s1 from ids), now() + interval '8 days', 'חדש', '+972505550009', null, 'business', '{}', 'dkey-0009', 'dh-9') $$, 'P0001', 'not_found', 'nobody can book while deletion is pending');
+select throws_ok($$ select public.public_book((select a from ids), (select s1 from ids), now() + interval '8 days', 'חדש', '+972505550009', 'u972505550009@example.com', 'business', '{}', 'dkey-0009', 'dh-9') $$, 'P0001', 'not_found', 'nobody can book while deletion is pending');
 select pg_temp.as_system();
 select throws_ok($$ update public.businesses set published_at = now() where slug = 'dl-alpha' $$, 'P0001', 'deletion_pending', 'no path can re-publish it while deletion is pending');
 select pg_temp.as_user('00000000-0000-0000-0000-00000000b1a1');

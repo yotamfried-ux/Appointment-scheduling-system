@@ -72,9 +72,9 @@ select pg_temp.as_system();
 
 -- ---------- BKG-02/04: booking, conflicts, idempotency ----------
 create function pg_temp.book(p_service uuid, p_start timestamptz, p_key text, p_hash text default 'h1', p_name text default 'נועם לוי', p_phone text default '+972501234567') returns jsonb
-language sql as $$ select public.public_book((select a from ids), p_service, p_start, p_name, p_phone, null, 'business', '{}', p_key, p_hash) $$;
+language sql as $$ select public.public_book((select a from ids), p_service, p_start, p_name, p_phone, 'u' || regexp_replace(p_phone, '\D', '', 'g') || '@example.com', 'business', '{}', p_key, p_hash) $$;
 create function pg_temp.book_c(p_start timestamptz, p_key text) returns jsonb
-language sql as $$ select public.public_book((select c from ids), (select sc from ids), p_start, 'מטופל', '+972521112223', null, 'business', '{}', p_key, 'hc') $$;
+language sql as $$ select public.public_book((select c from ids), (select sc from ids), p_start, 'מטופל', '+972521112223', 'u972521112223@example.com', 'business', '{}', p_key, 'hc') $$;
 
 select pg_temp.as_service();
 select is((pg_temp.book((select s60 from ids), (select day from ids) + interval '10 hours', 'key-0000001'))->>'status', 'confirmed', 'BKG-02: a booking is created and confirmed');
@@ -124,15 +124,15 @@ update public.services set active = true where id = (select s30 from ids);
 select pg_temp.as_service();
 select throws_ok($$ select pg_temp.book((select s30 from ids), now() + interval '10 minutes', 'key-0000013', 'h13', 'צעיר', '+972531112223') $$, 'P0001', 'slot_in_past', 'a start inside the minimum notice is refused');
 select throws_ok($$ select pg_temp.book((select s30 from ids), now() + interval '200 days', 'key-0000014', 'h14', 'רחוק', '+972531112224') $$, 'P0001', 'slot_too_far', 'a start beyond the booking horizon is refused');
-select throws_ok($$ select public.public_book((select a from ids), (select sc from ids), (select day from ids) + interval '9 hours', 'חוצה', '+972531112225', null, 'business', '{}', 'key-0000015', 'h15') $$, 'P0001', 'service_unavailable', 'a service of ANOTHER business cannot be booked through this business');
-select throws_ok($$ select public.public_book((select a from ids), (select s30 from ids), (select day from ids) + interval '9 hours', 'x', '050', null, 'business', '{}', 'key-0000016', 'h16') $$, '23514', null, 'an invalid phone/name is refused by the database too');
+select throws_ok($$ select public.public_book((select a from ids), (select sc from ids), (select day from ids) + interval '9 hours', 'חוצה', '+972531112225', 'u972531112225@example.com', 'business', '{}', 'key-0000015', 'h15') $$, 'P0001', 'service_unavailable', 'a service of ANOTHER business cannot be booked through this business');
+select throws_ok($$ select public.public_book((select a from ids), (select s30 from ids), (select day from ids) + interval '9 hours', 'x', '050', 'x050@example.com', 'business', '{}', 'key-0000016', 'h16') $$, '23514', null, 'an invalid phone/name is refused by the database too');
 select pg_temp.as_system();
 
 -- location + intake are stored for the provider and constrained
 select pg_temp.as_service();
-select throws_ok($$ select public.public_book((select a from ids), (select s30 from ids), (select day from ids) + interval '12 hours', 'מיקום', '+972551112223', null, 'teleport', '{}', 'key-loc-0001', 'hl') $$, '23514', null, 'an unknown location is refused by the database');
-select throws_ok($$ select public.public_book((select a from ids), (select s30 from ids), (select day from ids) + interval '12 hours', 'מיקום', '+972551112223', null, 'business', '[]', 'key-loc-0002', 'hl2') $$, '23514', null, 'intake must be an object');
-select is((public.public_book((select a from ids), (select s30 from ids), (select day from ids) + interval '12 hours', 'עם הערות', '+972551112224', null, 'online', '{"goal":"כושר"}', 'key-loc-0003', 'hl3'))->>'status', 'confirmed', 'a booking with location and intake is stored');
+select throws_ok($$ select public.public_book((select a from ids), (select s30 from ids), (select day from ids) + interval '12 hours', 'מיקום', '+972551112223', 'u972551112223@example.com', 'teleport', '{}', 'key-loc-0001', 'hl') $$, '23514', null, 'an unknown location is refused by the database');
+select throws_ok($$ select public.public_book((select a from ids), (select s30 from ids), (select day from ids) + interval '12 hours', 'מיקום', '+972551112223', 'u972551112223@example.com', 'business', '[]', 'key-loc-0002', 'hl2') $$, '23514', null, 'intake must be an object');
+select is((public.public_book((select a from ids), (select s30 from ids), (select day from ids) + interval '12 hours', 'עם הערות', '+972551112224', 'u972551112224@example.com', 'online', '{"goal":"כושר"}', 'key-loc-0003', 'hl3'))->>'status', 'confirmed', 'a booking with location and intake is stored');
 select pg_temp.as_system();
 select is((select intake->>'goal' from public.appointments where location = 'online' and business_id = (select a from ids)), 'כושר', 'intake is stored for the provider');
 select throws_ok($$ update public.appointments set intake = '{}' where location = 'online' $$, 'P0001', 'appointment_immutable', 'intake cannot be rewritten afterwards');
@@ -186,7 +186,7 @@ select cmp_ok((select count(*)::int from public.appointments), '>', 0, 'staff ca
 select cmp_ok((select count(*)::int from public.customers), '>', 0, 'staff can read customers of their business');
 select is((select count(*)::int from public.appointments where business_id = (select c from ids)), 0, 'SEC-01: staff of A cannot read appointments of C');
 select throws_ok($$ insert into public.appointments (business_id, resource_id, service_id, customer_id, reference, starts_at, ends_at, blocked_until, service_snapshot, price_cents) select business_id, resource_id, service_id, customer_id, 'TR-HAX', starts_at + interval '9 days', ends_at + interval '9 days', blocked_until + interval '9 days', service_snapshot, price_cents from public.appointments limit 1 $$, '42501', null, 'clients cannot insert appointments directly');
-select throws_ok($$ select public.public_book((select a from ids), (select s60 from ids), now() + interval '20 days', 'ח', '+972501112223', null, 'business', '{}', 'key-authenticated', 'h') $$, '42501', null, 'authenticated users cannot call the public booking function');
+select throws_ok($$ select public.public_book((select a from ids), (select s60 from ids), now() + interval '20 days', 'ח', '+972501112223', 'u972501112223@example.com', 'business', '{}', 'key-authenticated', 'h') $$, '42501', null, 'authenticated users cannot call the public booking function');
 select pg_temp.as_anon();
 select throws_ok($$ select * from public.appointments $$, '42501', null, 'anon cannot read appointments');
 select throws_ok($$ select public.public_catalog('book-alpha') $$, '42501', null, 'anon cannot call the system catalogue function');

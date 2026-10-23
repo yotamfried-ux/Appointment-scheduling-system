@@ -4,6 +4,7 @@ import type { z } from "zod";
 import type * as C from "@/lib/api/contracts";
 import { fail } from "@/lib/api/http";
 import { checkSession } from "@/lib/auth/live-session";
+import { legalAccepted } from "@/lib/legal/gate";
 import { myBilling, requireFeature } from "@/modules/billing/entitlements";
 import { createClient } from "@/lib/supabase/server";
 import { normalizePhone } from "@/lib/phone";
@@ -31,7 +32,11 @@ export async function ownerContext(): Promise<OwnerCtx> {
   if (!gate.secondFactor) throw fail("UNAUTHENTICATED", "נדרש אימות דו-שלבי.");
   // One round trip: my membership with its business embedded (a business is only visible to its members, so this is the same business as "the first one I can see").
   // Anything unexpected falls back to the two separate reads.
-  const joined = await supabase.from("business_members").select("role, businesses!inner(id, name, kind, timezone, waitlist_enabled, waitlist_auto_offer, created_at)").eq("user_id", String(claims.sub)).order("businesses(created_at)").limit(1);
+  const [accepted, joined] = await Promise.all([
+    legalAccepted(supabase), // CMP-03 on the API too: new terms must be accepted before any owner request is served (VULN-0007); read in parallel with the membership
+    supabase.from("business_members").select("role, businesses!inner(id, name, kind, timezone, waitlist_enabled, waitlist_auto_offer, created_at)").eq("user_id", String(claims.sub)).order("businesses(created_at)").limit(1),
+  ]);
+  if (!accepted) throw fail("FORBIDDEN", "יש לאשר את התנאים ומדיניות הפרטיות המעודכנים לפני המשך השימוש.");
   const row = joined.data?.[0] as { role?: string; businesses?: OwnerCtx["business"] | OwnerCtx["business"][] } | undefined;
   const embedded = Array.isArray(row?.businesses) ? row?.businesses[0] : row?.businesses;
   if (!joined.error && embedded && row?.role) {

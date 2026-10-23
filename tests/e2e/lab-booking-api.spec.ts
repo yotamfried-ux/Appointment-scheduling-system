@@ -37,7 +37,7 @@ async function chooseSlot(page: Page, serviceId: string, opts: { time?: string }
 async function fillDetails(page: Page, kind: BusinessKindId, over: { phone?: string; email?: string } = {}) {
   await page.getByLabel("שם מלא").fill("נועם לוי");
   await page.getByLabel("טלפון נייד").fill(over.phone ?? "050-1234567");
-  await page.getByLabel("אימייל (לא חובה)").fill(over.email ?? "noam@example.com");
+  await page.getByLabel("אימייל").fill(over.email ?? "noam@example.com");
   for (const f of BUSINESS_KINDS[kind].intake.filter((x) => x.required)) {
     const el = page.getByTestId(`intake-${f.id}`);
     if (f.type === "select") await el.selectOption(f.options![0]);

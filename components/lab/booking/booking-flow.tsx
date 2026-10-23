@@ -152,7 +152,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
   const detailsErrors: Record<string, string | undefined> = {
     fullName: serverErrors.fullName ?? (touched && s.details.fullName.trim().length < 2 ? t("details.errors.fullName") : undefined),
     phone: serverErrors.phone ?? (touched && normalizePhone(s.details.phone) === null ? t("details.errors.phone") : undefined),
-    email: serverErrors.email ?? (touched && s.details.email.trim() !== "" && !EMAIL.test(s.details.email.trim()) ? t("details.errors.email") : undefined),
+    email: serverErrors.email ?? (touched && !EMAIL.test(s.details.email.trim()) ? t(s.details.email.trim() === "" ? "details.errors.emailRequired" : "details.errors.email") : undefined),
   };
   for (const f of business?.intake ?? []) {
     detailsErrors[`intake.${f.id}`] = serverErrors[`intake.${f.id}`] ?? (touched && f.required && !(intakeValues[f.id] ?? "").trim() ? requiredMsg : undefined);
@@ -174,7 +174,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
       time: s.time,
       location,
       ...(personId ? { personId } : {}),
-      customer: { fullName: s.details.fullName.trim(), phone: s.details.phone, ...(s.details.email.trim() ? { email: s.details.email.trim() } : {}) },
+      customer: { fullName: s.details.fullName.trim(), phone: s.details.phone, email: s.details.email.trim() },
       intake: Object.fromEntries(Object.entries(intakeValues).filter(([, v]) => v.trim() !== "")),
     } as z.input<typeof C.CreateBookingRequest>;
     // Same payload ⇒ same Idempotency-Key, so a retry after a lost response can never create a second booking.

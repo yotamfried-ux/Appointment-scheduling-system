@@ -5,12 +5,11 @@ import { after } from "next/server";
 import { ipFromHeaders } from "@/lib/client-ip";
 import { enforce } from "@/modules/booking/public/rate-limit";
 import { cancelWithToken, confirmAttendanceWithToken, rescheduleWithToken, type AttendOutcome, type CancelOutcome, type RescheduleOutcome } from "@/modules/booking/public/service";
-import { signToken, verifyToken } from "@/modules/booking/token";
 import { kickOutbox } from "@/modules/notifications/service";
 
-// POST (Server Action: Origin-checked, SEC-05). A link GET never changes state; this does, once per token (single-use jti).
-export async function cancelAppointmentAction(cancelToken: unknown): Promise<CancelOutcome | "rate_limited"> {
-  if (typeof cancelToken !== "string") return "invalid";
+// POST (Server Action: Origin-checked, SEC-05). A link GET never changes state; these do. They present the customer's link itself ("view" scope): the page carries no other token (VULN-0022).
+export async function cancelAppointmentAction(token: unknown): Promise<CancelOutcome | "rate_limited"> {
+  if (typeof token !== "string") return "invalid";
   const h = await headers();
   const ip = ipFromHeaders(h);
   try {
@@ -18,14 +17,14 @@ export async function cancelAppointmentAction(cancelToken: unknown): Promise<Can
   } catch {
     return "rate_limited";
   }
-  const outcome = await cancelWithToken(cancelToken);
+  const outcome = await cancelWithToken(token);
   if (outcome === "cancelled") after(kickOutbox);
   return outcome;
 }
 
-/** RSC-01: POST (Server Action: Origin-checked). Returns a fresh token after a refusal that leaves the move possible. */
-export async function rescheduleAppointmentAction(rescheduleToken: unknown, date: unknown, time: unknown, serviceId?: unknown): Promise<{ outcome: RescheduleOutcome | "rate_limited"; nextToken?: string }> {
-  if (typeof rescheduleToken !== "string" || typeof date !== "string" || typeof time !== "string") return { outcome: "invalid" };
+/** RSC-01: POST (Server Action: Origin-checked). */
+export async function rescheduleAppointmentAction(token: unknown, date: unknown, time: unknown, serviceId?: unknown): Promise<{ outcome: RescheduleOutcome | "rate_limited" }> {
+  if (typeof token !== "string" || typeof date !== "string" || typeof time !== "string") return { outcome: "invalid" };
   const h = await headers();
   const ip = ipFromHeaders(h);
   try {
@@ -33,16 +32,14 @@ export async function rescheduleAppointmentAction(rescheduleToken: unknown, date
   } catch {
     return { outcome: "rate_limited" };
   }
-  const outcome = await rescheduleWithToken(rescheduleToken, date, time, typeof serviceId === "string" ? serviceId : undefined);
+  const outcome = await rescheduleWithToken(token, date, time, typeof serviceId === "string" ? serviceId : undefined);
   if (outcome === "moved") after(kickOutbox);
-  const v = verifyToken(rescheduleToken, "reschedule");
-  const retryable = outcome === "slot_taken" || outcome === "invalid_slot";
-  return { outcome, ...(retryable && v.ok ? { nextToken: signToken({ appointmentId: v.payload.a, scope: "reschedule", ttlSeconds: 3600 }) } : {}) };
+  return { outcome };
 }
 
 /** NSH-01: POST (Server Action: Origin-checked). Never changes the appointment's status. */
-export async function confirmAttendanceAction(attendToken: unknown): Promise<AttendOutcome | "rate_limited"> {
-  if (typeof attendToken !== "string") return "invalid";
+export async function confirmAttendanceAction(token: unknown): Promise<AttendOutcome | "rate_limited"> {
+  if (typeof token !== "string") return "invalid";
   const h = await headers();
   const ip = ipFromHeaders(h);
   try {
@@ -50,5 +47,5 @@ export async function confirmAttendanceAction(attendToken: unknown): Promise<Att
   } catch {
     return "rate_limited";
   }
-  return confirmAttendanceWithToken(attendToken);
+  return confirmAttendanceWithToken(token);
 }

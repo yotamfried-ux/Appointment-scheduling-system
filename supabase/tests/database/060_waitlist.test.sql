@@ -57,10 +57,10 @@ create temp table dates as select ((select day from ids) + interval '10 hours'):
 grant select on ids, dates to authenticated, anon, service_role;
 
 create function pg_temp.book(p_start timestamptz, p_phone text, p_key text, p_service uuid default null) returns jsonb language sql as $$
-  select public.public_book((select a from ids), coalesce(p_service, (select s30 from ids)), p_start, 'לקוח ' || p_phone, p_phone, null, 'business', '{}', p_key, p_key)
+  select public.public_book((select a from ids), coalesce(p_service, (select s30 from ids)), p_start, 'לקוח ' || p_phone, p_phone, 'u' || regexp_replace(p_phone, '\D', '', 'g') || '@example.com', 'business', '{}', p_key, p_key)
 $$;
-create function pg_temp.join(p_phone text, p_date date default null, p_service uuid default null, p_from int default null, p_to int default null, p_email text default 'x@example.com') returns jsonb language sql as $$
-  select public.waitlist_join((select a from ids), coalesce(p_service, (select s30 from ids)), coalesce(p_date, (select d1 from dates)), p_from, p_to, 'ממתין ' || p_phone, p_phone, p_email)
+create function pg_temp.join(p_phone text, p_date date default null, p_service uuid default null, p_from int default null, p_to int default null, p_email text default null) returns jsonb language sql as $$
+  select public.waitlist_join((select a from ids), coalesce(p_service, (select s30 from ids)), coalesce(p_date, (select d1 from dates)), p_from, p_to, 'ממתין ' || p_phone, p_phone, coalesce(p_email, 'u' || regexp_replace(p_phone, '\D', '', 'g') || '@example.com'))
 $$;
 
 -- ---------- privileges ----------

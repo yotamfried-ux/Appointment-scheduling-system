@@ -25,3 +25,12 @@ export async function missingAcceptances(supabase: SupabaseClient): Promise<Acce
   const have = new Set((data ?? []).map((r) => `${r.doc}:${r.version}`));
   return ACCEPTED_DOCS.filter((d) => !have.has(`${d}:${LEGAL[d].version}`));
 }
+
+/**
+ * CMP-03 on the owner API and the server actions, not only on the pages (Strix VULN-0007): true when the gate is off or every current document is accepted.
+ * Callers run it next to the read they make anyway, so it costs no extra wait.
+ */
+export async function legalAccepted(supabase: SupabaseClient): Promise<boolean> {
+  if (!(await legalGateActive())) return true;
+  return (await missingAcceptances(supabase)).length === 0;
+}

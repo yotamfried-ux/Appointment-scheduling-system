@@ -178,11 +178,11 @@ export async function createBooking(c: Catalog, input: C.CreateBookingInput, ide
     p_starts_at: wanted.startUtc,
     p_full_name: input.customer.fullName.trim(),
     p_phone: phone,
-    p_email: input.customer.email?.trim() || null,
+    p_email: input.customer.email.trim(),
     p_location: input.location,
     p_intake: input.intake,
     p_idem_key: idemKey,
-    p_request_hash: hashOf({ s: svc.id, d: input.date, t: input.time, l: input.location, c: [input.customer.fullName.trim(), phone, input.customer.email?.trim() ?? ""], i: input.intake, p: input.personId ?? null }),
+    p_request_hash: hashOf({ s: svc.id, d: input.date, t: input.time, l: input.location, c: [input.customer.fullName.trim(), phone, input.customer.email.trim()], i: input.intake, p: input.personId ?? null }),
     p_resources: candidates,
     p_chosen: Boolean(input.personId),
   });
@@ -241,11 +241,10 @@ export interface AppointmentView {
   serviceId: string;
   rescheduledCount: number;
   canCancel: boolean;
-  cancelToken: string | null;
   canReschedule: boolean;
-  rescheduleToken: string | null;
   attendanceConfirmedAt: string | null;
-  attendToken: string | null;
+  /** NSH-01: the "I am coming" button is offered. */
+  canAttend: boolean;
   serviceChangeAllowed: boolean;
   movedByBusinessAt: string | null;
   /** Stage 16: shown only when the business has two or more people. */
@@ -253,31 +252,28 @@ export interface AppointmentView {
   teamSize?: number;
 }
 
+/**
+ * The customer's link is the only proof needed to see and manage ONE appointment. The page no longer carries cancel / reschedule / attend tokens (Strix VULN-0022):
+ * each action is a POST (Server Action, Origin-checked) that presents the link's own token, so nothing the page renders can be used elsewhere.
+ */
 export async function viewAppointment(token: string): Promise<AppointmentView | null> {
   const v = verifyToken(token, "view");
   if (!v.ok) return null;
   const { data, error } = await systemDb().rpc("public_get_appointment", { p_id: v.payload.a });
   if (error || !data) return null;
-  const a = data as Omit<AppointmentView, "canCancel" | "cancelToken" | "canReschedule" | "rescheduleToken" | "attendToken">;
+  const a = data as Omit<AppointmentView, "canCancel" | "canReschedule" | "canAttend">;
   const canCancel = (a.status === "pending" || a.status === "confirmed") && Date.now() < Date.parse(a.cancelUntil);
   const canReschedule = canCancel && a.rescheduledCount < 3; // RSC-02: same window as cancelling
-  return {
-    ...a, canCancel, cancelToken: canCancel ? signToken({ appointmentId: a.id, scope: "cancel", ttlSeconds: 3600 }) : null,
-    canReschedule, rescheduleToken: canReschedule ? signToken({ appointmentId: a.id, scope: "reschedule", ttlSeconds: 3600 }) : null,
-    // NSH-01: offered while the appointment is still ahead and not yet confirmed
-    attendToken: (a.status === "pending" || a.status === "confirmed") && !a.attendanceConfirmedAt && Date.parse(a.endsAt) > Date.now() ? signToken({ appointmentId: a.id, scope: "attend", ttlSeconds: 3600 }) : null,
-  };
+  const canAttend = (a.status === "pending" || a.status === "confirmed") && !a.attendanceConfirmedAt && Date.parse(a.endsAt) > Date.now(); // NSH-01
+  return { ...a, canCancel, canReschedule, canAttend };
 }
 
 export type CancelOutcome = "cancelled" | "too_late" | "already" | "invalid";
 
-export async function cancelWithToken(cancelToken: string): Promise<CancelOutcome> {
-  const v = verifyToken(cancelToken, "cancel");
+export async function cancelWithToken(viewToken: string): Promise<CancelOutcome> {
+  const v = verifyToken(viewToken, "view");
   if (!v.ok) return "invalid";
-  const db = systemDb();
-  const first = await db.rpc("public_consume_token", { p_jti: v.payload.j, p_exp: new Date(v.payload.e * 1000).toISOString() }); // single use (SEC-06)
-  if (first.error || first.data !== true) return "invalid";
-  const { error } = await db.rpc("public_cancel", { p_id: v.payload.a });
+  const { error } = await systemDb().rpc("public_cancel", { p_id: v.payload.a }); // the database makes a repeat harmless: a second cancel answers invalid_transition
   if (!error) return "cancelled";
   if ((error.message ?? "").includes("too_late")) return "too_late";
   if ((error.message ?? "").includes("invalid_transition")) return "already";
@@ -287,9 +283,9 @@ export async function cancelWithToken(cancelToken: string): Promise<CancelOutcom
 // ---------------------------------------------------------------- RSC-01/02: move to another slot of the same service
 export type RescheduleOutcome = "moved" | "slot_taken" | "too_late" | "limit" | "invalid_slot" | "unavailable" | "service_change_not_allowed" | "invalid";
 
-/** `rescheduleToken` is single use. A refused move (taken or bad slot) has consumed it, so the server action hands back a fresh one for the retry. */
-export async function rescheduleWithToken(rescheduleToken: string, date: string, time: string, newServiceId?: string): Promise<RescheduleOutcome> {
-  const v = verifyToken(rescheduleToken, "reschedule");
+/** Presents the link's own token; the move limit (RSC-02) and the cancellation window are decided by the database. */
+export async function rescheduleWithToken(viewToken: string, date: string, time: string, newServiceId?: string): Promise<RescheduleOutcome> {
+  const v = verifyToken(viewToken, "view");
   if (!v.ok || !/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{2}:\d{2}$/.test(time)) return "invalid";
   const db = systemDb();
   const { data: view } = await db.rpc("public_get_appointment", { p_id: v.payload.a });
@@ -306,8 +302,6 @@ export async function rescheduleWithToken(rescheduleToken: string, date: string,
   const open = peopleOpenAt({ date, time, timeZone: c.business.timezone, durationMinutes: svc.durationMinutes, bufferMinutes: svc.bufferMinutes, stepMinutes: 30, people, rules: rulesOf(c), exceptions: exceptionsOf(c) });
   const wanted = teamSlotsForDay({ date, timeZone: c.business.timezone, people: open, rules: rulesOf(c), exceptions: exceptionsOf(c), busy: [], durationMinutes: svc.durationMinutes, bufferMinutes: svc.bufferMinutes, stepMinutes: 30, now: new Date(0), minNoticeMinutes: 0 }).find((s) => s.local === time);
   if (!wanted || !withinHorizon(c, date)) return "invalid_slot";
-  const first = await db.rpc("public_consume_token", { p_jti: v.payload.j, p_exp: new Date(v.payload.e * 1000).toISOString() }); // single use (SEC-06)
-  if (first.error || first.data !== true) return "invalid";
   const { error } = await db.rpc("public_reschedule", { p_id: v.payload.a, p_new_start: wanted.startUtc, p_new_service: changing ? newServiceId : null });
   if (!error) return "moved";
   const m = error.message ?? "";
@@ -323,8 +317,8 @@ export async function rescheduleWithToken(rescheduleToken: string, date: string,
 // ---------------------------------------------------------------- NSH-01: "I am coming"
 export type AttendOutcome = "confirmed" | "already" | "not_active" | "invalid";
 
-export async function confirmAttendanceWithToken(attendToken: string): Promise<AttendOutcome> {
-  const v = verifyToken(attendToken, "attend");
+export async function confirmAttendanceWithToken(viewToken: string): Promise<AttendOutcome> {
+  const v = verifyToken(viewToken, "view");
   if (!v.ok) return "invalid";
   const { data, error } = await systemDb().rpc("public_confirm_attendance", { p_id: v.payload.a }); // idempotent in the database: no single-use bookkeeping needed
   if (error) return "invalid";

@@ -13,6 +13,7 @@ import { ServiceStaffInput, StaffNameInput, StaffUpdateInput, type TeamErrorCode
 import { mapRpcError } from "@/modules/tenancy/errors";
 import { listMyBusinesses } from "@/modules/tenancy/service";
 import { checkSession } from "@/lib/auth/live-session";
+import { legalAccepted } from "@/lib/legal/gate";
 
 // Owner settings actions. The tenant is the signed-in user's business (never taken from the request); RLS enforces roles in the database.
 type Ok = { ok: true };
@@ -24,6 +25,7 @@ async function context() {
   const gate = data?.claims ? await checkSession(supabase, data.claims) : null;
   if (!gate?.live) return { ok: false as const, error: "NOT_AUTHENTICATED" as const };
   if (!gate.secondFactor) return { ok: false as const, error: "FORBIDDEN" as const };
+  if (!(await legalAccepted(supabase))) return { ok: false as const, error: "FORBIDDEN" as const }; // CMP-03 on actions too
   const business = (await listMyBusinesses(supabase))[0];
   if (!business) return { ok: false as const, error: "FORBIDDEN" as const };
   return { ok: true as const, supabase, businessId: business.id };

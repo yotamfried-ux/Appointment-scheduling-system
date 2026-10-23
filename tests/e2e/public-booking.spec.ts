@@ -95,9 +95,9 @@ test.describe("booking (BKG-02/04/05/07/09/10/15)", () => {
     const after = C.SlotsResponse.parse(await (await get(request, b.slug, `slots?service=${svc.id}&date=${f.date}`)).json());
     expect(after.slots.map((s) => s.time)).not.toContain(f.times[0]);
 
-    // BKG-05: same phone, another name → still one customer; the stored identity is NOT rewritten by an unauthenticated booking (takeover control)
+    // BKG-05: same e-mail (written another way), another name and phone → still one customer; the stored identity is NOT rewritten by an unauthenticated booking (takeover control)
     const f2 = f.times.find((t) => t !== f.times[0] && !after.slots.every((s) => s.time !== t))!;
-    const r2 = await post(request, b.slug, body(svc.id, f.date, f2, 1, { customer: { fullName: "נועם לוי המעודכן", phone: "0501234567" } }));
+    const r2 = await post(request, b.slug, body(svc.id, f.date, f2, 1, { customer: { fullName: "נועם לוי המעודכן", phone: "0509999999", email: customer(1).email.toUpperCase() } }));
     expect(r2.status()).toBe(201);
     const custs = (await b.db.from("customers").select("full_name, phone").eq("business_id", b.id)).data!;
     expect(custs).toEqual([{ full_name: "נועם לוי", phone: "+972501234567" }]);

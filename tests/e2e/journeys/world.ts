@@ -69,7 +69,7 @@ export async function chooseTime(page: Page, wanted: number) {
 }
 
 /** A customer books through the public page, step by step, and ends on the confirmation. */
-export async function customerBooksViaPage(page: Page, slug: string, who: { name: string; phone: string; email?: string }, opts: { serviceIndex?: number; nthTime?: number } = {}) {
+export async function customerBooksViaPage(page: Page, slug: string, who: { name: string; phone: string; email: string }, opts: { serviceIndex?: number; nthTime?: number } = {}) {
   await page.goto(`/book/${slug}`);
   await page.locator('input[name="service"]').nth(opts.serviceIndex ?? 0).check({ force: true });
   await page.getByTestId("continue").click();
@@ -80,7 +80,7 @@ export async function customerBooksViaPage(page: Page, slug: string, who: { name
   await page.getByTestId("continue").click();
   await page.getByLabel("שם מלא").fill(who.name);
   await page.getByLabel("טלפון נייד").fill(who.phone);
-  if (who.email) await page.getByLabel(/אימייל/).fill(who.email);
+  await page.getByLabel(/אימייל/).fill(who.email);
   await page.getByTestId("continue").click();
   await expect(page.getByTestId("done-title")).toBeVisible();
   const manage = await page.getByTestId("manage-link").getAttribute("href");

@@ -56,10 +56,15 @@ create function pg_temp.book(p_start timestamptz, p_phone text, p_email text, p_
 $$;
 create temp table appts as select
   pg_temp.book((select day from ids) + interval '10 hours', '+972501000001', 'one@example.com', 'ntf-key-0001') as one,
-  pg_temp.book((select day from ids) + interval '11 hours', '+972501000002', null, 'ntf-key-0002') as noemail,
+  pg_temp.book((select day from ids) + interval '11 hours', '+972501000002', 'noemail@example.com', 'ntf-key-0002') as noemail,
   pg_temp.book((select day from ids) + interval '12 hours', '+972501000003', 'three@example.com', 'ntf-key-0003') as three;
 grant select on appts to authenticated, service_role;
 select pg_temp.as_system();
+-- the public form now always carries an address, so the "no address" case (an owner-entered walk-in) is made by clearing it the way erasure does
+select set_config('app.anonymizing', 'on', true);
+update public.appointments set contact_email = null where id = (select noemail from appts);
+update public.customers set email = null where id = (select customer_id from public.appointments where id = (select noemail from appts));
+select set_config('app.anonymizing', 'off', true);
 
 -- ---------- privileges: only the system path ----------
 select pg_temp.as_anon();

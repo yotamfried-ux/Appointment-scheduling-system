@@ -9,11 +9,10 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { formatDayLabel } from "@/lib/lab/booking-data";
 import { labApi } from "@/lib/api/client";
 
-export function RescheduleForm({ slug, serviceId: currentServiceId, services, initialToken, manageHref }: { slug: string; serviceId: string; services: { id: string; name: string }[]; initialToken: string; manageHref: string }) {
+export function RescheduleForm({ slug, serviceId: currentServiceId, services, token, manageHref }: { slug: string; serviceId: string; services: { id: string; name: string }[]; token: string; manageHref: string }) {
   const t = useTranslations("reschedule");
   const router = useRouter();
   const opts = { kind: "other", session: "public", base: `/api/public/${slug}` } as const;
-  const [token, setToken] = useState(initialToken);
   const [serviceId, setServiceId] = useState(currentServiceId);
   const [days, setDays] = useState<string[] | null>(null);
   const [date, setDate] = useState<string | null>(null);
@@ -39,7 +38,6 @@ export function RescheduleForm({ slug, serviceId: currentServiceId, services, in
     start(async () => {
       if (!date || !time) return;
       const r = await rescheduleAppointmentAction(token, date, time, serviceId === currentServiceId ? undefined : serviceId);
-      if (r.nextToken) setToken(r.nextToken);
       if (r.outcome === "moved") return router.push(manageHref);
       if (r.outcome === "slot_taken") { if (date) pickDay(date); setMessage(t("taken")); return; } // reload the day first (it clears the message), then say why
       setMessage(r.outcome === "service_change_not_allowed" ? t("noServiceChange") : r.outcome === "too_late" ? t("tooLate") : r.outcome === "limit" ? t("limit") : r.outcome === "rate_limited" ? t("rate") : t("failed"));

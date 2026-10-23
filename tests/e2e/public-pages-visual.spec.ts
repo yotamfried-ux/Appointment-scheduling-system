@@ -48,6 +48,7 @@ test("public booking pages are balanced at every step", async ({ page }) => {
   await page.getByTestId("continue").click(); // invalid phone → inline error
   await check(page, "step 4 details (error)", "book-4-details");
   await page.getByLabel("טלפון נייד").fill("050-1234567");
+  await page.getByLabel("אימייל").fill("noam@example.com");
   await page.getByTestId("continue").click();
   await page.getByTestId("done-title").waitFor();
   await check(page, "done", "book-5-done");

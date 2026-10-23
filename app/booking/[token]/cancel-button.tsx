@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import { cancelAppointmentAction } from "@/app/booking/[token]/actions";
 import { Button } from "@/components/ui/button";
 
-export function CancelButton({ cancelToken }: { cancelToken: string }) {
+export function CancelButton({ token }: { token: string }) {
   const t = useTranslations("manage");
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
@@ -15,7 +15,7 @@ export function CancelButton({ cancelToken }: { cancelToken: string }) {
 
   const run = () =>
     start(async () => {
-      const r = await cancelAppointmentAction(cancelToken);
+      const r = await cancelAppointmentAction(token);
       if (r === "cancelled" || r === "already") return router.refresh();
       setMessage(r === "too_late" ? t("tooLate") : t("invalid"));
       setConfirming(false);

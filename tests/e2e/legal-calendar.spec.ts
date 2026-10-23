@@ -221,6 +221,9 @@ test.describe("accepting a new version of the terms (CMP-03)", () => {
     // other owner pages are gated the same way
     await page.goto("/reports");
     await expect(page).toHaveURL(/\/legal\/accept$/);
+    // the owner API is gated the same way (VULN-0007), not only the pages
+    const gated = { "x-test-legal-gate": "on" };
+    expect((await page.request.get("/api/owner/version", { headers: gated })).status()).toBe(403);
 
     // submitting without agreeing records nothing and says why
     await page.getByTestId("legal-submit").click();
@@ -234,6 +237,7 @@ test.describe("accepting a new version of the terms (CMP-03)", () => {
     expect(rows()).toBe(`privacy:${LEGAL.privacy.version}\nterms:${LEGAL.terms.version}`);
     await page.goto("/reports");
     await expect(page).toHaveURL(/\/reports$/);
+    expect((await page.request.get("/api/owner/version", { headers: gated })).status()).toBe(200);
 
     // a newer version (simulated: the old acceptance is all that is on record) asks again, and history is kept
     sql(`update public.legal_acceptances set version = '2026-01-01' where user_id='${uid}' and doc='terms'`);

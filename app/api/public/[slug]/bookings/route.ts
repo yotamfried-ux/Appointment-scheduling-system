@@ -21,7 +21,7 @@ export const POST = api<{ slug: string }>(async (req, { slug }) => {
   const input = parse(CreateBookingRequest, await readJson(req));
   const phone = normalizePhone(input.customer.phone);
   if (phone) await enforce([{ scope: "book-phone", value: `${phone}|${catalog.business.id}`, windowSeconds: 3600, max: 6 }]); // one customer cannot flood a business
-  if (input.customer.email) await enforce([emailLimit(req, input.customer.email)]);
+  await enforce([emailLimit(req, input.customer.email)]); // the mailbox is the identity: it is limited like the phone, whatever way it is written
   const { booking, replay } = await createBooking(catalog, input, key);
   if (!replay) after(kickOutbox); // the e-mail goes out now; the cron is only the safety net
   return NextResponse.json({ booking }, { status: replay ? 200 : 201, headers: replay ? { "Idempotent-Replay": "true" } : {} });

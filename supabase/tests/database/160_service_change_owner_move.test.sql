@@ -28,7 +28,7 @@ create temp table svc as select (select id from public.services where business_i
 grant select on svc to service_role, authenticated;
 select pg_temp.as_service();
 create temp table v as select (public.public_book((select a from ids), (select cut from svc), now() + interval '3 days', 'דנה', '+972507770001', 'dana@example.com', 'business', '{}', 'mkey-0001', 'mh-1') ->> 'id')::uuid as appt;
-create temp table w as select (public.public_book((select a from ids), (select cut from svc), now() + interval '2 hours', 'מאוחר', '+972507770002', null, 'business', '{}', 'mkey-0002', 'mh-2') ->> 'id')::uuid as appt;
+create temp table w as select (public.public_book((select a from ids), (select cut from svc), now() + interval '2 hours', 'מאוחר', '+972507770002', 'u972507770002@example.com', 'business', '{}', 'mkey-0002', 'mh-2') ->> 'id')::uuid as appt;
 grant select on v, w to service_role, authenticated;
 
 -- ---- RSC-03
