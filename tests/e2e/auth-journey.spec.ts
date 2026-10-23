@@ -35,7 +35,7 @@ test.describe("owner authentication journey (scenarios ACC-01, ACC-02, ACC-04, S
 
     // Authoritative side effect: the email actually exists and is the Hebrew template.
     const mail = await waitForMail(email);
-    expect(mail.subject).toBe("אימות כתובת האימייל");
+    expect(mail.subject).toBe("אימות כתובת האימייל · תורים");
     expect(mail.html).toContain('dir="rtl"');
 
     // Until verified, the user must NOT be able to use the app (ACC-04).

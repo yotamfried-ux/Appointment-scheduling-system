@@ -30,7 +30,7 @@ Run last, with the production values in the environment: `VERCEL_ENV=production 
 | B6 | **Dependabot** backlog (8 open PRs, 2 with real failures) and enabling the AI review workflow (secret + variable) | `ci-audit-and-gaps.md` G1, G2 |
 | B7 | **Retention**: the housekeeping job removes only operational data; customer data is kept until a business erases it. Agree the retention periods stated in the privacy text (docs/05 §14.4) | legal |
 | B8 | ~~Trial e-mails~~ **Done in stage 14:** trial ending (≤7 days), last day, and payment failed, each once per milestone, skipped if the state changed | `docs/evidence/stage-14.md` |
-| B9 | **Supabase Auth settings** in the dashboard: confirm-email on, password policy, MFA enabled, redirect URLs limited to the production domain, SMTP via Resend, rate limits reviewed | not in code |
+| B9 | **Supabase Auth settings** in the dashboard (e-mail expiry, sender and Hebrew templates: `docs/runbooks/auth-emails.md`): confirm-email on, password policy, MFA enabled, redirect URLs limited to the production domain, SMTP via Resend, rate limits reviewed | not in code |
 | B10 | **Accessibility audit** by a person (screen reader on the calendar and slot picker, UX-08); the statement says no external audit has happened | |
 
 ## C. Day-one routine
