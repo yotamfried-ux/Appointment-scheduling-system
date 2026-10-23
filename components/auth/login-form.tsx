@@ -16,7 +16,7 @@ import { authErrorKey } from "@/lib/auth/errors";
 import { loginSchema } from "@/lib/auth/schemas";
 import { loginAction } from "@/app/auth/actions";
 
-export function LoginForm() {
+export function LoginForm({ verified = false }: { verified?: boolean }) {
   const t = useTranslations("auth");
   const tv = useTranslations("auth.validation");
   const router = useRouter();
@@ -44,7 +44,7 @@ export function LoginForm() {
   return (
     <AuthCard
       title={t("login.title")}
-      description={t("login.description")}
+      description={verified ? t("login.verifiedNotice") : t("login.description")}
       footer={
         <>
           {t("login.noAccount")}{" "}

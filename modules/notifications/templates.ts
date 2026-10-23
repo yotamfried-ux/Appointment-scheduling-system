@@ -47,6 +47,35 @@ export interface Rendered {
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
 const clean = (s: string) => s.replace(/[\r\n]+/g, " ").trim(); // header injection: no line breaks in anything that reaches a subject
 
+const FONT = "'Segoe UI',Heebo,Arial,Helvetica,sans-serif";
+const BRAND = "#0b6b5d";
+
+/** One right-to-left e-mail layout for every message: business name on top, one card, one button, a quiet footer. Inline styles and tables only (mail clients ignore the rest). */
+function shell(o: { subject: string; preheader: string; title: string; lead: string; rows?: [string, string][]; button?: { href: string; label: string }; note?: string }): string {
+  const rows = o.rows?.length
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 20px;border-top:1px solid #e3e9e6">
+${o.rows.map(([l, v]) => `<tr><td style="padding:11px 0;border-bottom:1px solid #e3e9e6;font-size:14px;color:#5b6b66;width:34%">${esc(l)}</td><td style="padding:11px 0;border-bottom:1px solid #e3e9e6;font-size:15px;font-weight:600;color:#10201d"><bdi>${esc(v)}</bdi></td></tr>`).join("\n")}
+</table>`
+    : "";
+  const button = o.button
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:4px 0 8px"><tr><td style="border-radius:10px;background:${BRAND}"><a href="${esc(o.button.href)}" style="display:inline-block;padding:14px 26px;font-family:${FONT};font-size:16px;font-weight:600;line-height:1;color:#ffffff;text-decoration:none;border-radius:10px">${esc(o.button.label)}</a></td></tr></table>`
+    : "";
+  const note = o.note ? `<p style="margin:16px 0 0;font-size:14px;line-height:1.6;color:#5b6b66">${o.note}</p>` : "";
+  return `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(o.subject)}</title></head>
+<body style="margin:0;padding:0;background:#f4f6f5;font-family:${FONT};direction:rtl;text-align:right">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent">${esc(o.preheader)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f5"><tr><td align="center" style="padding:28px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px">
+<tr><td style="padding:0 4px 14px;font-family:${FONT};font-size:18px;font-weight:700;color:${BRAND};text-align:right"><bdi>${esc(o.title)}</bdi></td></tr>
+<tr><td style="background:#ffffff;border:1px solid #dde4e1;border-radius:14px;padding:26px 24px;font-family:${FONT};text-align:right;direction:rtl">
+<p style="margin:0 0 20px;font-size:17px;line-height:1.65;color:#10201d">${esc(o.lead)}</p>
+${rows}${button}${note}
+</td></tr>
+<tr><td style="padding:14px 4px 0;font-family:${FONT};font-size:12px;line-height:1.6;color:#5b6b66;text-align:right">ההודעה נשלחה אוטומטית דרך "תורים". אין צורך להשיב לה.</td></tr>
+</table></td></tr></table>
+</body></html>`;
+}
+
 export function whenLabel(iso: string, timeZone: string): string {
   return new Intl.DateTimeFormat("he-IL", { timeZone, weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
 }
@@ -103,16 +132,7 @@ function renderDigest(ctx: NotifContext, opts: { appUrl: string }): Rendered {
   const subject = clean(SUBJECT.owner_digest(biz));
   const lead = LEAD.owner_digest("");
   const link = `${opts.appUrl}/dashboard`;
-  const html = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head>
-<body style="margin:0;background:#f4f6f5;font-family:'IBM Plex Sans Hebrew',Arial,sans-serif;color:#10201d;direction:rtl;text-align:right">
-<div style="max-width:520px;margin:0 auto;padding:24px 16px">
-<p style="font-size:18px;font-weight:600;margin:0 0 12px"><bdi>${esc(biz)}</bdi></p>
-<p style="font-size:16px;line-height:1.6;margin:0 0 16px">${esc(lead)}</p>
-<table role="presentation" style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #dde4e1;border-radius:8px">
-${rows.map(([l, v]) => `<tr><td style="padding:10px 14px;color:#5b6b66;width:65%">${esc(l)}</td><td style="padding:10px 14px;font-weight:600"><bdi>${esc(v)}</bdi></td></tr>`).join("\n")}
-</table>
-<p style="margin:20px 0"><a href="${esc(link)}" style="display:inline-block;background:#0b6b5d;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600">פתיחת היומן</a></p>
-</div></body></html>`;
+  const html = shell({ subject, preheader: lead, title: biz, lead, rows, button: { href: link, label: "פתיחת היומן" } });
   const text = [biz, "", lead, "", ...rows.map(([l, v]) => `${l}: ${v}`), "", `פתיחת היומן: ${link}`].join("\n");
   return { subject, html, text };
 }
@@ -132,16 +152,7 @@ function renderBilling(ctx: NotifContext, opts: { appUrl: string }, now: Date): 
   const subject = clean(SUBJECT[ctx.type](biz));
   const lead = LEAD[ctx.type]("");
   const link = `${opts.appUrl}/settings/billing`;
-  const html = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head>
-<body style="margin:0;background:#f4f6f5;font-family:'IBM Plex Sans Hebrew',Arial,sans-serif;color:#10201d;direction:rtl;text-align:right">
-<div style="max-width:520px;margin:0 auto;padding:24px 16px">
-<p style="font-size:18px;font-weight:600;margin:0 0 12px"><bdi>${esc(biz)}</bdi></p>
-<p style="font-size:16px;line-height:1.6;margin:0 0 16px">${esc(lead)}</p>
-${rows.length ? `<table role="presentation" style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #dde4e1;border-radius:8px">
-${rows.map(([l, v]) => `<tr><td style="padding:10px 14px;color:#5b6b66;width:50%">${esc(l)}</td><td style="padding:10px 14px;font-weight:600"><bdi>${esc(v)}</bdi></td></tr>`).join("\n")}
-</table>` : ""}
-<p style="margin:20px 0"><a href="${esc(link)}" style="display:inline-block;background:#0b6b5d;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600">למנוי ולחיוב</a></p>
-</div></body></html>`;
+  const html = shell({ subject, preheader: lead, title: biz, lead, rows, button: { href: link, label: "למנוי ולחיוב" } });
   const text = [biz, "", lead, "", ...rows.map(([l, v]) => `${l}: ${v}`), "", `למנוי ולחיוב: ${link}`].join("\n");
   return { subject, html, text };
 }
@@ -171,17 +182,15 @@ export function render(ctx: NotifContext, opts: { appUrl: string; manageToken?: 
 
   const lead = LEAD[ctx.type](name);
   const subject = clean(SUBJECT[ctx.type](biz));
-  const html = `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(subject)}</title></head>
-<body style="margin:0;background:#f4f6f5;font-family:'IBM Plex Sans Hebrew',Arial,sans-serif;color:#10201d;direction:rtl;text-align:right">
-<div style="max-width:520px;margin:0 auto;padding:24px 16px">
-<p style="font-size:18px;font-weight:600;margin:0 0 12px"><bdi>${esc(biz)}</bdi></p>
-<p style="font-size:16px;line-height:1.6;margin:0 0 16px">${esc(lead)}</p>
-<table role="presentation" style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #dde4e1;border-radius:8px">
-${rows.map(([l, v]) => `<tr><td style="padding:10px 14px;color:#5b6b66;width:35%">${esc(l)}</td><td style="padding:10px 14px;font-weight:600"><bdi>${esc(v)}</bdi></td></tr>`).join("\n")}
-</table>
-${link ? `<p style="margin:20px 0"><a href="${esc(link)}" style="display:inline-block;background:#0b6b5d;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-weight:600">${esc(linkLabel)}</a></p>` : ""}
-${!owner && ctx.business.phone ? `<p style="font-size:14px;color:#5b6b66">לשאלות: <bdi>${esc(ctx.business.phone)}</bdi></p>` : ""}
-</div></body></html>`;
+  const html = shell({
+    subject,
+    preheader: lead,
+    title: biz,
+    lead,
+    rows,
+    ...(link ? { button: { href: link, label: linkLabel } } : {}),
+    ...(!owner && ctx.business.phone ? { note: `לשאלות: <bdi>${esc(ctx.business.phone)}</bdi>` } : {}),
+  });
   const text = [`${biz}`, "", lead, "", ...rows.map(([l, v]) => `${l}: ${v}`), ...(link ? ["", `${linkLabel}: ${link}`] : [])].join("\n");
   return { subject, html, text };
 }

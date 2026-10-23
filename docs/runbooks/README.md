@@ -15,3 +15,4 @@ Short, concrete procedures for the things that will go wrong. Each one says how 
 | Database growing, cost rising, or a page slowing down with more data | [db-growth-and-cost.md](db-growth-and-cost.md) (measurements, the rules, what is purged, thresholds; `scripts/drills/scale.sh`) |
 
 Monitoring hooks that already exist: `GET /api/health` (liveness), `GET /api/ready` (database reachable, 503 otherwise), `GET /api/jobs/health` with `Authorization: Bearer $CRON_SECRET` (200 when every job succeeded recently, 503 and the list of stale jobs otherwise). Point an external uptime monitor at the last two.
+- [Account e-mails (sign-up, reset): language, sender, expiry](auth-emails.md)

@@ -3,6 +3,8 @@
 import { headers } from "next/headers";
 import { authErrorKey, isExistingAccount } from "@/lib/auth/errors";
 import { createClient } from "@/lib/supabase/server";
+import { ipFromHeaders } from "@/lib/client-ip";
+import { mailboxKey } from "@/lib/mailbox";
 import { enforce } from "@/modules/booking/public/rate-limit";
 
 // Auth runs on the server so the session cookie is written by the server with HttpOnly (docs/05 §5.2): JavaScript in the
@@ -54,6 +56,23 @@ export async function signUpAction(input: { email: unknown; password: unknown })
   });
   if (error && !isExistingAccount(error)) return fail(error); // an existing address gets the same "check your e-mail" page (no account enumeration)
   return { ok: true };
+}
+
+/** The verification link expired or was used up: send a new one. The answer is the same whether or not the address has an account (no enumeration), and it is limited per address and per caller. */
+export async function resendConfirmationAction(input: { email: unknown }): Promise<AuthResult> {
+  const email = str(input.email);
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return { ok: false, errorKey: "generic" };
+  try {
+    await enforce([
+      { scope: "resend-email", value: mailboxKey(email), windowSeconds: 3600, max: 3 },
+      { scope: "resend-ip", value: ipFromHeaders(await headers()), windowSeconds: 3600, max: 10 },
+    ]);
+  } catch {
+    return { ok: false, errorKey: "over_request_rate_limit" };
+  }
+  const { error } = await (await createClient()).auth.resend({ type: "signup", email: email.trim(), options: { emailRedirectTo: `${await origin()}/auth/confirm?next=/dashboard` } });
+  if (error && !isExistingAccount(error) && authErrorKey(error) === "over_email_send_rate_limit") return fail(error);
+  return { ok: true }; // an unknown or already verified address looks exactly like a sent one
 }
 
 export async function forgotPasswordAction(input: { email: unknown }): Promise<AuthResult> {

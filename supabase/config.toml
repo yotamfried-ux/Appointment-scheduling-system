@@ -232,7 +232,7 @@ max_frequency = "60s"
 # Number of characters used in the email OTP.
 otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 900   # docs/05 §5.2: short-lived codes/links
+otp_expiry = 86400   # 24 hours (owner decision 2026-10-23: 15 minutes was too short to open the mail and verify). Hosted project: Authentication > Providers > Email > "Email OTP Expiration" (docs/runbooks/auth-emails.md)
 
 # Use a production-ready SMTP server
 # [auth.email.smtp]
@@ -244,18 +244,30 @@ otp_expiry = 900   # docs/05 §5.2: short-lived codes/links
 # admin_email = "admin@email.com"
 # sender_name = "Admin"
 
-# Uncomment to customize email template
+# Hebrew, right-to-left templates in the product look (supabase/templates). The hosted project has its own copy: paste them in the dashboard (docs/runbooks/auth-emails.md).
 [auth.email.template.confirmation]
-subject = "אימות כתובת האימייל"
+subject = "אימות כתובת האימייל · תורים"
 content_path = "./supabase/templates/confirmation.html"
 
 [auth.email.template.recovery]
-subject = "איפוס סיסמה"
+subject = "איפוס סיסמה · תורים"
 content_path = "./supabase/templates/recovery.html"
 
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+[auth.email.template.magic_link]
+subject = "כניסה לחשבון · תורים"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.email_change]
+subject = "אישור כתובת אימייל חדשה · תורים"
+content_path = "./supabase/templates/email_change.html"
+
+[auth.email.template.invite]
+subject = "הוזמנתם להצטרף ל\"תורים\""
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.reauthentication]
+subject = "קוד אימות · תורים"
+content_path = "./supabase/templates/reauthentication.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
