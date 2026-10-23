@@ -34,6 +34,7 @@ test("the page asks 'with whom?' only when there are two or more people; a named
   await page.getByTestId("continue").click();
   await page.getByLabel("שם מלא").fill("יעל כהן");
   await page.getByLabel("טלפון נייד").fill("050-1234567");
+  await page.getByLabel("אימייל").fill(`yael.${Math.random().toString(36).slice(2, 8)}@example.com`);
   await page.getByTestId("continue").click();
   await page.getByTestId("done-title").waitFor();
   await expect(page.getByTestId("done-person")).toHaveText("נועם");

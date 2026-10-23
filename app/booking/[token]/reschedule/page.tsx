@@ -6,7 +6,7 @@ import { formatDayLabel } from "@/lib/lab/booking-data";
 import { resolveCatalog, viewAppointment } from "@/modules/booking/public/service";
 import { zonedParts } from "@/platform/clock";
 
-// RSC-01/02. GET only shows the picker; the move itself is a POST (Server Action) with a single-use token.
+// RSC-01/02. GET only shows the picker; the move itself is a POST (Server Action) from the customer's own link.
 export const dynamic = "force-dynamic";
 export const metadata = { title: "שינוי מועד", robots: { index: false, follow: false }, referrer: "no-referrer" as const };
 
@@ -31,15 +31,15 @@ export default async function ReschedulePage({ params }: { params: Promise<{ tok
       <header className="border-b bg-card/60"><div className="mx-auto flex h-14 max-w-lg items-center px-4"><Logo /></div></header>
       <main id="main" className="mx-auto grid w-full max-w-lg gap-6 px-4 py-8">
         <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
-        {a.canReschedule && a.rescheduleToken ? (
+        {a.canReschedule ? (
           <>
             <p className="text-muted-foreground" data-testid="resched-current">{t("current", { service: a.serviceName, when: `${formatDayLabel(start.date)} · ${hhmm}` })}</p>
-            <RescheduleForm slug={a.businessSlug} serviceId={a.serviceId} services={services} initialToken={a.rescheduleToken} manageHref={`/booking/${token}`} />
+            <RescheduleForm slug={a.businessSlug} serviceId={a.serviceId} services={services} token={token} manageHref={`/book/${a.businessSlug}?m=${encodeURIComponent(token)}`} />
           </>
         ) : (
           <section className="grid gap-3" data-testid="resched-closed">
             <p className="text-muted-foreground">{a.rescheduledCount >= 3 ? t("limit") : t("tooLate")}</p>
-            <a href={`/booking/${token}`} className="inline-flex min-h-11 w-fit items-center font-semibold text-primary underline underline-offset-2">{t("back")}</a>
+            <a href={`/book/${a.businessSlug}?m=${encodeURIComponent(token)}`} className="inline-flex min-h-11 w-fit items-center font-semibold text-primary underline underline-offset-2">{t("back")}</a>
           </section>
         )}
       </main>

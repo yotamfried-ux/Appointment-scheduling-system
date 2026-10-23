@@ -21,7 +21,7 @@ const namespacesRead = (file: string): string[] => {
 
 const SHARED_FILES = ["components/legal/consent-banner.tsx", "components/theme-switcher.tsx", "components/logout-button.tsx", "app/error.tsx", "components/auth-button.tsx", "components/ui/toast.tsx", "components/brand/booking-preview.tsx"];
 const GROUPS: Record<string, { path: string; files: string[] }> = {
-  booking: { path: "/book/x", files: [...SHARED_FILES, ...walk(join(ROOT, "app/book")).map((f) => f.slice(ROOT.length + 1)), ...walk(join(ROOT, "components/lab/booking")).map((f) => f.slice(ROOT.length + 1)), ...walk(join(ROOT, "components/waitlist")).map((f) => f.slice(ROOT.length + 1))] },
+  booking: { path: "/book/x", files: [...SHARED_FILES, ...walk(join(ROOT, "app/book")).map((f) => f.slice(ROOT.length + 1)), ...walk(join(ROOT, "components/lab/booking")).map((f) => f.slice(ROOT.length + 1)), "app/booking/[token]/cancel-button.tsx", "app/booking/[token]/attend-button.tsx", ...walk(join(ROOT, "components/waitlist")).map((f) => f.slice(ROOT.length + 1))] },
 };
 
 describe("trimmed message catalogs cover what the page's client components read", () => {

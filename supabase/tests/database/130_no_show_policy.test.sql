@@ -25,7 +25,7 @@ grant select on ids to authenticated, service_role;
 
 -- a customer with 3 no-shows (2 old ones outside the 60-day window do not count)
 select pg_temp.as_system();
-insert into public.customers (id, business_id, full_name, phone) values ('00000000-0000-0000-0000-0000000000c1', (select a from ids), 'חסר אחריות', '+972503330001');
+insert into public.customers (id, business_id, full_name, phone, email) values ('00000000-0000-0000-0000-0000000000c1', (select a from ids), 'חסר אחריות', '+972503330001', 'u972503330001@example.com');
 create function pg_temp.mk_no_show(p_days_ago int) returns void language plpgsql as $$
 begin
   insert into public.appointments (business_id, resource_id, service_id, customer_id, reference, status, location, intake, starts_at, ends_at, blocked_until, service_snapshot, price_cents, currency)
@@ -38,28 +38,28 @@ select pg_temp.mk_no_show(5); select pg_temp.mk_no_show(20); select pg_temp.mk_n
 
 -- policy off (default): nothing changes
 select pg_temp.as_service();
-select is(public.public_book((select a from ids), (select s1 from ids), now() + interval '3 days', 'חסר אחריות', '+972503330001', null, 'business', '{}', 'nskey-001', 'nh-1') ->> 'status', 'confirmed', 'policy off: booked and confirmed as usual');
+select is(public.public_book((select a from ids), (select s1 from ids), now() + interval '3 days', 'חסר אחריות', '+972503330001', 'u972503330001@example.com', 'business', '{}', 'nskey-001', 'nh-1') ->> 'status', 'confirmed', 'policy off: booked and confirmed as usual');
 
 -- require_approval
 select pg_temp.as_system();
 update public.businesses set no_show_policy = 'require_approval', no_show_threshold = 3 where slug = 'ns-alpha';
 select pg_temp.as_service();
-select is(public.public_book((select a from ids), (select s1 from ids), now() + interval '4 days', 'חסר אחריות', '+972503330001', null, 'business', '{}', 'nskey-002', 'nh-2') ->> 'status', 'pending', 'require_approval: 3 no-shows in 60 days ⇒ the booking waits for the owner');
+select is(public.public_book((select a from ids), (select s1 from ids), now() + interval '4 days', 'חסר אחריות', '+972503330001', 'u972503330001@example.com', 'business', '{}', 'nskey-002', 'nh-2') ->> 'status', 'pending', 'require_approval: 3 no-shows in 60 days ⇒ the booking waits for the owner');
 select pg_temp.as_system();
 update public.businesses set no_show_threshold = 4 where slug = 'ns-alpha';
 select pg_temp.as_service();
-select is(public.public_book((select a from ids), (select s1 from ids), now() + interval '5 days', 'חסר אחריות', '+972503330001', null, 'business', '{}', 'nskey-003', 'nh-3') ->> 'status', 'confirmed', 'a higher threshold than the recent count (the 2 old no-shows are outside the window) ⇒ confirmed');
+select is(public.public_book((select a from ids), (select s1 from ids), now() + interval '5 days', 'חסר אחריות', '+972503330001', 'u972503330001@example.com', 'business', '{}', 'nskey-003', 'nh-3') ->> 'status', 'confirmed', 'a higher threshold than the recent count (the 2 old no-shows are outside the window) ⇒ confirmed');
 
 -- block, with the business'' own text in the error detail
 select pg_temp.as_system();
 update public.businesses set no_show_policy = 'block', no_show_threshold = 3, block_message = 'נא ליצור קשר טלפונית' where slug = 'ns-alpha';
 select pg_temp.as_service();
-select throws_ok($$ select public.public_book((select a from ids), (select s1 from ids), now() + interval '6 days', 'חסר אחריות', '+972503330001', null, 'business', '{}', 'nskey-004', 'nh-4') $$, 'P0001', 'customer_blocked', 'block: refused');
+select throws_ok($$ select public.public_book((select a from ids), (select s1 from ids), now() + interval '6 days', 'חסר אחריות', '+972503330001', 'u972503330001@example.com', 'business', '{}', 'nskey-004', 'nh-4') $$, 'P0001', 'customer_blocked', 'block: refused');
 select pg_temp.as_system();
 select is((select count(*)::int from public.appointments where business_id = (select a from ids) and starts_at > now() + interval '5 days 12 hours'), 0, 'a refused booking creates nothing');
 -- other customers are unaffected
 select pg_temp.as_service();
-select is(public.public_book((select a from ids), (select s1 from ids), now() + interval '6 days', 'לקוח אחר', '+972503330002', null, 'business', '{}', 'nskey-005', 'nh-5') ->> 'status', 'confirmed', 'another customer of the same business is unaffected');
+select is(public.public_book((select a from ids), (select s1 from ids), now() + interval '6 days', 'לקוח אחר', '+972503330002', 'u972503330002@example.com', 'business', '{}', 'nskey-005', 'nh-5') ->> 'status', 'confirmed', 'another customer of the same business is unaffected');
 
 -- override by an admin (audited); staff cannot
 select pg_temp.as_user('00000000-0000-0000-0000-00000000b1a2');
@@ -67,7 +67,7 @@ select throws_ok($$ select public.set_customer_policy_override('00000000-0000-00
 select pg_temp.as_user('00000000-0000-0000-0000-00000000b1a1');
 select lives_ok($$ select public.set_customer_policy_override('00000000-0000-0000-0000-0000000000c1', true) $$, 'the owner clears it');
 select pg_temp.as_service();
-select is(public.public_book((select a from ids), (select s1 from ids), now() + interval '7 days', 'חסר אחריות', '+972503330001', null, 'business', '{}', 'nskey-006', 'nh-6') ->> 'status', 'confirmed', 'after the override the customer can book again');
+select is(public.public_book((select a from ids), (select s1 from ids), now() + interval '7 days', 'חסר אחריות', '+972503330001', 'u972503330001@example.com', 'business', '{}', 'nskey-006', 'nh-6') ->> 'status', 'confirmed', 'after the override the customer can book again');
 select pg_temp.as_system();
 select is((select count(*)::int from public.audit_log where action = 'customer.policy_override' and business_id = (select a from ids)), 1, 'the override is audited');
 

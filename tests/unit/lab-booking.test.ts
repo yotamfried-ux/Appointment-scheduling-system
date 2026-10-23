@@ -77,7 +77,7 @@ describe("bookingReducer", () => {
     s = bookingReducer(s, { type: "next" });
     expect(s.step).toBe("details");
     expect(canContinue(s)).toBe(false);
-    s = bookingReducer(s, { type: "setDetails", details: { fullName: "דנה כהן", phone: "050-1234567", email: "" } });
+    s = bookingReducer(s, { type: "setDetails", details: { fullName: "דנה כהן", phone: "050-1234567", email: "dana@example.com" } });
     expect(canContinue(s)).toBe(true);
     s = bookingReducer(s, { type: "next" });
     expect(s.step).toBe("done");
@@ -106,15 +106,24 @@ describe("bookingReducer", () => {
     expect(s.serviceId).toBe(svc.id);
   });
 
+  it("requires an e-mail address: it is how the customer is identified", () => {
+    let s = initialBookingState;
+    s = { ...s, step: "details", serviceId: svc.id, day: "2026-10-15", time: "10:00" };
+    for (const email of ["", "  ", "dana", "dana@"]) {
+      s = bookingReducer(s, { type: "setDetails", details: { fullName: "דנה", phone: "050-1234567", email } });
+      expect(canContinue(s), email).toBe(false);
+    }
+  });
+
   it("requires a valid Israeli phone number and name before confirming (ACC-03)", () => {
     let s = initialBookingState;
     s = { ...s, step: "details", serviceId: svc.id, day: "2026-10-15", time: "10:00" };
     for (const phone of ["123", "050-12", "abc"]) {
-      s = bookingReducer(s, { type: "setDetails", details: { fullName: "דנה", phone, email: "" } });
+      s = bookingReducer(s, { type: "setDetails", details: { fullName: "דנה", phone, email: "dana@example.com" } });
       expect(canContinue(s), phone).toBe(false);
     }
     for (const phone of ["050-1234567", "0501234567", "+972501234567", "03-5551234"]) {
-      s = bookingReducer(s, { type: "setDetails", details: { fullName: "דנה", phone, email: "" } });
+      s = bookingReducer(s, { type: "setDetails", details: { fullName: "דנה", phone, email: "dana@example.com" } });
       expect(canContinue(s), phone).toBe(true);
     }
   });

@@ -67,11 +67,14 @@ export const fakeIp = () => `10.${Math.floor(Math.random() * 250)}.${Math.floor(
 /** A customer books through the real public API (own IP so the per-IP limits never interfere). */
 export async function publicBook(request: APIRequestContext, b: TestBusiness, date: string, time: string, n: number, serviceIndex = 0, email?: string | null) {
   const r = await request.post(`/api/public/${b.slug}/bookings`, {
-    data: { serviceId: b.services[serviceIndex].id, date, time, location: "business", customer: email === null ? { fullName: customer(n).fullName, phone: customer(n).phone } : { ...customer(n), ...(email ? { email } : {}) }, intake: {} },
+    data: { serviceId: b.services[serviceIndex].id, date, time, location: "business", customer: { ...customer(n), ...(email ? { email } : {}) }, intake: {} },
     headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `idem-${Math.random().toString(36).slice(2)}-${n}` },
   });
   expect(r.status(), await r.text()).toBe(201);
-  return (await r.json()).booking as { id: string; date: string; time: string };
+  const booking = (await r.json()).booking as { id: string; date: string; time: string };
+  // `email: null` = an appointment that has no address on file (a walk-in the owner entered): the public form always asks for one now, so the address is removed afterwards, the way erasure does
+  if (email === null) sql(`set session_replication_role = replica; update public.customers set email = null, email_key = null where id = (select customer_id from public.appointments where id = '${booking.id}'); update public.appointments set contact_email = null where id = '${booking.id}'; set session_replication_role = origin;`);
+  return booking;
 }
 
 /** The `nth` bookable day (0 = first). Specs that depend on global jobs pick distinct days, two or more apart, so their time windows never overlap. */

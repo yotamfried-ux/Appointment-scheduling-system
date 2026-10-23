@@ -61,7 +61,7 @@ select throws_ok($$ select public.public_reschedule((select appt from v), now() 
 
 -- RSC-02: inside the cancellation window a move is not allowed either
 select pg_temp.as_system();
-create temp table soon as select (public.public_book((select a from ids), (select s1 from ids), now() + interval '2 hours', 'מאוחר', '+972502220003', null, 'business', '{}', 'rkey-0003', 'rh-3') ->> 'id')::uuid as appt;
+create temp table soon as select (public.public_book((select a from ids), (select s1 from ids), now() + interval '2 hours', 'מאוחר', '+972502220003', 'u972502220003@example.com', 'business', '{}', 'rkey-0003', 'rh-3') ->> 'id')::uuid as appt;
 grant select on soon to service_role;
 select pg_temp.as_service();
 select throws_ok($$ select public.public_reschedule((select appt from soon), now() + interval '3 days') $$, 'P0001', 'too_late', 'RSC-02: after the cancellation deadline the move is refused');
@@ -75,7 +75,7 @@ select throws_ok($$ select public.public_reschedule((select appt from o), now() 
 -- approval-required services go back to pending
 select pg_temp.as_system();
 update public.businesses set requires_approval = true where id = (select a from ids);
-create temp table c1 as select (public.public_book((select a from ids), (select s1 from ids), now() + interval '12 days', 'מאושרת', '+972502220004', null, 'business', '{}', 'rkey-0004', 'rh-4') ->> 'id')::uuid as appt;
+create temp table c1 as select (public.public_book((select a from ids), (select s1 from ids), now() + interval '12 days', 'מאושרת', '+972502220004', 'u972502220004@example.com', 'business', '{}', 'rkey-0004', 'rh-4') ->> 'id')::uuid as appt;
 update public.appointments set status = 'confirmed' where id = (select appt from c1);
 grant select on c1 to service_role;
 select pg_temp.as_service();

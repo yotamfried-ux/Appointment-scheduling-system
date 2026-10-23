@@ -88,14 +88,14 @@ test.describe("the customer changes the service while moving (RSC-03)", () => {
     await days.nth(1).click();
     await page.locator('[data-testid^="resched-time-"]').first().click();
     await page.getByTestId("resched-confirm").click();
-    await expect(page).toHaveURL(new RegExp(`${a.manageUrl}$`));
+    await expect(page).toHaveURL(new RegExp(`/book/[^/?]+\\?m=`)); // back on the booking page with the customer's own appointment
     const after = await row(a.id);
     expect(after.service_id).toBe(s1.id);
     expect((Date.parse(after.ends_at) - Date.parse(after.starts_at)) / 60000).toBe(len(s1.id));
     expect(after.service_snapshot).toMatchObject({ name: s1.name, durationMinutes: len(s1.id) });
     expect(after.price_cents).toBe(Number(sql(`select price_cents from public.services where id='${s1.id}'`)));
     await expect(page.getByTestId("manage-status")).toBeVisible();
-    await expect(page.getByText(s1.name)).toBeVisible();
+    await expect(page.getByTestId("manage-panel").getByText(s1.name)).toBeVisible();
   });
 
 });

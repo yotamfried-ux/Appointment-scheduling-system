@@ -130,7 +130,7 @@ select is(cardinality(private.team_candidates((select a from ids), (select color
 
 -- ================================================================ TEAM-05/06: assignment and the race
 create function pg_temp.book(p_start timestamptz, p_phone text, p_people uuid[] default null, p_chosen boolean default false, p_service uuid default null) returns jsonb language sql as $$
-  select public.public_book_team((select a from ids), coalesce(p_service, (select cut from ids)), p_start, 'לקוח ' || p_phone, p_phone, null, 'business', '{}', 'k-' || p_phone, 'h-' || p_phone, p_people, p_chosen)
+  select public.public_book_team((select a from ids), coalesce(p_service, (select cut from ids)), p_start, 'לקוח ' || p_phone, p_phone, 'u' || regexp_replace(p_phone, '\D', '', 'g') || '@example.com', 'business', '{}', 'k-' || p_phone, 'h-' || p_phone, p_people, p_chosen)
 $$;
 create function pg_temp.who(p_id text) returns uuid language sql as $$ select resource_id from public.appointments where id = p_id::uuid $$;
 select pg_temp.as_service();
@@ -172,7 +172,7 @@ select throws_ok($$ select pg_temp.book((select s from t4) + interval '2 hours',
 select is(pg_temp.book((select s from t4) + interval '1 hour', '+972508000011', array[(select pb from ids), (select noam from team)]) -> 'replay', 'true'::jsonb, 'BKG-04: the same key and request is a replay, not a second booking');
 
 -- the old single-person entry point keeps working for a one-person case
-select is((select (public.public_book((select b from ids), (select sb from ids), (select day from ids) + interval '10 hours', 'לקוח', '+972508000020', null, 'business', '{}', 'k-old-00001', 'h-old') ->> 'status')), 'confirmed', 'the 10-argument public_book still works');
+select is((select (public.public_book((select b from ids), (select sb from ids), (select day from ids) + interval '10 hours', 'לקוח', '+972508000020', 'u972508000020@example.com', 'business', '{}', 'k-old-00001', 'h-old') ->> 'status')), 'confirmed', 'the 10-argument public_book still works');
 select pg_temp.as_system();
 select is((select resource_id from public.appointments where business_id = (select b from ids)), (select pb from ids), 'and books the only person');
 
@@ -262,7 +262,7 @@ select pg_temp.as_user('00000000-0000-0000-0000-00000000c1b1');
 select is((select count(*)::int from public.service_staff), 0, 'owner B sees no rows of business A');
 select is((select count(*)::int from public.resources where business_id = (select a from ids)), 0, 'nor A''s people');
 select pg_temp.as_anon();
-select throws_ok($$ select public.public_book_team((select a from ids), (select cut from ids), now() + interval '30 days', 'x', '+972508000070', null, 'business', '{}', 'k', 'h', null, false) $$, '42501', null, 'anon cannot call the team booking directly');
+select throws_ok($$ select public.public_book_team((select a from ids), (select cut from ids), now() + interval '30 days', 'x', '+972508000070', 'u972508000070@example.com', 'business', '{}', 'k', 'h', null, false) $$, '42501', null, 'anon cannot call the team booking directly');
 select throws_ok($$ select * from public.service_staff $$, '42501', null, 'anon cannot read service_staff');
 select pg_temp.as_system();
 -- the old single-person assumption must be gone from every function except the ones that create/seed the default person

@@ -5,6 +5,7 @@ import { createBusiness } from "@/modules/tenancy/service";
 import { CreateBusinessInput } from "@/modules/tenancy/schema";
 import type { TenancyErrorCode } from "@/modules/tenancy/errors";
 import { checkSession } from "@/lib/auth/live-session";
+import { legalAccepted } from "@/lib/legal/gate";
 
 export type CreateBusinessResult = { ok: true; slug: string } | { ok: false; code: TenancyErrorCode };
 
@@ -16,6 +17,7 @@ export async function createBusinessAction(raw: unknown): Promise<CreateBusiness
   const gate = data?.claims ? await checkSession(supabase, data.claims) : null;
   if (!gate?.live) return { ok: false, code: "NOT_AUTHENTICATED" };
   if (!gate.secondFactor) return { ok: false, code: "FORBIDDEN" };
+  if (!(await legalAccepted(supabase))) return { ok: false, code: "FORBIDDEN" }; // CMP-03 on actions too
   const parsed = CreateBusinessInput.safeParse(raw);
   if (!parsed.success) return { ok: false, code: "VALIDATION" };
   const r = await createBusiness(supabase, parsed.data);

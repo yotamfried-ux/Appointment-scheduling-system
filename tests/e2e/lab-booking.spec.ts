@@ -52,6 +52,8 @@ test.describe("design lab · booking flow", () => {
     await page.getByLabel("טלפון נייד").fill("050-12");
     await page.getByTestId("continue").click();
     await expect(page.getByText("מספר הטלפון אינו תקין.")).toBeVisible();
+    await expect(page.getByText("יש להזין כתובת אימייל.")).toBeVisible(); // the address identifies the customer: it is required
+    await page.getByLabel("אימייל").fill("noam@example.com");
     await expect(page.getByLabel("טלפון נייד")).toHaveAttribute("aria-invalid", "true");
     await noOverflow(page);
     expect((await axe(page)).violations).toEqual([]);

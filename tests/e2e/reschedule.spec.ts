@@ -47,7 +47,7 @@ test.describe("customer reschedules (RSC-01/02)", () => {
     expect((await axe(page)).violations).toEqual([]);
     const target = await choose(page, f.date);
     await page.getByTestId("resched-confirm").click();
-    await expect(page).toHaveURL(new RegExp(`${a.manageUrl}$`));
+    await expect(page).toHaveURL(new RegExp(`/book/${b.slug}\\?m=`)); // back on the booking page with the customer's own appointment
 
     const after = await row(a.id);
     expect(after.id).toBe(before.id);
@@ -97,7 +97,7 @@ test.describe("customer reschedules (RSC-01/02)", () => {
     await expect(times.first()).toBeVisible();
     await times.first().click();
     await page.getByTestId("resched-confirm").click();
-    await expect(page).toHaveURL(new RegExp(`${a.manageUrl}$`));
+    await expect(page).toHaveURL(new RegExp(`/book/${b.slug}\\?m=`)); // back on the booking page with the customer's own appointment
     expect((await row(a.id)).rescheduled_count).toBe(1);
   });
 

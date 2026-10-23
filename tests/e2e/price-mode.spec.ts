@@ -34,7 +34,7 @@ test("the owner chooses how each price is shown; customers see exactly that; a f
   const res = await request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: s0.id, date: f.date, time: f.times[0], location: "business", customer: { fullName: "חינם", phone: "0501119999", email: `free${Date.now()}@example.com` }, intake: {} }, headers: { "x-forwarded-for": "10.9.9.9", "idempotency-key": `free-${Date.now()}-1234` } });
   expect(res.status()).toBe(201);
   await page.goto((await res.json()).booking.manageUrl);
-  await expect(page.getByText("ללא עלות")).toBeVisible();
+  await expect(page.getByTestId("manage-panel").getByText("ללא עלות")).toBeVisible();
 });
 
 test("the database refuses a 'free' service with a price (a bypassed UI cannot store nonsense)", async () => {

@@ -167,7 +167,7 @@ describe("booking lifecycle", () => {
   it("reusing a key with a different body → 422 IDEMPOTENCY_KEY_REUSED", async () => {
     const f = await firstFree("barber");
     await post(bookingsPOST as never, "barber", "bookings", bookingBody("barber", f), { "idempotency-key": "k" });
-    const r = await post(bookingsPOST as never, "barber", "bookings", bookingBody("barber", f, { customer: { fullName: "אחר אחר", phone: "050-1234567" } }), { "idempotency-key": "k" });
+    const r = await post(bookingsPOST as never, "barber", "bookings", bookingBody("barber", f, { customer: { fullName: "אחר אחר", phone: "050-1234567", email: "other@example.com" } }), { "idempotency-key": "k" });
     expect(r.res.status).toBe(422);
     expectError(r.body, "IDEMPOTENCY_KEY_REUSED");
   });
@@ -181,6 +181,12 @@ describe("booking lifecycle", () => {
     expect(extra.res.status).toBe(422);
   });
 
+  it("the customer is identified by e-mail: a booking without one is refused (owner decision 2026-10-23)", () => {
+    const base = { serviceId: "s", date: "2026-10-14", time: "10:00", customer: { fullName: "נועם לוי", phone: "050-1234567" } };
+    expect(C.CreateBookingRequest.safeParse(base).success).toBe(false);
+    expect(C.CreateBookingRequest.safeParse({ ...base, customer: { ...base.customer, email: "" } }).success).toBe(false);
+    expect(C.CreateBookingRequest.safeParse({ ...base, customer: { ...base.customer, email: "noam@example.com" } }).success).toBe(true);
+  });
   it("validation errors name each failing field (phone, email, name)", async () => {
     const f = await firstFree("barber");
     const r = await post(

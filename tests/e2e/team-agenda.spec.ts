@@ -72,7 +72,7 @@ test("a person who is switched off keeps their future appointments and the agend
   const { b, noam } = await teamBusiness();
   const f = await firstDayWithSlots(request, b);
   const named = await request.post(`/api/public/${b.slug}/bookings`, {
-    data: { serviceId: b.services[0].id, date: f.date, time: f.times[0], location: "business", personId: noam, customer: { fullName: "יעל", phone: "+972501234571" }, intake: {} },
+    data: { serviceId: b.services[0].id, date: f.date, time: f.times[0], location: "business", personId: noam, customer: { fullName: "יעל", phone: "+972501234571", email: `yael${Date.now()}@example.com` }, intake: {} },
     headers: { "x-forwarded-for": "10.7.7.7", "idempotency-key": `idem-${Math.random().toString(36).slice(2)}-orph` },
   });
   expect(named.status()).toBe(201);

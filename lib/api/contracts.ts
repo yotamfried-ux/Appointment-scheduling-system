@@ -84,7 +84,8 @@ export const CreateBookingRequest = z
       .object({
         fullName: z.string().trim().min(2, "יש להזין שם (לפחות 2 תווים).").max(80, "השם ארוך מדי."),
         phone: z.string().min(1, "יש להזין מספר טלפון.").refine((v) => normalizePhone(v) !== null, "מספר הטלפון אינו תקין."),
-        email: z.string().trim().refine((v) => v === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), "כתובת האימייל אינה תקינה.").optional(),
+        /** The customer is identified by this address (owner decision 2026-10-23); the confirmation and the link to manage the appointment go to it. */
+        email: z.string().trim().min(1, "יש להזין כתובת אימייל — אליה נשלח האישור והקישור לניהול התור.").refine((v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), "כתובת האימייל אינה תקינה."),
       })
       .strict(),
     intake: z.record(z.string(), z.string()).default({}),

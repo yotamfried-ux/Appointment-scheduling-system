@@ -50,7 +50,7 @@ export interface IntakeRule {
 
 export function detailsValid(d: BookingDetails, required: IntakeRule[] = []): boolean {
   if (required.some((r) => r.required && !(d.intake?.[r.id] ?? "").trim())) return false;
-  return d.fullName.trim().length >= 2 && normalizePhone(d.phone) !== null && (d.email.trim() === "" || EMAIL.test(d.email.trim()));
+  return d.fullName.trim().length >= 2 && normalizePhone(d.phone) !== null && EMAIL.test(d.email.trim());
 }
 
 export function canContinue(s: BookingState, required: IntakeRule[] = []): boolean {

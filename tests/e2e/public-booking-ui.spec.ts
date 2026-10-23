@@ -31,6 +31,7 @@ async function pickSlot(page: Page, b: TestBusiness, serviceIndex = 0) {
 async function details(page: Page, kind: BusinessKindId, phone = "050-1234567") {
   await page.getByLabel("שם מלא").fill("נועם לוי");
   await page.getByLabel("טלפון נייד").fill(phone);
+  await page.getByLabel("אימייל").fill(`ui${Math.random().toString(36).slice(2, 9)}@example.com`);
   for (const f of BUSINESS_KINDS[kind].intake.filter((x) => x.required)) {
     const el = page.getByTestId(`intake-${f.id}`);
     if (f.type === "select") await el.selectOption(f.options![0]);
@@ -260,12 +261,12 @@ test.describe("customer's private link (/booking/[token])", () => {
     expect((await axe(page)).violations).toEqual([]);
   });
 
-  test("the cancel token is single-use: replaying the server action after cancelling never double-cancels", async ({ page }) => {
+  test("cancelling twice is harmless: replaying the server action after cancelling changes nothing", async ({ page }) => {
     const { biz, link } = await bookedWithLink(page);
     await page.goto(link);
     const posts: { url: string; headers: Record<string, string>; body: string }[] = [];
     page.on("request", (r) => {
-      if (r.method() === "POST" && r.url().includes("/booking/")) posts.push({ url: r.url(), headers: r.headers(), body: r.postData() ?? "" });
+      if (r.method() === "POST") posts.push({ url: r.url(), headers: r.headers(), body: r.postData() ?? "" });
     });
     await page.getByTestId("cancel-start").click();
     await page.getByTestId("cancel-confirm").click();
@@ -287,11 +288,11 @@ test.describe("customer's private link (/booking/[token])", () => {
       if (r.method() === "POST") posts.push({ url: r.url(), headers: r.headers(), body: r.postData() ?? "" });
     });
     // capture the action request, but stop it before it reaches the server
-    await page.route("**/booking/**", (route) => (route.request().method() === "POST" ? route.abort() : route.continue()));
+    await page.route("**/book/**", (route) => (route.request().method() === "POST" ? route.abort() : route.continue()));
     await page.getByTestId("cancel-start").click();
     await page.getByTestId("cancel-confirm").click();
     await expect.poll(() => posts.length).toBeGreaterThan(0);
-    await page.unroute("**/booking/**");
+    await page.unroute("**/book/**");
     const p = posts[0];
     const forged = await page.request.post(p.url, { headers: { ...p.headers, origin: "https://evil.example", "content-length": undefined as never }, data: p.body });
     expect(forged.status()).toBeGreaterThanOrEqual(400);
