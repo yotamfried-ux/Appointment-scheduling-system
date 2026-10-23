@@ -162,7 +162,7 @@ test.describe("booking ↔ dashboard integration", () => {
     const time = slots.slots[0].time;
     const created = await page.request.post(`/api/lab/${kind}/bookings`, {
       headers: { ...hdr(session), "idempotency-key": "int-1" },
-      data: { serviceId: "short", date: "2026-10-14", time, location: "business", customer: { fullName: "מאיה אלון", phone: "050-1234567" }, intake: {} },
+      data: { serviceId: "short", date: "2026-10-14", time, location: "business", customer: { fullName: "מאיה אלון", phone: "050-1234567", email: "maya@example.com" }, intake: {} },
     });
     expect(created.status()).toBe(201);
     const booking = C.CreateBookingResponse.parse(await created.json()).booking;

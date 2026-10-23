@@ -25,7 +25,7 @@ test("owner dashboard is balanced with real data", async ({ page }) => {
   await publicBook(page.request, b, f.date, f.times[0], 1);
   await publicBook(page.request, b, f.date, f.times[2], 2);
   const long = await page.request.post(`/api/public/${b.slug}/bookings`, {
-    data: { serviceId: b.services[0].id, date: f.date, time: f.times[4], location: "business", customer: { fullName: "שם-ארוך-מאוד-של-לקוח-שלא-נגמר-אף-פעם-ולא-נשבר-בשום-מקום-כלל", phone: "050-1112233" }, intake: {} },
+    data: { serviceId: b.services[0].id, date: f.date, time: f.times[4], location: "business", customer: { fullName: "שם-ארוך-מאוד-של-לקוח-שלא-נגמר-אף-פעם-ולא-נשבר-בשום-מקום-כלל", phone: "050-1112233", email: `long${Date.now()}@example.com` }, intake: {} },
     headers: { "x-forwarded-for": "10.7.7.7", "idempotency-key": `long-${Math.random().toString(36).slice(2)}` },
   });
   expect(long.status()).toBe(201);
