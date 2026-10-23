@@ -8,10 +8,11 @@ import { mail } from "./helpers/outbox";
 const axe = (page: Page) => new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
 const noOverflow = async (page: Page) => expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 const PHONE = "+972504447788";
+const EMAIL = "nsd.fixture@example.com"; // the customer is identified by e-mail, so the fixture and the bookings share one address
 
 /** A customer with `n` no-shows in the last weeks (fixtures bypass the guard triggers, as the database tests do). */
 function withNoShows(b: TestBusiness, n: number) {
-  const id = sql(`insert into public.customers (business_id, full_name, phone) values ('${b.id}', 'חסר אחריות', '${PHONE}') returning id`).split("\n")[0].trim();
+  const id = sql(`insert into public.customers (business_id, full_name, phone, email) values ('${b.id}', 'חסר אחריות', '${PHONE}', '${EMAIL}') returning id`).split("\n")[0].trim();
   for (let i = 0; i < n; i++) {
     sql(`set session_replication_role = replica;
       insert into public.appointments (business_id, resource_id, service_id, customer_id, reference, status, location, intake, starts_at, ends_at, blocked_until, service_snapshot, price_cents, currency)
@@ -24,7 +25,7 @@ function withNoShows(b: TestBusiness, n: number) {
 
 const book = async (request: APIRequestContext, b: TestBusiness, date: string, time: string, key: string) =>
   request.post(`/api/public/${b.slug}/bookings`, {
-    data: { serviceId: b.services[0].id, date, time, location: "business", customer: { fullName: "חסר אחריות", phone: PHONE.replace("+972", "0"), email: mail() }, intake: {} },
+    data: { serviceId: b.services[0].id, date, time, location: "business", customer: { fullName: "חסר אחריות", phone: PHONE.replace("+972", "0"), email: EMAIL }, intake: {} },
     headers: { "x-forwarded-for": fakeIp(), "idempotency-key": key },
   });
 

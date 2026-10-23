@@ -60,7 +60,7 @@ test.describe("joining (WLT-08)", () => {
     expect((await admin().from("waitlist_entries").select("id").eq("business_id", b.id)).data).toEqual([]); // nothing was created
   });
 
-  test("SEC: a stranger who replays someone's phone number gets no manage link; the original browser (same key) still does", async ({ request }) => {
+  test("SEC: a stranger who replays someone's e-mail address gets no manage link; the original browser (same key) still does", async ({ request }) => {
     const b = await makeBusiness("barber");
     const f = await firstDayWithSlots(request, b);
     const victim = { fullName: "נועם לוי", phone: "050-4445577", email: mail() };
@@ -68,7 +68,7 @@ test.describe("joining (WLT-08)", () => {
     const first = await join(request, b, f.date, 1, body, { "idempotency-key": "victim-browser-key-1" });
     expect(first.status()).toBe(201);
     expect((await first.json()).manageUrl).toMatch(/^\/waitlist\//);
-    const attacker = await join(request, b, f.date, 1, { date: f.date, customer: { ...victim, email: mail() } }, { "idempotency-key": "attacker-key-0001" });
+    const attacker = await join(request, b, f.date, 1, { date: f.date, customer: { ...victim, phone: "050-4445599" } }, { "idempotency-key": "attacker-key-0001" });
     expect(attacker.status()).toBe(200);
     const stranger = await attacker.json();
     expect(stranger.manageUrl).toBeUndefined();
@@ -84,7 +84,8 @@ test.describe("joining (WLT-08)", () => {
   test("joining twice is idempotent (200 + Idempotent-Replay); at most three active entries per customer; the same phone for another business is separate", async ({ request }) => {
     const b = await makeBusiness("barber");
     const f = await firstDayWithSlots(request, b);
-    const data = (date: string) => ({ date, customer: { fullName: "נועם לוי", phone: "050-4445566", email: mail() } });
+    const email = mail(); // the customer is identified by the address
+    const data = (date: string) => ({ date, customer: { fullName: "נועם לוי", phone: "050-4445566", email } });
     const first = await join(request, b, f.date, 1, data(f.date));
     const again = await join(request, b, f.date, 1, data(f.date));
     expect(first.status()).toBe(201);
