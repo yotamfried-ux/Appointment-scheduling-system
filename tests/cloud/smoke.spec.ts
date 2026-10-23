@@ -48,7 +48,7 @@ test.describe("a visitor", () => {
   test("the landing page tells what the product does, with no console errors and no prices", async ({ page }, info) => {
     const w = watch(page);
     await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toContainText("הלקוחות קובעים תור בעצמם");
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("הלקוחות קובעים לבד");
     await expect(page.locator("main")).not.toContainText("₪");
     await expect(page.getByRole("link", { name: /כניסה/ }).first()).toBeVisible();
     await looksRight(page, "landing");

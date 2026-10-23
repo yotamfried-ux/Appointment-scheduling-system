@@ -6,7 +6,7 @@ const axe = (page: Page) => new AxeBuilder({ page }).withTags(["wcag2a", "wcag2a
 
 test("the landing page explains the product, shows what the customer sees, no prices, and leads to sign-up", async ({ page }) => {
   await page.goto("/");
-  await expect(page.getByTestId("home-title")).toHaveText("הלקוחות קובעים תור בעצמם. אתם עובדים.");
+  await expect(page.getByTestId("home-title")).toHaveText("הלקוחות קובעים לבד. אתם חוזרים לעבוד.");
   await expect(page.locator("main")).not.toContainText("בבנייה"); // no development placeholder
   await expect(page.getByTestId("home-kinds").locator("li")).toHaveCount(6);
   await expect(page.getByTestId("home-kinds")).toContainText("מניקוריסט/ית");
