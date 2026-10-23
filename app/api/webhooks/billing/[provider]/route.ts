@@ -26,6 +26,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ provider: stri
     return NextResponse.json({ error: { code: "BAD_REQUEST" } }, { status: 400, headers });
   }
   const results: string[] = [];
-  for (const e of events) results.push(await applyBillingEvent(adapter.name, e));
+  try {
+    for (const e of events) results.push(await applyBillingEvent(adapter.name, e));
+  } catch {
+    // The signature was valid but the database refused the event (for example an impossible timestamp). Answer exactly like a rejected event, so that the
+    // status code never tells a stranger whether the signature was right (Strix: error oracle). The provider retries or flags a 4xx on its own side.
+    console.warn(JSON.stringify({ level: "warn", msg: "billing webhook event refused by the database", provider }));
+    return NextResponse.json({ error: { code: "BAD_REQUEST" } }, { status: 400, headers });
+  }
   return NextResponse.json({ results }, { headers });
 }
