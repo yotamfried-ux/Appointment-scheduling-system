@@ -1,5 +1,5 @@
 // Zod at the boundary (docs/05 §5.5). The browser never sends tenant ids or slugs: the slug is derived on the server
-// from the name, and the tenant comes from the session (SEC-02).
+// from the name unless the owner picked a link name (checked here and again by the database), and the tenant comes from the session (SEC-02).
 import { z } from "zod";
 import { suggestSlug, windowsValid } from "@/lib/lab/onboarding";
 import { normalizePhone } from "@/lib/phone";
@@ -28,6 +28,8 @@ export const CreateBusinessInput = z
   .object({
     name: z.string().trim().min(2).max(80),
     kind: z.enum(KIND_IDS),
+    // Optional link name chosen by the owner; the database still enforces uniqueness and format.
+    slug: z.string().trim().toLowerCase().min(3).max(40).regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).optional(),
     phone: z.string().transform((v, ctx) => {
       const n = normalizePhone(v);
       if (!n) ctx.addIssue({ code: "custom", message: "invalid phone" });
@@ -46,8 +48,8 @@ const pad = (s: string) => (s.length < 3 ? `${s}-biz` : s);
  * Candidate slugs tried in order when the preferred one is taken: base, base-2 … base-5, then base-<random> so a very
  * common name (every "מספרת הדר") can never be locked out. ≤ 40 chars each; `rand` is injectable for tests.
  */
-export function slugCandidates(name: string, rand: () => number = Math.random): string[] {
-  const base = suggestSlug(name);
+export function slugCandidates(name: string, rand: () => number = Math.random, preferred?: string): string[] {
+  const base = preferred ?? suggestSlug(name);
   const numbered = [2, 3, 4, 5].map((n) => `${trim(base, String(n).length + 1)}-${n}`);
   const random = [0, 1, 2].map(() => `${trim(base, 5)}-${Math.floor(rand() * 36 ** 4).toString(36).padStart(4, "0")}`);
   return [base, ...numbered, ...random].map(pad);

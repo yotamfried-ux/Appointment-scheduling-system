@@ -16,10 +16,15 @@ describe("CreateBusinessInput (SEC-02/SEC-08/ACC-03)", () => {
     const r = CreateBusinessInput.parse(base);
     expect(r.phone).toBe("+972501234567");
   });
-  it("rejects client-supplied tenant/slug/extra fields (strict)", () => {
+  it("rejects client-supplied tenant/extra fields (strict)", () => {
     expect(CreateBusinessInput.safeParse({ ...base, businessId: "x" }).success).toBe(false);
-    expect(CreateBusinessInput.safeParse({ ...base, slug: "mine" }).success).toBe(false);
     expect(CreateBusinessInput.safeParse({ ...base, created_by: "x" }).success).toBe(false);
+  });
+  it("accepts a well-formed link name and rejects a malformed one", () => {
+    expect(CreateBusinessInput.safeParse({ ...base, slug: "my-shop" }).success).toBe(true);
+    for (const bad of ["ab", "-shop", "shop-", "my shop", "shop_1", "מספרה", "a".repeat(41)]) {
+      expect(CreateBusinessInput.safeParse({ ...base, slug: bad }).success, bad).toBe(false);
+    }
   });
   it.each([
     ["short name", { name: "א" }],

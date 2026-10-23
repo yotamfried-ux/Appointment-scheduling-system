@@ -1,13 +1,13 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
-import { createBusiness } from "@/modules/tenancy/service";
+import { createBusiness, publishBusiness } from "@/modules/tenancy/service";
 import { CreateBusinessInput } from "@/modules/tenancy/schema";
 import type { TenancyErrorCode } from "@/modules/tenancy/errors";
 import { checkSession } from "@/lib/auth/live-session";
 import { legalAccepted } from "@/lib/legal/gate";
 
-export type CreateBusinessResult = { ok: true; slug: string } | { ok: false; code: TenancyErrorCode };
+export type CreateBusinessResult = { ok: true; slug: string; published: boolean } | { ok: false; code: TenancyErrorCode };
 
 // Server Action: Next.js verifies Origin/Host for Server Actions (CSRF, SEC-05). The tenant is the session user:
 // nothing about identity or slug is read from the request body.
@@ -21,5 +21,8 @@ export async function createBusinessAction(raw: unknown): Promise<CreateBusiness
   const parsed = CreateBusinessInput.safeParse(raw);
   if (!parsed.success) return { ok: false, code: "VALIDATION" };
   const r = await createBusiness(supabase, parsed.data);
-  return r.ok ? { ok: true, slug: r.value.slug } : { ok: false, code: r.code };
+  if (!r.ok) return { ok: false, code: r.code };
+  // The link goes live right away. If publishing is refused (e-mail not verified, needs review) the business stays a draft and the dashboard offers the button.
+  const published = await publishBusiness(supabase, r.value.id);
+  return { ok: true, slug: r.value.slug, published: published.ok };
 }

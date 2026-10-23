@@ -22,10 +22,11 @@ async function signUpVerified(page: Page, email: string) {
   await expect(page).toHaveURL(/\/onboarding/);
 }
 
-async function completeOnboarding(page: Page, name: string, kind = "barber") {
+async function completeOnboarding(page: Page, name: string, kind = "barber", slug?: string) {
   await page.getByLabel("שם העסק").fill(name);
   await page.getByLabel("טלפון ליצירת קשר").fill("050-1234567");
   await page.getByLabel("סוג העסק").selectOption(kind);
+  if (slug) await page.getByTestId("link-input").fill(slug);
   await page.getByTestId("continue").click();
   await page.getByTestId("continue").click();
   await page.getByTestId("continue").click();
@@ -47,24 +48,33 @@ test.describe("onboarding persists a tenant (ACC-01, ACC-04, ACC-06)", () => {
     await expect(page.getByTestId("whoami")).toHaveText(email);
     await completeOnboarding(page, "מספרת הדר בדיקה");
 
-    await expect(page.getByTestId("share-link")).toHaveCount(0); // the link is not shown before publishing
+    const link = (await page.getByTestId("share-link").innerText()).trim(); // live at once: the business is published when it is created
     await page.getByRole("link", { name: "לדשבורד" }).click();
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByRole("heading", { level: 1 })).toContainText("מספרת הדר בדיקה");
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
-    await expect(page.getByTestId("biz-link")).toHaveText(/\/book\/[a-z0-9]+(-[a-z0-9]+)*$/); // the slug the server really assigned
+    await expect(page.getByTestId("biz-link")).toHaveText(link); // the slug the server really assigned
     await expect(page.getByTestId("biz-kind")).toHaveText("מספרה");
-    await expect(page.getByTestId("biz-status")).toContainText("טיוטה");
+    await expect(page.getByTestId("biz-status")).toHaveText("פורסם");
+    await expect(page.getByTestId("publish")).toHaveCount(0);
 
     // visiting onboarding again does not create a second business
     await page.goto("/onboarding");
     await expect(page).toHaveURL(/\/dashboard/);
 
-    await page.getByTestId("publish").click();
-    await expect(page.getByTestId("biz-status")).toHaveText("פורסם");
     await page.reload();
     await expect(page.getByTestId("biz-status")).toHaveText("פורסם");
     await expect(page.getByTestId("publish")).toHaveCount(0);
+  });
+
+  test("the owner picks the link name and the booking page works right away", async ({ page }) => {
+    await signUpVerified(page, unique("linkname"));
+    const slug = `my-shop-${Math.random().toString(36).slice(2, 8).replace(/[0-9]/g, "x")}`;
+    await completeOnboarding(page, "מספרת הדר", "barber", slug);
+    await expect(page.getByTestId("share-link")).toContainText(`/book/${slug}`);
+    const res = await page.goto(`/book/${slug}`);
+    expect(res?.status()).toBe(200);
+    await expect(page.getByTestId("bookings-closed")).toHaveCount(0);
   });
 
   test("two owners with the same business name get different, safe slugs (ACC-06)", async ({ page, context }) => {
