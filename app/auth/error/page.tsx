@@ -15,7 +15,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
   return (
     <AuthCard title={expired ? t("expiredTitle") : t("title")} description={body}>
       {expired ? <ResendConfirmation /> : null}
-      <Button asChild size="lg">
+      <Button asChild size="lg" variant={expired ? "outline" : "default"}>
         <Link href="/auth/login">{t("toLogin")}</Link>
       </Button>
     </AuthCard>

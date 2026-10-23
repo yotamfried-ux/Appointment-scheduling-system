@@ -232,7 +232,7 @@ max_frequency = "60s"
 # Number of characters used in the email OTP.
 otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 86400   # 24 hours (owner decision 2026-10-23: 15 minutes was too short to open the mail and verify). Hosted project: Authentication > Providers > Email > "Email OTP Expiration" (docs/runbooks/auth-emails.md)
+otp_expiry = 3600   # one hour (owner decision 2026-10-23: 15 minutes was too short, a day is not needed). Hosted project: Authentication > Providers > Email > "Email OTP Expiration" = 3600 (docs/runbooks/auth-emails.md)
 
 # Use a production-ready SMTP server
 # [auth.email.smtp]
