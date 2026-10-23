@@ -17,7 +17,7 @@ const defaultUrl = process.env.NEXT_PUBLIC_SITE_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  title: { default: "קביעת תורים", template: "%s · קביעת תורים" },
+  title: { default: "תורים", template: "%s · תורים" },
   description: "מערכת קביעת תורים לעסקים קטנים",
   applicationName: "תורים",
   openGraph: { siteName: "תורים", locale: "he_IL", type: "website" },

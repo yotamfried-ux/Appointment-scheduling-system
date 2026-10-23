@@ -19,7 +19,7 @@ type Faq = { q: string; a: string };
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("home");
-  const title = `תורים: ${t("hero.title")}`;
+  const title = "תורים · הזמנת תורים אונליין לעסק שלך"; // the browser tab: short and says what the product is
   const description = t("hero.subtitle");
   return {
     title: { absolute: title },
