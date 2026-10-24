@@ -3,6 +3,7 @@ import * as C from "../../lib/api/contracts";
 import { admin, customer, fakeIp, makeBusiness, todayLocal } from "./helpers/business";
 import { fillDay, noOverflow } from "./helpers/sim";
 import { mail } from "./helpers/outbox";
+import { ACCEPTED } from "./helpers/terms";
 
 // SIM 5 · The waitlist suggests the days. After choosing a service the customer sees the open days (full ones first, then days with room),
 // picks up to three, never has to remember a date; a closed day is not offered and the API refuses it. Two days joined = two entries.
@@ -67,7 +68,7 @@ test("a direct API call for a closed day is refused (4xx VALIDATION_FAILED, 422 
   const b = await makeBusiness("barber");
   const av = C.AvailabilityResponse.parse(await (await request.get(`/api/public/${b.slug}/availability?service=${b.services[0].id}&from=${todayLocal(1)}&days=30`)).json());
   const closed = av.days.find((d) => d.closed)!;
-  const r = await request.post(`/api/public/${b.slug}/waitlist`, { data: { serviceId: b.services[0].id, date: closed.date, customer: { fullName: "נועם לוי", phone: customer(1).phone, email: mail() } }, headers: { "x-forwarded-for": fakeIp() } });
+  const r = await request.post(`/api/public/${b.slug}/waitlist`, { data: { serviceId: b.services[0].id, date: closed.date, acceptedTerms: ACCEPTED, customer: { fullName: "נועם לוי", phone: customer(1).phone, email: mail() } }, headers: { "x-forwarded-for": fakeIp() } });
   expect(r.status(), await r.text()).toBe(422);
   const body = (await r.json()).error as { code: string; details: { field: string; message: string }[] };
   expect(body.code).toBe("VALIDATION_FAILED");

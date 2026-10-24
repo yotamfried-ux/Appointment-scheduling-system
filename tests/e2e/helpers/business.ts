@@ -67,7 +67,7 @@ export const fakeIp = () => `10.${Math.floor(Math.random() * 250)}.${Math.floor(
 /** A customer books through the real public API (own IP so the per-IP limits never interfere). */
 export async function publicBook(request: APIRequestContext, b: TestBusiness, date: string, time: string, n: number, serviceIndex = 0, email?: string | null) {
   const r = await request.post(`/api/public/${b.slug}/bookings`, {
-    data: { serviceId: b.services[serviceIndex].id, date, time, location: "business", customer: { ...customer(n), ...(email ? { email } : {}) }, intake: {} },
+    data: { serviceId: b.services[serviceIndex].id, date, time, location: "business", acceptedTerms: ACCEPTED, customer: { ...customer(n), ...(email ? { email } : {}) }, intake: {} },
     headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `idem-${Math.random().toString(36).slice(2)}-${n}` },
   });
   expect(r.status(), await r.text()).toBe(201);
@@ -109,6 +109,7 @@ export async function firstDayWithSlots(request: APIRequestContext, b: TestBusin
 }
 
 import { execFileSync } from "node:child_process";
+import { ACCEPTED } from "./terms";
 /** Time-travel and inspection against the local database (the same container the app uses). Test-only. */
 export function sql(query: string): string {
   return execFileSync("docker", ["exec", "supabase_db_appointment-scheduling-system", "psql", "-U", "postgres", "-At", "-c", query], { encoding: "utf8" }).trim();

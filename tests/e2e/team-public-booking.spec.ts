@@ -2,12 +2,13 @@ import { expect, test } from "@playwright/test";
 import * as C from "../../lib/api/contracts";
 import { kindHours } from "../../lib/lab/onboarding";
 import { admin, customer, fakeIp, firstDayWithSlots, makeBusiness } from "./helpers/business";
+import { ACCEPTED } from "./helpers/terms";
 
 // Stage 16 / TEAM-04, 05, 06 through the real public API: two people share one booking page.
 const post = (request: import("@playwright/test").APIRequestContext, slug: string, body: unknown) =>
   request.post(`/api/public/${slug}/bookings`, { data: body, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `idem-${Math.random().toString(36).slice(2)}` } });
 const book = (request: import("@playwright/test").APIRequestContext, b: Awaited<ReturnType<typeof makeBusiness>>, date: string, time: string, n: number, personId?: string) =>
-  post(request, b.slug, { serviceId: b.services[0].id, date, time, location: "business", customer: customer(n), intake: {}, ...(personId ? { personId } : {}) });
+  post(request, b.slug, { serviceId: b.services[0].id, date, time, location: "business", acceptedTerms: ACCEPTED, customer: customer(n), intake: {}, ...(personId ? { personId } : {}) });
 
 test("two people: the page offers the union, 'whoever is free' spreads over both, a named person is never swapped, a third booking is refused", async ({ request }) => {
   const b = await makeBusiness("barber");

@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
+import { TermsAcceptanceBox, useTermsAcceptance } from "@/components/legal/terms-acceptance";
 import { FormField } from "@/components/patterns/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,7 @@ import { ApiClientError, labApi } from "@/lib/api/client";
 import { formatDayLabel } from "@/lib/lab/booking-data";
 import { cn } from "@/lib/utils";
 
-const FIELD: Record<string, string> = { serviceId: "service", date: "date", window: "window", "window.from": "window", "window.to": "window", "customer.fullName": "name", "customer.phone": "phone", "customer.email": "email" };
+const FIELD: Record<string, string> = { serviceId: "service", date: "date", window: "window", "window.from": "window", "window.to": "window", "customer.fullName": "name", "customer.phone": "phone", "customer.email": "email", acceptedTerms: "terms", "acceptedTerms.terms": "terms", "acceptedTerms.privacy": "terms" };
 
 const MAX_DAYS = 3; // the same limit the server enforces (WAITLIST_LIMIT)
 
@@ -24,6 +25,7 @@ export function WaitlistJoinForm({ slug, services, initialService, today, horizo
   const [days, setDays] = useState<{ status: "idle" | "loading" | "error" } | { status: "ready"; list: Day[] }>({ status: "idle" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
+  const terms = useTermsAcceptance();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ joined: { date: string; url: string | null; created: boolean }[]; failed: string[] } | null>(null);
   const idemKeys = useRef(new Map<string, string>()); // one proof per day: that this browser created that entry
@@ -64,6 +66,7 @@ export function WaitlistJoinForm({ slug, services, initialService, today, horizo
     if (!f.name.trim()) next.name = t("required");
     if (!f.phone.trim()) next.phone = t("required");
     if (!f.email.trim()) next.email = t("required");
+    if (!terms.ok) next.terms = terms.requiredMessage;
     setErrors(next);
     setFormError(null);
     if (Object.keys(next).length) return;
@@ -76,7 +79,9 @@ export function WaitlistJoinForm({ slug, services, initialService, today, horizo
           date,
           ...(f.from && f.to ? { window: { from: f.from, to: f.to } } : {}),
           customer: { fullName: f.name, phone: f.phone, email: f.email },
+          acceptedTerms: terms.payload,
         }, keyFor(date));
+        terms.remember();
         joined.push({ date, url: r.manageUrl ?? null, created: r.created });
       }
       setDone({ joined, failed: [] });
@@ -175,6 +180,7 @@ export function WaitlistJoinForm({ slug, services, initialService, today, horizo
       <FormField label={t("email")} hint={t("emailHint")} error={errors.email}>
         {(a) => <Input {...a} type="email" inputMode="email" autoComplete="email" dir="ltr" className="text-start" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} data-testid="wl-email" />}
       </FormField>
+      {terms.needed ? <TermsAcceptanceBox checked={terms.checked} onChange={(v) => { terms.setChecked(v); setErrors((e) => ({ ...e, terms: "" })); }} error={errors.terms || undefined} testId="wl-terms" /> : null}
       {formError ? <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-sm font-medium text-destructive" data-testid="wl-error">{formError}</p> : null}
       <Button type="submit" size="lg" disabled={busy} data-testid="wl-submit">{busy ? t("submitting") : t("submit")}</Button>
     </form>

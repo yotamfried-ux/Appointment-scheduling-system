@@ -2,7 +2,6 @@
 
 import { AlertTriangle, ArrowRight, CalendarPlus, Check, Timer } from "lucide-react";
 import { useTranslations } from "next-intl";
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { z } from "zod";
 import { TimeRibbon } from "@/components/brand/time-ribbon";
@@ -14,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toast";
+import { TermsAcceptanceBox, useTermsAcceptance } from "@/components/legal/terms-acceptance";
 import { ApiClientError, labApi, resolveSession, type ClientOptions } from "@/lib/api/client";
 import type * as C from "@/lib/api/contracts";
 import { priceLabel } from "@/lib/price";
@@ -38,6 +38,7 @@ const addDays = (iso: string, n: number) => new Date(Date.parse(`${iso}T12:00:00
 
 /** Server field path → form field key. */
 function fieldKey(path: string): string {
+  if (path.startsWith("acceptedTerms")) return "acceptedTerms";
   if (path.startsWith("customer.")) return path.slice("customer.".length);
   return path;
 }
@@ -48,6 +49,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
   const t = useTranslations("booking");
   const [s, dispatch] = useReducer(bookingReducer, initialBookingState);
   const [touched, setTouched] = useState(false);
+  const terms = useTermsAcceptance();
   const headingRef = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
 
@@ -154,6 +156,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
     phone: serverErrors.phone ?? (touched && normalizePhone(s.details.phone) === null ? t("details.errors.phone") : undefined),
     email: serverErrors.email ?? (touched && !EMAIL.test(s.details.email.trim()) ? t(s.details.email.trim() === "" ? "details.errors.emailRequired" : "details.errors.email") : undefined),
   };
+  detailsErrors.acceptedTerms = serverErrors.acceptedTerms ?? (touched && !terms.ok ? terms.requiredMessage : undefined);
   for (const f of business?.intake ?? []) {
     detailsErrors[`intake.${f.id}`] = serverErrors[`intake.${f.id}`] ?? (touched && f.required && !(intakeValues[f.id] ?? "").trim() ? requiredMsg : undefined);
   }
@@ -166,7 +169,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
   async function submitBooking() {
     if (!service || !s.day || !s.time || !business) return;
     setTouched(true);
-    if (!detailsValid(s.details, requiredIntake)) return;
+    if (!detailsValid(s.details, requiredIntake) || !terms.ok) return;
     const location = s.details.location ?? business.locations[0];
     const body = {
       serviceId: service.id,
@@ -176,6 +179,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
       ...(personId ? { personId } : {}),
       customer: { fullName: s.details.fullName.trim(), phone: s.details.phone, email: s.details.email.trim() },
       intake: Object.fromEntries(Object.entries(intakeValues).filter(([, v]) => v.trim() !== "")),
+      acceptedTerms: terms.payload,
     } as z.input<typeof C.CreateBookingRequest>;
     // Same payload ⇒ same Idempotency-Key, so a retry after a lost response can never create a second booking.
     const sig = JSON.stringify(body);
@@ -185,6 +189,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
     setServerErrors({});
     try {
       const b = await labApi.createBooking(opts, body, idem.current.key);
+      terms.remember();
       setBooking(b);
       setSubmit({ status: "idle" });
       dispatch({ type: "next" });
@@ -468,12 +473,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
                 {submit.message}
               </div>
             ) : null}
-            <p className="text-xs text-muted-foreground">
-              {t.rich("details.consent", {
-                terms: (c) => <Link href="/terms" className="underline underline-offset-2">{c}</Link>,
-                privacy: (c) => <Link href="/privacy" className="underline underline-offset-2">{c}</Link>,
-              })}
-            </p>
+            {terms.needed ? <TermsAcceptanceBox checked={terms.checked} onChange={(v) => { setServerErrors({}); terms.setChecked(v); }} error={detailsErrors.acceptedTerms} /> : null}
           </form>
         )}
       </main>

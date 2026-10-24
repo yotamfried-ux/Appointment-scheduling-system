@@ -5,6 +5,7 @@ import { loginAs, makeBusiness } from "./helpers/business";
 // talks only to its own origin (and the database host the policy names), and shows no consent banner because there is no optional category.
 // If an analytics/ads/embed ever appears, this fails until the category is registered in lib/consent.ts and gated.
 test.skip(!process.env.E2E_REAL_SUPABASE, "needs local Supabase");
+test.use({ storageState: { cookies: [], origins: [] } }); // a fresh profile: no remembered terms acceptance either
 
 const ALLOWED_COOKIE = /^(sb-.*-auth-token(\.\d+)?|sb-.*-code-verifier|tori_consent)$/;
 const ALLOWED_STORAGE = new Set(["theme"]);

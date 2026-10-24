@@ -3,13 +3,14 @@ import { expect, test, type Page } from "@playwright/test";
 import * as C from "../../lib/api/contracts";
 import { admin, customer, fakeIp, firstDayWithSlots, loginAs, makeBusiness, publicBook, type TestBusiness } from "./helpers/business";
 import { mail } from "./helpers/outbox";
+import { ACCEPTED } from "./helpers/terms";
 
 // The owner's side of the waitlist on the real stack: live view (WLT-07), automatic/manual offers (WLT-06), removal, isolation (SEC-01), CSRF.
 const axe = (page: Page) => new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
 const noOverflow = async (page: Page) => expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 
 const joinApi = (page: Page, b: TestBusiness, date: string, n: number, name = `ממתין ${n}`) =>
-  page.request.post(`/api/public/${b.slug}/waitlist`, { data: { serviceId: b.services[0].id, date, customer: { fullName: name, phone: customer(500 + n).phone, email: mail() } }, headers: { "x-forwarded-for": fakeIp() } });
+  page.request.post(`/api/public/${b.slug}/waitlist`, { data: { serviceId: b.services[0].id, date, acceptedTerms: ACCEPTED, customer: { fullName: name, phone: customer(500 + n).phone, email: mail() } }, headers: { "x-forwarded-for": fakeIp() } });
 const agendaOf = async (page: Page, date: string) => C.OwnerAgendaResponse.parse(await (await page.request.get(`/api/owner/appointments?date=${date}`)).json());
 const origin = (page: Page) => new URL(page.url()).origin;
 const offersOf = async (b: TestBusiness) => (await admin().from("waitlist_offers").select("entry_id, status").eq("business_id", b.id).order("created_at")).data!;
@@ -97,7 +98,7 @@ test.describe("owner waitlist (real stack)", () => {
     await expect.poll(async () => (await b.db.from("businesses").select("waitlist_auto_offer").eq("id", b.id).single()).data!.waitlist_auto_offer).toBe(true);
     await page.getByTestId("wl-enabled-switch").click();
     await expect.poll(async () => (await b.db.from("businesses").select("waitlist_enabled").eq("id", b.id).single()).data!.waitlist_enabled).toBe(false);
-    expect((await page.request.post(`/api/public/${b.slug}/waitlist`, { data: { serviceId: b.services[0].id, date: f.date, customer: { fullName: "נועם לוי", phone: "050-1112233", email: mail() } }, headers: { "x-forwarded-for": fakeIp() } })).status()).toBe(404);
+    expect((await page.request.post(`/api/public/${b.slug}/waitlist`, { data: { serviceId: b.services[0].id, date: f.date, acceptedTerms: ACCEPTED, customer: { fullName: "נועם לוי", phone: "050-1112233", email: mail() } }, headers: { "x-forwarded-for": fakeIp() } })).status()).toBe(404);
   });
 
   test("API: agenda carries waitlist, settings and a change version; tenant isolation; CSRF; validation", async ({ page, request, browser }) => {

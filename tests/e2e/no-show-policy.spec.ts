@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { admin, fakeIp, firstDayWithSlots, loginAs, makeBusiness, sql, type TestBusiness } from "./helpers/business";
 import { mail } from "./helpers/outbox";
+import { ACCEPTED } from "./helpers/terms";
 
 // BKG-08: the owner sets a no-show policy in the settings; a customer with too many recent no-shows is held for approval or turned away politely;
 // the owner can clear it for one customer. Real browser, real stack.
@@ -25,7 +26,7 @@ function withNoShows(b: TestBusiness, n: number) {
 
 const book = async (request: APIRequestContext, b: TestBusiness, date: string, time: string, key: string) =>
   request.post(`/api/public/${b.slug}/bookings`, {
-    data: { serviceId: b.services[0].id, date, time, location: "business", customer: { fullName: "חסר אחריות", phone: PHONE.replace("+972", "0"), email: EMAIL }, intake: {} },
+    data: { serviceId: b.services[0].id, date, time, location: "business", acceptedTerms: ACCEPTED, customer: { fullName: "חסר אחריות", phone: PHONE.replace("+972", "0"), email: EMAIL }, intake: {} },
     headers: { "x-forwarded-for": fakeIp(), "idempotency-key": key },
   });
 
@@ -77,7 +78,7 @@ test.describe("no-show policy (BKG-08)", () => {
     expect(sql(`select count(*) from public.appointments where business_id='${b.id}' and status in ('pending','confirmed')`)).toBe("2");
 
     // another customer is unaffected
-    const other = await request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: b.services[0].id, date: f.date, time: f.times[3], location: "business", customer: { fullName: "לקוח תקין", phone: "0505550000", email: mail() }, intake: {} }, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": "np-key-0004" } });
+    const other = await request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: b.services[0].id, date: f.date, time: f.times[3], location: "business", acceptedTerms: ACCEPTED, customer: { fullName: "לקוח תקין", phone: "0505550000", email: mail() }, intake: {} }, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": "np-key-0004" } });
     expect(other.status()).toBe(201);
 
     // the owner sees the state on the customer page and clears it

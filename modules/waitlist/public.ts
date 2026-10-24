@@ -35,6 +35,8 @@ export async function joinWaitlist(c: Catalog, input: C.JoinWaitlistInput, idemK
     p_full_name: input.customer.fullName.trim(),
     p_phone: phone,
     p_email: input.customer.email.trim(),
+    p_terms_version: input.acceptedTerms.terms,
+    p_privacy_version: input.acceptedTerms.privacy,
     p_idem_hash: idemKey ? createHash("sha256").update(`${c.business.id}|${idemKey}`).digest("hex") : null,
   });
   if (error) throw mapJoinError(error);

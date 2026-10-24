@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
 import { customer, fakeIp, firstDayWithSlots, loginAs, makeBusiness, sql } from "./helpers/business";
+import { ACCEPTED } from "./helpers/terms";
 
 // OPS-01 / OPS-05, a SMOKE, not a benchmark: a local machine with one database says nothing about production capacity. What it can prove is that concurrency
 // never breaks correctness (no double booking, no 5xx) and that nothing is wildly slow (a regression such as an N+1 query would show here first).
@@ -40,7 +41,7 @@ test.describe("load smoke (local, one database)", () => {
     const slots = f.times.slice(0, 12);
     const attempt = (i: number) => timed(() =>
       request.post(`/api/public/${b.slug}/bookings`, {
-        data: { serviceId: b.services[0].id, date: f.date, time: slots[i % 12], location: "business", customer: customer(1000 + i), intake: {} },
+        data: { serviceId: b.services[0].id, date: f.date, time: slots[i % 12], location: "business", acceptedTerms: ACCEPTED, customer: customer(1000 + i), intake: {} },
         headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `load-${i}-${Math.random()}` },
       }),
     );
@@ -63,7 +64,7 @@ test.describe("load smoke (local, one database)", () => {
     const readers = pool(60, 10, () => timed(() => page.request.get(`/api/owner/appointments?date=${f.date}`)));
     const n = Math.min(20, f.times.length);
     const writers = pool(n, 5, (i) => request.post(`/api/public/${b.slug}/bookings`, {
-      data: { serviceId: b.services[0].id, date: f.date, time: f.times[i], location: "business", customer: customer(2000 + i), intake: {} },
+      data: { serviceId: b.services[0].id, date: f.date, time: f.times[i], location: "business", acceptedTerms: ACCEPTED, customer: customer(2000 + i), intake: {} },
       headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `mix-${i}-${Math.random()}` },
     }));
     const [reads, writes] = await Promise.all([readers, writers]);

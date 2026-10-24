@@ -54,6 +54,7 @@ export const COOKIES_ESSENTIAL: { name: string; purpose: string; duration: strin
   { name: "sb-…-auth-token", purpose: "שמירת ההתחברות של בעל העסק. עוגייה מוגנת (HttpOnly) שנקבעת רק אחרי התחברות.", duration: "עד סוף ההתחברות, ועד שבוע בהתחברות מתמשכת" },
   { name: "tori_consent", purpose: "זוכרת את בחירת העוגיות שלכם. נקבעת רק אם בחרתם משהו.", duration: "180 יום" },
   { name: "theme (אחסון מקומי, לא עוגייה)", purpose: "זוכר מצב תצוגה בהיר או כהה. נשמר באחסון המקומי של הדפדפן ואינו נשלח אלינו.", duration: "עד ניקוי הדפדפן" },
+  { name: "tori_terms_accepted (אחסון מקומי, לא עוגייה)", purpose: "זוכר שאישרתם את גרסת תנאי השימוש ומדיניות הפרטיות הנוכחית, כדי שלא נבקש זאת שוב בכל הזמנה. נקבע רק אחרי שאישרתם ואינו נשלח אלינו.", duration: "עד ניקוי הדפדפן או עד שהמסמכים יתעדכנו" },
 ];
 
 export const A11Y: LegalSection[] = [

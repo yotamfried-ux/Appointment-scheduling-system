@@ -3,6 +3,7 @@ import { createHmac } from "node:crypto";
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { customer, fakeIp, firstDayWithSlots, loginAs, makeBusiness, publicBook, signedInOwner, sql, todayLocal, type TestBusiness } from "./helpers/business";
 import { BILLING_WEBHOOK_SECRET } from "./helpers/secrets";
+import { ACCEPTED } from "./helpers/terms";
 
 // Stage 9 on the real stack with the plug-in `fake` provider: webhook semantics (BIL-03), trial end (BIL-01), grace (BIL-02), checkout that only a webhook can
 // complete (BIL-04), quotas that never delete (BIL-05), cancel (BIL-06), gated features (BIL-08), isolation and roles.
@@ -94,7 +95,7 @@ test.describe("trial end and recovery (BIL-01/02, BKG-11)", () => {
     const av = await request.get(`/api/public/${b.slug}/availability?service=${svc}&from=${todayLocal(2)}&days=7`);
     expect(av.status()).toBe(409);
     expect((await av.json()).error.code).toBe("BOOKINGS_CLOSED");
-    const book = await request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: svc, date: f.date, time: f.times[1], location: "business", customer: customer(2), intake: {} }, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `k-${Math.random()}` } });
+    const book = await request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: svc, date: f.date, time: f.times[1], location: "business", acceptedTerms: ACCEPTED, customer: customer(2), intake: {} }, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `k-${Math.random()}` } });
     expect(book.status()).toBe(409);
     expect((await book.json()).error.code).toBe("BOOKINGS_CLOSED");
 
@@ -158,7 +159,7 @@ test.describe("features and quotas (BIL-05/08)", () => {
     const b = await makeBusiness("barber");
     const f = await firstDayWithSlots(request, b);
     // a waitlist entry made while in trial (pro)
-    const joined = await request.post(`/api/public/${b.slug}/waitlist`, { data: { serviceId: b.services[0].id, date: f.date, customer: { fullName: "ממתין", phone: customer(77).phone, email: `w${Date.now()}@example.com` } }, headers: { "x-forwarded-for": fakeIp() } });
+    const joined = await request.post(`/api/public/${b.slug}/waitlist`, { data: { serviceId: b.services[0].id, date: f.date, acceptedTerms: ACCEPTED, customer: { fullName: "ממתין", phone: customer(77).phone, email: `w${Date.now()}@example.com` } }, headers: { "x-forwarded-for": fakeIp() } });
     expect(joined.status()).toBe(201);
     expect(await deliver(request, active(b, "starter"))).toBe("applied");
 
@@ -172,7 +173,7 @@ test.describe("features and quotas (BIL-05/08)", () => {
     // public: the waitlist is not offered and cannot be joined
     const cat = await (await request.get(`/api/public/${b.slug}/services`)).json();
     expect(cat.business.waitlistEnabled).toBeFalsy();
-    const join2 = await request.post(`/api/public/${b.slug}/waitlist`, { data: { serviceId: b.services[0].id, date: f.date, customer: { fullName: "עוד אחד", phone: customer(78).phone, email: `w2${Date.now()}@example.com` } }, headers: { "x-forwarded-for": fakeIp() } });
+    const join2 = await request.post(`/api/public/${b.slug}/waitlist`, { data: { serviceId: b.services[0].id, date: f.date, acceptedTerms: ACCEPTED, customer: { fullName: "עוד אחד", phone: customer(78).phone, email: `w2${Date.now()}@example.com` } }, headers: { "x-forwarded-for": fakeIp() } });
     expect(join2.status()).toBe(404);
     // UI: the panel shows an upsell, the earlier entry is still there; reports show the export upsell
     await page.goto("/dashboard");

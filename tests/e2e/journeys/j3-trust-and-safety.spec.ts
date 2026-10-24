@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { admin, fakeIp, firstDayWithSlots, loginAs, makeBusiness, publicBook, signedInOwner, sql } from "../helpers/business";
 import { byType, drain, mail, rows } from "../helpers/outbox";
 import { chooseTime, customerBooksViaPage, customerOnPhone, noOverflow, ownerAtDesk } from "./world";
+import { ACCEPTED } from "../helpers/terms";
 
 // JOURNEY 3 — a customer who keeps not showing up, an impostor, a stampede for one slot, and a team member with fewer rights.
 // Crosses: owner settings · customer history · booking policy · approvals inbox · mail · RLS roles · concurrency.
@@ -92,7 +93,7 @@ test("repeat no-shows are held, then turned away politely; the owner can forgive
     sql(`update public.businesses set no_show_policy = 'off' where id = '${b.id}'`);
     const before = (await admin().from("customers").select("full_name, email").eq("business_id", b.id).eq("email", dMail).single()).data!;
     const bad = await desk.page.request.post(`/api/public/${b.slug}/bookings`, {
-      data: { serviceId: b.services[0].id, date: f.date, time: f.times[6], location: "business", customer: { fullName: "מתחזה", phone: PHONE, email: mail() }, intake: {} },
+      data: { serviceId: b.services[0].id, date: f.date, time: f.times[6], location: "business", acceptedTerms: ACCEPTED, customer: { fullName: "מתחזה", phone: PHONE, email: mail() }, intake: {} },
       headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `imp-${Math.random().toString(36).slice(2)}` },
     });
     expect(bad.status()).toBe(201);
@@ -103,7 +104,7 @@ test("repeat no-shows are held, then turned away politely; the owner can forgive
   await test.step("a stampede: 10 people press 'book' for the same slot at the same instant — exactly one gets it, the rest a clean conflict", async () => {
     const t = f.times[8];
     const res = await Promise.all(Array.from({ length: 10 }, (_, i) => desk.page.request.post(`/api/public/${b.slug}/bookings`, {
-      data: { serviceId: b.services[0].id, date: f.date, time: t, location: "business", customer: { fullName: `ממהר ${i}`, phone: `05055500${String(10 + i)}`, email: mail() }, intake: {} },
+      data: { serviceId: b.services[0].id, date: f.date, time: t, location: "business", acceptedTerms: ACCEPTED, customer: { fullName: `ממהר ${i}`, phone: `05055500${String(10 + i)}`, email: mail() }, intake: {} },
       headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `race-${i}-${Math.random().toString(36).slice(2)}` },
     })));
     const codes = res.map((r) => r.status()).sort();

@@ -2,6 +2,7 @@ import { readdirSync, statSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { expect, test, type APIRequestContext, type Browser } from "@playwright/test";
 import { fakeIp, firstDayWithSlots, loginAs, makeBusiness, publicBook, signedInOwner, sql, type TestBusiness } from "./helpers/business";
+import { ACCEPTED } from "./helpers/terms";
 
 // docs/05 §12.4 — the authorization matrix, run against every owner/admin route on the real stack: anonymous · owner A · staff of A · owner B (another tenant) ·
 // a member who was removed (valid session, no business). A route that is not in this table fails the build, so a new endpoint cannot ship without being classified.
@@ -139,7 +140,7 @@ test.describe("permission matrix (SEC-01, SEC-02, SEC-05, docs/05 §12.4)", () =
     const custOf = (id: string) => sql(`select customer_id from public.appointments where id='${id}'`);
     const cust = { target: custOf(appt.target), owner: sql(`insert into public.customers (business_id, full_name, phone) values ('${a.id}','למחיקה','+972509990001') returning id`).split("\n")[0] };
     const join = async (n: number) => {
-      const r = await request.post(`/api/public/${a.slug}/waitlist`, { data: { serviceId: a.services[0].id, date: f.date, customer: { fullName: `ממתין ${n}`, phone: `+9725088800${n}0`, email: `m${n}${Date.now()}@example.com` } }, headers: { "x-forwarded-for": fakeIp() } });
+      const r = await request.post(`/api/public/${a.slug}/waitlist`, { data: { serviceId: a.services[0].id, date: f.date, acceptedTerms: ACCEPTED, customer: { fullName: `ממתין ${n}`, phone: `+9725088800${n}0`, email: `m${n}${Date.now()}@example.com` } }, headers: { "x-forwarded-for": fakeIp() } });
       expect(r.status(), await r.text()).toBe(201);
       return (await r.json()).id as string;
     };
@@ -247,7 +248,7 @@ test.describe("routes that are not session-authenticated", () => {
     const other = await makeBusiness("barber");
     // a business id smuggled into the body is rejected or ignored, never obeyed (SEC-02)
     const r = await request.post(`/api/public/${live.slug}/bookings`, {
-      data: { serviceId: live.services[0].id, date: f.date, time: f.times[0], location: "business", customer: { fullName: "תוקף", phone: "0501110001" }, intake: {}, businessId: other.id, business_id: other.id },
+      data: { serviceId: live.services[0].id, date: f.date, time: f.times[0], location: "business", acceptedTerms: ACCEPTED, customer: { fullName: "תוקף", phone: "0501110001" }, intake: {}, businessId: other.id, business_id: other.id },
       headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `k-${Math.random()}` },
     });
     expect([201, 422]).toContain(r.status());
