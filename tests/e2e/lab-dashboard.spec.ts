@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import * as C from "../../lib/api/contracts";
 import { BUSINESS_KINDS, KIND_IDS, type BusinessKindId } from "../../modules/tenancy/business-kind";
+import { ACCEPTED } from "./helpers/terms";
 
 // Owner persona on the dashboard, wired to the lab API. The API is the source of truth: every UI action is checked
 // against what the API reports afterwards. Scenarios: BKG-09 (approval), CXL-03, AVL (gaps), UX, state-machine guards.
@@ -162,7 +163,7 @@ test.describe("booking ↔ dashboard integration", () => {
     const time = slots.slots[0].time;
     const created = await page.request.post(`/api/lab/${kind}/bookings`, {
       headers: { ...hdr(session), "idempotency-key": "int-1" },
-      data: { serviceId: "short", date: "2026-10-14", time, location: "business", customer: { fullName: "מאיה אלון", phone: "050-1234567", email: "maya@example.com" }, intake: {} },
+      data: { serviceId: "short", date: "2026-10-14", time, location: "business", acceptedTerms: ACCEPTED, customer: { fullName: "מאיה אלון", phone: "050-1234567", email: "maya@example.com" }, intake: {} },
     });
     expect(created.status()).toBe(201);
     const booking = C.CreateBookingResponse.parse(await created.json()).booking;

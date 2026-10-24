@@ -138,7 +138,7 @@ test.describe("legal pages (CMP-03/04)", () => {
 
   test("cookies page: lists the essential cookies and says there are no optional ones; the table of contents jumps to a section", async ({ page }) => {
     await page.goto("/cookies");
-    await expect(page.getByTestId("cookie-list").getByRole("listitem")).toHaveCount(3);
+    await expect(page.getByTestId("cookie-list").getByRole("listitem")).toHaveCount(4);
     await expect(page.getByTestId("consent-none")).toBeVisible();
     await page.goto("/privacy");
     await page.getByRole("navigation", { name: "תוכן העניינים" }).getByRole("link").nth(2).click();

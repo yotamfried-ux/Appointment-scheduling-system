@@ -3,6 +3,7 @@ import { Webhook } from "svix";
 import { firstDayWithSlots, loginAs, makeBusiness, publicBook, rand, sql, type TestBusiness } from "./helpers/business";
 import { auth, byType, drain, freshBucket, idle, mail, release, rows, runOutbox, settled } from "./helpers/outbox";
 import { CRON_SECRET, RESEND_WEBHOOK_SECRET } from "./helpers/secrets";
+import { ACCEPTED } from "./helpers/terms";
 
 // E-mail notifications on the real stack (fake provider: nothing leaves the machine; failures are injected through the address).
 // Scenarios: NTF-01 (exactly once, concurrent runners), NTF-02, NTF-03 (check before send), NTF-04 (retry → dead → owner banner),
@@ -323,7 +324,7 @@ test.describe("customer cancellation through the private link", () => {
     const f = await firstDayWithSlots(request, b);
     await page.context().setExtraHTTPHeaders({ "x-forwarded-for": `10.5.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}` });
     const booked = await request.post(`/api/public/${b.slug}/bookings`, {
-      data: { serviceId: b.services[0].id, date: f.date, time: f.times[0], location: "business", customer: { fullName: "נועם לוי", phone: "050-3334455", email: mail() }, intake: {} },
+      data: { serviceId: b.services[0].id, date: f.date, time: f.times[0], location: "business", acceptedTerms: ACCEPTED, customer: { fullName: "נועם לוי", phone: "050-3334455", email: mail() }, intake: {} },
       headers: { "x-forwarded-for": `10.6.${Math.floor(Math.random() * 250)}.${Math.floor(Math.random() * 250)}`, "idempotency-key": `idem-${rand()}-cancel` },
     });
     const link = (await booked.json()).booking.manageUrl as string;

@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { admin, fakeIp, firstDayWithSlots, loginAs, makeBusiness, sql } from "../helpers/business";
 import { mail } from "../helpers/outbox";
 import { customerBooksViaPage, customerOnPhone, noOverflow, ownerAtDesk } from "./world";
+import { ACCEPTED } from "../helpers/terms";
 
 // JOURNEY 4 — the trial ends and the owner has not paid yet, then she pays. What customers, the owner's data and every other module do at each stage.
 // Crosses: billing state · public booking page · customers' private links · owner calendar and exports · checkout (fake provider) · webhook.
@@ -32,7 +33,7 @@ test("trial ends → bookings close but nothing is lost → the owner pays throu
     await newcomer.page.goto(`/book/${b.slug}`);
     await expect(newcomer.page.getByTestId("bookings-closed")).toBeVisible();
     await noOverflow(newcomer.page);
-    const r = await newcomer.page.request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: b.services[0].id, date: f.date, time: f.times[5], location: "business", customer: { fullName: "חדש", phone: "0504440002", email: mail() }, intake: {} }, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `j4-${Math.random().toString(36).slice(2)}` } });
+    const r = await newcomer.page.request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: b.services[0].id, date: f.date, time: f.times[5], location: "business", acceptedTerms: ACCEPTED, customer: { fullName: "חדש", phone: "0504440002", email: mail() }, intake: {} }, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `j4-${Math.random().toString(36).slice(2)}` } });
     expect(r.status()).toBe(409);
     expect((await r.json()).error.code).toBe("BOOKINGS_CLOSED");
   });

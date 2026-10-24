@@ -3,6 +3,7 @@ import { expect, test, type APIRequestContext, type Page } from "@playwright/tes
 import * as C from "../../lib/api/contracts";
 import { admin, customer, fakeIp, firstDayWithSlots, makeBusiness, publicBook, sql, type TestBusiness } from "./helpers/business";
 import { auth, byType, drain, idle, mail, rows, runWaitlistSweep } from "./helpers/outbox";
+import { ACCEPTED } from "./helpers/terms";
 
 // Waitlist on the real stack (fake e-mail provider). Scenarios: WLT-01 (FIFO offer on cancellation) · WLT-02/04 (accept vs booking race, EXCLUDE decides) ·
 // WLT-03 (expiry passes the slot on, sweep idempotent) · WLT-06 (auto-offer off) · WLT-08 (validation, cap, idempotency, rate limit) · SEC-05/06 (links).
@@ -11,7 +12,7 @@ const noOverflow = async (page: Page) => expect(await page.evaluate(() => docume
 
 const join = (request: APIRequestContext, b: TestBusiness, date: string, n: number, over: Record<string, unknown> = {}, headers: Record<string, string> = {}) =>
   request.post(`/api/public/${b.slug}/waitlist`, {
-    data: { serviceId: b.services[0].id, date, customer: { fullName: `ממתין ${n}`, phone: customer(300 + n).phone, email: mail() }, ...over },
+    data: { serviceId: b.services[0].id, date, acceptedTerms: ACCEPTED, customer: { fullName: `ממתין ${n}`, phone: customer(300 + n).phone, email: mail() }, ...over },
     headers: { "x-forwarded-for": fakeIp(), ...headers },
   });
 
@@ -27,7 +28,7 @@ async function scenario(request: APIRequestContext, b: TestBusiness, n = 3) {
   const w: { id: string; email: string }[] = [];
   for (let i = 1; i <= n; i++) {
     const email = mail();
-    const r = await join(request, b, f.date, i, { customer: { fullName: `ממתין ${i}`, phone: customer(300 + i).phone, email } });
+    const r = await join(request, b, f.date, i, { acceptedTerms: ACCEPTED, customer: { fullName: `ממתין ${i}`, phone: customer(300 + i).phone, email } });
     expect(r.status(), await r.text()).toBe(201);
     w.push({ id: C.JoinWaitlistResponse.parse(await r.json()).id!, email }); // a creator always gets the id
   }
@@ -47,8 +48,8 @@ test.describe("joining (WLT-08)", () => {
       expect(r.status(), JSON.stringify(over)).toBe(422);
       return C.ApiErrorBody.parse(await r.json()).error.details!.map((d) => d.field);
     };
-    expect(await fields({ customer: { fullName: "א", phone: "12", email: "" } })).toEqual(expect.arrayContaining(["customer.fullName", "customer.phone", "customer.email"]));
-    expect(await fields({ customer: { fullName: "נועם לוי", phone: "050-1234567", email: "not-an-email" } })).toContain("customer.email");
+    expect(await fields({ acceptedTerms: ACCEPTED, customer: { fullName: "א", phone: "12", email: "" } })).toEqual(expect.arrayContaining(["customer.fullName", "customer.phone", "customer.email"]));
+    expect(await fields({ acceptedTerms: ACCEPTED, customer: { fullName: "נועם לוי", phone: "050-1234567", email: "not-an-email" } })).toContain("customer.email");
     expect(await fields({ date: "2026-13-45" })).toContain("date");
     expect(await fields({ window: { from: "18:00", to: "09:00" } })).toEqual(expect.arrayContaining([expect.stringContaining("window")]));
     expect(await fields({ businessId: b.id })).toContain("_");
@@ -68,7 +69,7 @@ test.describe("joining (WLT-08)", () => {
     const first = await join(request, b, f.date, 1, body, { "idempotency-key": "victim-browser-key-1" });
     expect(first.status()).toBe(201);
     expect((await first.json()).manageUrl).toMatch(/^\/waitlist\//);
-    const attacker = await join(request, b, f.date, 1, { date: f.date, customer: { ...victim, phone: "050-4445599" } }, { "idempotency-key": "attacker-key-0001" });
+    const attacker = await join(request, b, f.date, 1, { date: f.date, acceptedTerms: ACCEPTED, customer: { ...victim, phone: "050-4445599" } }, { "idempotency-key": "attacker-key-0001" });
     expect(attacker.status()).toBe(200);
     const stranger = await attacker.json();
     expect(stranger.manageUrl).toBeUndefined();
@@ -85,7 +86,7 @@ test.describe("joining (WLT-08)", () => {
     const b = await makeBusiness("barber");
     const f = await firstDayWithSlots(request, b);
     const email = mail(); // the customer is identified by the address
-    const data = (date: string) => ({ date, customer: { fullName: "נועם לוי", phone: "050-4445566", email } });
+    const data = (date: string) => ({ date, acceptedTerms: ACCEPTED, customer: { fullName: "נועם לוי", phone: "050-4445566", email } });
     const first = await join(request, b, f.date, 1, data(f.date));
     const again = await join(request, b, f.date, 1, data(f.date));
     expect(first.status()).toBe(201);
@@ -221,7 +222,7 @@ test.describe("offers (WLT-01/03/04/06)", () => {
     await page.goto(await offerLink(b, (await offersOf(b))[0].id));
     await expect(page.getByTestId("wl-accept")).toBeVisible();
     // the public cannot take a slot that is on offer (the offer e-mail promises it is kept)…
-    const grab = await request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: b.services[0].id, date: f.date, time: f.times[0], location: "business", customer: { fullName: "מתחרה", phone: "0509998877", email: mail() }, intake: {} }, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `grab-${Math.random().toString(36).slice(2)}` } });
+    const grab = await request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: b.services[0].id, date: f.date, time: f.times[0], location: "business", acceptedTerms: ACCEPTED, customer: { fullName: "מתחרה", phone: "0509998877", email: mail() }, intake: {} }, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `grab-${Math.random().toString(36).slice(2)}` } });
     expect(grab.status()).toBe(409);
     // …only the owner can book it by hand meanwhile (WLT-04)
     const hand = await b.db.rpc("create_manual_appointment", { p_business: b.id, p_service: b.services[0].id, p_starts_at: slotStart, p_full_name: "ידני", p_phone: "+972509998866", p_note: null, p_out_of_availability: false });
@@ -248,7 +249,7 @@ test.describe("offers (WLT-01/03/04/06)", () => {
       if (mode === "race") {
         const [, booked] = await Promise.all([
           page.getByTestId("wl-accept").click(),
-          request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: b.services[0].id, date: f.date, time: f.times[0], location: "business", customer: customer(98), intake: {} }, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `idem-race-${Math.random().toString(36).slice(2)}` } }),
+          request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: b.services[0].id, date: f.date, time: f.times[0], location: "business", acceptedTerms: ACCEPTED, customer: customer(98), intake: {} }, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `idem-race-${Math.random().toString(36).slice(2)}` } }),
         ]);
         expect([201, 409]).toContain(booked.status());
         await page.waitForTimeout(1500);
@@ -299,7 +300,7 @@ test.describe("the customer's link", () => {
   test("forged, tampered, truncated, wrong-scope and unrelated tokens all show the same generic page", async ({ request, page }) => {
     const b = await makeBusiness("barber");
     const { f, w } = await scenario(request, b, 1);
-    const booked = await request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: b.services[0].id, date: f.date, time: f.times[3], location: "business", customer: customer(77), intake: {} }, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `idem-${Math.random().toString(36).slice(2)}-tok` } });
+    const booked = await request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: b.services[0].id, date: f.date, time: f.times[3], location: "business", acceptedTerms: ACCEPTED, customer: customer(77), intake: {} }, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `idem-${Math.random().toString(36).slice(2)}-tok` } });
     const bookingToken = ((await booked.json()).booking.manageUrl as string).split("/").pop()!; // a valid token of ANOTHER scope
     const joinRes = await join(request, b, f.date, 8);
     const good = ((await joinRes.json()).manageUrl as string).split("/").pop()!;

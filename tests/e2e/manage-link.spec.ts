@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { mail } from "./helpers/outbox";
 import { admin, customer, fakeIp, firstDayWithSlots, makeBusiness, publicBook } from "./helpers/business";
+import { ACCEPTED } from "./helpers/terms";
 
 // Owner decisions of 2026-10-23: the customer is identified by e-mail; the customer's link opens the business' booking page with the customer's OWN appointment
 // above the form (nobody else sees it); the page carries no cancel / reschedule / attend tokens.
@@ -12,7 +13,7 @@ test.beforeEach(async ({ context }) => { await context.setExtraHTTPHeaders({ "x-
 
 const tokenOf = (manageUrl: string) => manageUrl.split("/").pop()!;
 const rawBook = (request: import("@playwright/test").APIRequestContext, slug: string, serviceId: string, date: string, time: string, c: Record<string, unknown>) =>
-  request.post(`/api/public/${slug}/bookings`, { data: { serviceId, date, time, location: "business", customer: c, intake: {} }, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `id-${Math.random().toString(36).slice(2)}` } });
+  request.post(`/api/public/${slug}/bookings`, { data: { serviceId, date, time, location: "business", acceptedTerms: ACCEPTED, customer: c, intake: {} }, headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `id-${Math.random().toString(36).slice(2)}` } });
 
 test.describe("the customer's link opens the booking page with the customer's own appointment", () => {
   test("only the holder of the link sees the appointment; other businesses, no link and a wrong link show the plain form", async ({ page, request }) => {

@@ -185,6 +185,8 @@ export async function createBooking(c: Catalog, input: C.CreateBookingInput, ide
     p_request_hash: hashOf({ s: svc.id, d: input.date, t: input.time, l: input.location, c: [input.customer.fullName.trim(), phone, input.customer.email.trim()], i: input.intake, p: input.personId ?? null }),
     p_resources: candidates,
     p_chosen: Boolean(input.personId),
+    p_terms_version: input.acceptedTerms.terms,
+    p_privacy_version: input.acceptedTerms.privacy,
   });
   if (error) throw mapBookingError(error);
   const r = data as { replay: boolean; id: string; reference: string; status: "confirmed" | "pending"; startsAt: string; endsAt: string; resourceId?: string };

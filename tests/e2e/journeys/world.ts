@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { devices, expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 import { extractLink, waitForMail } from "../helpers/mail";
 import { fakeIp, PASSWORD } from "../helpers/business";
+import { acceptedStorageState } from "../helpers/terms";
 
 // The cast of the user-journey simulations. Nothing here knows how the app works inside: people use pages, mail and links, and the database is only read to check results.
 export const axe = (page: Page) => new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
@@ -10,7 +11,7 @@ export const unique = (p: string) => `${p}+${Date.now()}${Math.floor(Math.random
 
 /** A customer on a small phone (their own browser, their own IP). */
 export async function customerOnPhone(browser: Browser, baseURL: string): Promise<{ ctx: BrowserContext; page: Page }> {
-  const ctx = await browser.newContext({ ...devices["Pixel 5"], viewport: { width: 360, height: 740 }, locale: "he-IL", timezoneId: "Asia/Jerusalem", baseURL, extraHTTPHeaders: { "x-forwarded-for": fakeIp() } });
+  const ctx = await browser.newContext({ ...devices["Pixel 5"], viewport: { width: 360, height: 740 }, locale: "he-IL", timezoneId: "Asia/Jerusalem", baseURL, storageState: acceptedStorageState(new URL(baseURL).origin), extraHTTPHeaders: { "x-forwarded-for": fakeIp() } });
   return { ctx, page: await ctx.newPage() };
 }
 

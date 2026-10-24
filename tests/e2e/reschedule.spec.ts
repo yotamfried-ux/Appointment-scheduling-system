@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { byType, drain, mail, rows } from "./helpers/outbox";
 import { admin, fakeIp, firstDayWithSlots, makeBusiness, publicBook, sql, type TestBusiness } from "./helpers/business";
+import { ACCEPTED } from "./helpers/terms";
 
 // RSC-01/02: a customer moves an appointment from their private link. Real browser, real stack, real database, fake mail provider.
 const axe = (page: Page) => new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
@@ -83,7 +84,7 @@ test.describe("customer reschedules (RSC-01/02)", () => {
     const target = await choose(page, f.date);
     // someone else books exactly that slot first
     const rival = await request.post(`/api/public/${b.slug}/bookings`, {
-      data: { serviceId: b.services[0].id, date: target.date, time: target.time, location: "business", customer: { fullName: "מתחרה", phone: "+972503339999", email: mail() }, intake: {} },
+      data: { serviceId: b.services[0].id, date: target.date, time: target.time, location: "business", acceptedTerms: ACCEPTED, customer: { fullName: "מתחרה", phone: "+972503339999", email: mail() }, intake: {} },
       headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `rival-${Math.random().toString(36).slice(2)}` },
     });
     expect(rival.status()).toBe(201);

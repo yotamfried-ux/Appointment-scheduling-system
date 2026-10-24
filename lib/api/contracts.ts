@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { KIND_IDS } from "@/modules/tenancy/business-kind";
 import { normalizePhone } from "@/lib/phone";
+import { LEGAL } from "@/lib/legal/config";
 
 export const KindSchema = z.enum(KIND_IDS);
 const isRealDate = (v: string) => new Date(`${v}T12:00:00Z`).toISOString().slice(0, 10) === v; // rejects 2026-13-45 and 2026-02-31
@@ -72,6 +73,18 @@ export const SlotsResponse = z.object({
   segments: z.array(SegmentDto),
 });
 
+/** What the customer accepted: the versions of the terms and the privacy policy that were shown. Only the CURRENT versions are valid; the server stores what it receives and never looks up whether this customer accepted before. */
+const AcceptedTermsMessage = "יש לאשר את תנאי השימוש ואת מדיניות הפרטיות (בגרסתם הנוכחית) כדי להמשיך.";
+export const AcceptedTerms = z
+  .object(
+    {
+      terms: z.literal(LEGAL.terms.version, { error: AcceptedTermsMessage }),
+      privacy: z.literal(LEGAL.privacy.version, { error: AcceptedTermsMessage }),
+    },
+    { error: AcceptedTermsMessage },
+  )
+  .strict();
+
 export const CreateBookingRequest = z
   .object({
     serviceId: z.string().min(1),
@@ -89,6 +102,7 @@ export const CreateBookingRequest = z
       })
       .strict(),
     intake: z.record(z.string(), z.string()).default({}),
+    acceptedTerms: AcceptedTerms,
   })
   .strict();
 export type CreateBookingInput = z.infer<typeof CreateBookingRequest>;
@@ -106,6 +120,7 @@ export const JoinWaitlistRequest = z
         email: EmailRequired,
       })
       .strict(),
+    acceptedTerms: AcceptedTerms,
   })
   .strict();
 export type JoinWaitlistInput = z.infer<typeof JoinWaitlistRequest>;

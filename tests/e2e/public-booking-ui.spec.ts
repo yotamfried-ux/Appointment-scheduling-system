@@ -1,4 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
+import { acceptedStorageState } from "./helpers/terms";
 import { expect, test, type Page } from "@playwright/test";
 import { BUSINESS_KINDS, type BusinessKindId } from "../../modules/tenancy/business-kind";
 import { makeBusiness, rand, sql, type TestBusiness } from "./helpers/business";
@@ -106,10 +107,10 @@ test.describe("public booking page (/book/[slug])", () => {
     });
   }
 
-  test("two customers race for the last slot: one wins, the other is told and can choose another time", async ({ browser }) => {
+  test("two customers race for the last slot: one wins, the other is told and can choose another time", async ({ browser, baseURL }) => {
     const b = await makeBusiness("barber");
     const mk = async () => {
-      const ctx = await browser.newContext({ extraHTTPHeaders: { "x-forwarded-for": ip() } });
+      const ctx = await browser.newContext({ storageState: acceptedStorageState(baseURL!), extraHTTPHeaders: { "x-forwarded-for": ip() } });
       return { ctx, page: await ctx.newPage() };
     };
     const [x, y] = [await mk(), await mk()];

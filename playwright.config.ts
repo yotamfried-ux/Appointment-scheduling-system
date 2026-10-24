@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { acceptedStorageState } from "./tests/e2e/helpers/terms";
 import { BILLING_WEBHOOK_SECRET, CRON_SECRET, RESEND_WEBHOOK_SECRET } from "./tests/e2e/helpers/secrets";
 
 const PORT = Number(process.env.PORT ?? 3100);
@@ -31,7 +32,9 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0, // a retry-pass is reported FLAKY, never silently green
   reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
   use: {
-    baseURL, trace: "retain-on-failure", screenshot: "only-on-failure", locale: "he-IL", timezoneId: "Asia/Jerusalem",
+    baseURL,
+    // Every browser starts as one that already accepted the current terms (the booking form shows no box); specs about the box start empty with test.use({ storageState: { cookies: [], origins: [] } }).
+    storageState: acceptedStorageState(new URL(baseURL).origin), trace: "retain-on-failure", screenshot: "only-on-failure", locale: "he-IL", timezoneId: "Asia/Jerusalem",
     // optional: run against an already-installed Chromium (offline machines); CI installs the matching browser itself
     ...(process.env.E2E_CHROMIUM_PATH ? { launchOptions: { executablePath: process.env.E2E_CHROMIUM_PATH } } : {}),
   },

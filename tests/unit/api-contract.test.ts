@@ -2,6 +2,7 @@
 // Contract tests: call the real route handlers (Request → Response) and validate every body with the shared Zod schemas.
 // Scenarios: BKG-04/05 (double booking → 409), BKG-idempotency, SEC rate limit, kind adaptation, notification privacy.
 import { beforeEach, describe, expect, it } from "vitest";
+import { LEGAL } from "@/lib/legal/config";
 import type { z } from "zod";
 import { GET as servicesGET } from "@/app/api/lab/[kind]/services/route";
 import { GET as availabilityGET } from "@/app/api/lab/[kind]/availability/route";
@@ -53,11 +54,12 @@ async function firstFree(kind: BusinessKindId, serviceId?: string) {
   const slots = valid(C.SlotsResponse, (await get(slotsGET as never, kind, "slots", { service: svc, date: day.date })).body);
   return { svc, date: day.date, time: slots.slots[0].time, slots };
 }
+const ACCEPTED = { terms: LEGAL.terms.version, privacy: LEGAL.privacy.version };
 const bookingBody = (kind: BusinessKindId, f: { svc: string; date: string; time: string }, over: object = {}) => {
   const k = getKind(kind);
   const intake: Record<string, string> = {};
   for (const x of k.intake.filter((i) => i.required)) intake[x.id] = x.options?.[0] ?? "x";
-  return { serviceId: f.svc, date: f.date, time: f.time, location: k.locations[0], customer: { fullName: "נועם לוי", phone: "050-1234567", email: "noam@example.com" }, intake, ...over };
+  return { serviceId: f.svc, date: f.date, time: f.time, location: k.locations[0], customer: { fullName: "נועם לוי", phone: "050-1234567", email: "noam@example.com" }, intake, acceptedTerms: ACCEPTED, ...over };
 };
 
 describe.each(KIND_IDS)("kind %s · read endpoints match contracts", (kind) => {
@@ -182,7 +184,7 @@ describe("booking lifecycle", () => {
   });
 
   it("the customer is identified by e-mail: a booking without one is refused (owner decision 2026-10-23)", () => {
-    const base = { serviceId: "s", date: "2026-10-14", time: "10:00", customer: { fullName: "נועם לוי", phone: "050-1234567" } };
+    const base = { serviceId: "s", date: "2026-10-14", time: "10:00", customer: { fullName: "נועם לוי", phone: "050-1234567" }, acceptedTerms: ACCEPTED };
     expect(C.CreateBookingRequest.safeParse(base).success).toBe(false);
     expect(C.CreateBookingRequest.safeParse({ ...base, customer: { ...base.customer, email: "" } }).success).toBe(false);
     expect(C.CreateBookingRequest.safeParse({ ...base, customer: { ...base.customer, email: "noam@example.com" } }).success).toBe(true);
@@ -376,8 +378,26 @@ describe("owner contracts", () => {
   });
 });
 
+describe("the customer accepts the current terms and privacy policy", () => {
+  const base = { serviceId: "s", date: "2026-10-14", time: "10:00", customer: { fullName: "נועם לוי", phone: "050-1234567", email: "noam@example.com" } };
+  const wl = { serviceId: "s", date: "2026-10-14", customer: base.customer };
+  const msg = (r: { success: boolean; error?: { issues: { path: PropertyKey[]; message: string }[] } }) => r.error?.issues.map((i) => `${i.path.join(".")}: ${i.message}`) ?? [];
+  it.each([
+    ["booking", C.CreateBookingRequest, base],
+    ["waitlist", C.JoinWaitlistRequest, wl],
+  ] as const)("%s: needs both current versions, nothing else", (_n, schema, body) => {
+    expect(schema.safeParse({ ...body, acceptedTerms: ACCEPTED }).success).toBe(true);
+    const missing = schema.safeParse(body);
+    expect(missing.success).toBe(false);
+    expect(msg(missing)[0]).toMatch(/^acceptedTerms: .*[א-ת]/); // Hebrew message on the consent field
+    for (const bad of [{ terms: "2020-01-01", privacy: ACCEPTED.privacy }, { terms: ACCEPTED.terms, privacy: "old" }, { terms: ACCEPTED.terms }, { ...ACCEPTED, extra: 1 }, {}, null, "yes"]) {
+      expect(schema.safeParse({ ...body, acceptedTerms: bad }).success, JSON.stringify(bad)).toBe(false);
+    }
+  });
+});
+
 describe("waitlist contracts (stage 7)", () => {
-  const ok = { serviceId: "s", date: "2026-10-14", customer: { fullName: "נועם לוי", phone: "050-1234567", email: "noam@example.com" } };
+  const ok = { serviceId: "s", date: "2026-10-14", customer: { fullName: "נועם לוי", phone: "050-1234567", email: "noam@example.com" }, acceptedTerms: ACCEPTED };
   it("joining needs a valid e-mail (offers travel by e-mail), a phone and a name", () => {
     expect(C.JoinWaitlistRequest.safeParse(ok).success).toBe(true);
     for (const email of ["", "   ", "nope", "a@b"]) expect(C.JoinWaitlistRequest.safeParse({ ...ok, customer: { ...ok.customer, email } }).success, email).toBe(false);

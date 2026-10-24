@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { admin, firstDayWithSlots, loginAs, makeBusiness } from "./helpers/business";
+import { ACCEPTED } from "./helpers/terms";
 
 // CAT-05: free / "from" / fixed / hidden prices, from the owner's settings to the customer's page.
 test("the owner chooses how each price is shown; customers see exactly that; a free service really costs nothing", async ({ page, request }) => {
@@ -31,7 +32,7 @@ test("the owner chooses how each price is shown; customers see exactly that; a f
   await expect(card(s2.id)).not.toContainText("99");
   // a free service can be booked end to end and the private page does not invent a price
   const f = await firstDayWithSlots(request, b);
-  const res = await request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: s0.id, date: f.date, time: f.times[0], location: "business", customer: { fullName: "חינם", phone: "0501119999", email: `free${Date.now()}@example.com` }, intake: {} }, headers: { "x-forwarded-for": "10.9.9.9", "idempotency-key": `free-${Date.now()}-1234` } });
+  const res = await request.post(`/api/public/${b.slug}/bookings`, { data: { serviceId: s0.id, date: f.date, time: f.times[0], location: "business", acceptedTerms: ACCEPTED, customer: { fullName: "חינם", phone: "0501119999", email: `free${Date.now()}@example.com` }, intake: {} }, headers: { "x-forwarded-for": "10.9.9.9", "idempotency-key": `free-${Date.now()}-1234` } });
   expect(res.status()).toBe(201);
   await page.goto((await res.json()).booking.manageUrl);
   await expect(page.getByTestId("manage-panel").getByText("ללא עלות")).toBeVisible();

@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { admin, fakeIp, loginAs, makeBusiness, sql } from "../helpers/business";
 import { byType, drain, mail, rows } from "../helpers/outbox";
 import { axe, customerBooksViaPage, customerOnPhone, noOverflow, ownerAtDesk } from "./world";
+import { ACCEPTED } from "../helpers/terms";
 
 // JOURNEY 2 — three customers and one popular slot. A books, B joins the waitlist for that day, A cancels, B is offered the slot by mail and accepts, C cannot take it.
 // Crosses: booking page · waitlist form · cancellation link · transactional offer · mail outbox · single-use links · the owner's calendar and notifications.
@@ -54,7 +55,7 @@ test("A books · B waits · A cancels · B is offered and accepts · C is refuse
 
   await test.step("while the offer is open nobody else can grab the slot (C gets a clean conflict, not an error)", async () => {
     const res = await C.page.request.post(`/api/public/${b.slug}/bookings`, {
-      data: { serviceId: b.services[0].id, date: a.date, time: a.time, location: "business", customer: { fullName: "גל ג׳", phone: "0507770003", email: mail() }, intake: {} },
+      data: { serviceId: b.services[0].id, date: a.date, time: a.time, location: "business", acceptedTerms: ACCEPTED, customer: { fullName: "גל ג׳", phone: "0507770003", email: mail() }, intake: {} },
       headers: { "x-forwarded-for": fakeIp(), "idempotency-key": `j2-c-${Math.random().toString(36).slice(2)}` },
     });
     expect(res.status()).toBe(409);

@@ -4,6 +4,7 @@ import { rowsToExceptions, rowsToRules } from "../../modules/availability/schema
 import { slotsForDay } from "../../modules/availability/slots";
 import { BUSINESS_KINDS } from "../../modules/tenancy/business-kind";
 import { admin, anonClient, customer, makeBusiness, rand, signedInOwner, todayLocal } from "./helpers/business";
+import { ACCEPTED } from "./helpers/terms";
 
 // Public booking against the REAL local stack (docs/04 BKG-*). The API is exercised like an anonymous customer; the database
 // and the owner's JWT (RLS) are the source of truth for what really happened. No mocks.
@@ -23,7 +24,7 @@ async function firstFreeSlot(r: APIRequestContext, slug: string, serviceId: stri
   const sl = C.SlotsResponse.parse(await (await get(r, slug, `slots?service=${serviceId}&date=${day.date}`)).json());
   return { date: day.date, times: sl.slots.map((s) => s.time), slots: sl };
 }
-const body = (serviceId: string, date: string, time: string, n = 1, over: Record<string, unknown> = {}) => ({ serviceId, date, time, location: "business", customer: customer(n), intake: {}, ...over });
+const body = (serviceId: string, date: string, time: string, n = 1, over: Record<string, unknown> = {}) => ({ serviceId, date, time, location: "business", acceptedTerms: ACCEPTED, customer: customer(n), intake: {}, ...over });
 
 test.describe("catalogue and availability are customer-safe (BKG-11/13)", () => {
   test("services endpoint follows the contract; unknown and unpublished businesses are indistinguishable 404s", async ({ request }) => {
@@ -82,7 +83,7 @@ test.describe("booking (BKG-02/04/05/07/09/10/15)", () => {
     const b = await makeBusiness("barber");
     const svc = b.services[0];
     const f = await firstFreeSlot(request, b.slug, svc.id);
-    const res = await post(request, b.slug, body(svc.id, f.date, f.times[0], 1, { customer: { fullName: "נועם לוי", phone: "050-1234567", email: "noam@example.com" } }));
+    const res = await post(request, b.slug, body(svc.id, f.date, f.times[0], 1, { acceptedTerms: ACCEPTED, customer: { fullName: "נועם לוי", phone: "050-1234567", email: "noam@example.com" } }));
     expect(res.status()).toBe(201);
     const bk = C.CreateBookingResponse.parse(await res.json()).booking;
     expect(bk).toMatchObject({ status: "confirmed", date: f.date, time: f.times[0], requiresApproval: false });
@@ -97,7 +98,7 @@ test.describe("booking (BKG-02/04/05/07/09/10/15)", () => {
 
     // BKG-05: same e-mail (written another way), another name and phone → still one customer; the stored identity is NOT rewritten by an unauthenticated booking (takeover control)
     const f2 = f.times.find((t) => t !== f.times[0] && !after.slots.every((s) => s.time !== t))!;
-    const r2 = await post(request, b.slug, body(svc.id, f.date, f2, 1, { customer: { fullName: "נועם לוי המעודכן", phone: "0509999999", email: "Noam@Example.com" } }));
+    const r2 = await post(request, b.slug, body(svc.id, f.date, f2, 1, { acceptedTerms: ACCEPTED, customer: { fullName: "נועם לוי המעודכן", phone: "0509999999", email: "Noam@Example.com" } }));
     expect(r2.status()).toBe(201);
     const custs = (await b.db.from("customers").select("full_name, phone").eq("business_id", b.id)).data!;
     expect(custs).toEqual([{ full_name: "נועם לוי", phone: "+972501234567" }]);
@@ -110,7 +111,7 @@ test.describe("booking (BKG-02/04/05/07/09/10/15)", () => {
     const f = await firstFreeSlot(request, b.slug, svc.id);
     const victim = `victim${rand()}@example.com`;
     const ip = { "x-test-email-scope": rand(), "x-test-email-limit": "2" };
-    const as = (i: number, email: string) => post(request, b.slug, body(svc.id, f.date, f.times[i], 10 + i, { customer: { ...customer(10 + i), email } }), idem(), ip);
+    const as = (i: number, email: string) => post(request, b.slug, body(svc.id, f.date, f.times[i], 10 + i, { acceptedTerms: ACCEPTED, customer: { ...customer(10 + i), email } }), idem(), ip);
     expect((await as(0, victim)).status()).toBe(201);
     expect((await as(1, victim)).status()).toBe(201);
     const third = await as(2, victim);

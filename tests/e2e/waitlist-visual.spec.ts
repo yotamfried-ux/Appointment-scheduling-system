@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { admin, customer, fakeIp, firstDayWithSlots, loginAs, makeBusiness, publicBook } from "./helpers/business";
 import { byType, drain, idle, mail, rows } from "./helpers/outbox";
+import { ACCEPTED } from "./helpers/terms";
 
 // Visual integrity of every waitlist screen (customer and owner) at phone and desktop width, with screenshots for a human look.
 const axe = (page: Page) => new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"]).analyze();
@@ -77,7 +78,7 @@ test("the removed-from-list state and the leave confirmation are balanced", asyn
   const b = await makeBusiness("barber");
   const f = await firstDayWithSlots(request, b);
   await publicBook(request, b, f.date, f.times[0], 1, 0, mail());
-  const joined = await request.post(`/api/public/${b.slug}/waitlist`, { data: { serviceId: b.services[0].id, date: f.date, customer: { fullName: "נועם לוי", phone: customer(600).phone, email: mail() } }, headers: { "x-forwarded-for": fakeIp() } });
+  const joined = await request.post(`/api/public/${b.slug}/waitlist`, { data: { serviceId: b.services[0].id, date: f.date, acceptedTerms: ACCEPTED, customer: { fullName: "נועם לוי", phone: customer(600).phone, email: mail() } }, headers: { "x-forwarded-for": fakeIp() } });
   await page.goto((await joined.json()).manageUrl);
   await page.getByTestId("wl-leave").click();
   await check(page, "leave confirmation", "8-leave-confirm");
@@ -91,7 +92,7 @@ test("the owner's waitlist panel is balanced with long names, windows and a live
   const f = await firstDayWithSlots(request, b);
   const a = await publicBook(request, b, f.date, f.times[0], 1, 0, mail());
   const mk = (n: number, name: string, win?: { from: string; to: string }) =>
-    request.post(`/api/public/${b.slug}/waitlist`, { data: { serviceId: b.services[0].id, date: f.date, ...(win ? { window: win } : {}), customer: { fullName: name, phone: customer(700 + n).phone, email: mail() } }, headers: { "x-forwarded-for": fakeIp() } });
+    request.post(`/api/public/${b.slug}/waitlist`, { data: { serviceId: b.services[0].id, date: f.date, ...(win ? { window: win } : {}), acceptedTerms: ACCEPTED, customer: { fullName: name, phone: customer(700 + n).phone, email: mail() } }, headers: { "x-forwarded-for": fakeIp() } });
   expect((await mk(1, "שם-ארוך-מאוד-של-ממתין-שלא-נגמר-אף-פעם-ולא-נשבר-בשום-מקום-כלל")).status()).toBe(201);
   expect((await mk(2, "דנה כהן", { from: "10:00", to: "13:00" })).status()).toBe(201);
   expect((await mk(3, "יוסי ביטון")).status()).toBe(201);
