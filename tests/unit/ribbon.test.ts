@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ribbonGeometry, ribbonSummary, type RibbonSegment } from "@/lib/ribbon";
+import { openWindows, ribbonGeometry, ribbonSummary, type RibbonSegment } from "@/lib/ribbon";
 
 const H = (h: number, m = 0) => h * 60 + m;
 
@@ -46,5 +46,20 @@ describe("ribbonSummary (accessible text alternative)", () => {
   });
   it("returns an empty string for no segments", () => {
     expect(ribbonSummary([], labels)).toBe("");
+  });
+});
+
+describe("openWindows", () => {
+  it("merges touching open segments and skips booked and closed ones", () => {
+    expect(openWindows([
+      { start: 540, end: 600, state: "free" },
+      { start: 600, end: 690, state: "selected" },
+      { start: 690, end: 780, state: "booked" },
+      { start: 780, end: 900, state: "free" },
+      { start: 900, end: 960, state: "closed" },
+    ])).toEqual(["09:00–11:30", "13:00–15:00"]);
+  });
+  it("is empty when nothing is open", () => {
+    expect(openWindows([{ start: 540, end: 600, state: "booked" }])).toEqual([]);
   });
 });

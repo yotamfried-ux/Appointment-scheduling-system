@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { z } from "zod";
 import { TimeRibbon } from "@/components/brand/time-ribbon";
+import { openWindows } from "@/lib/ribbon";
 import { useHoldTimer } from "@/components/lab/booking/use-hold-timer";
 import { WeekPicker } from "@/components/lab/booking/week-picker";
 import { ChoiceCard } from "@/components/patterns/choice-card";
@@ -371,6 +372,11 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
               <p role="status" className="text-sm text-muted-foreground" data-testid="slots-loading">{t("time.loading")}</p>
             ) : (
               <>
+                {openWindows(slots.data.segments).length ? (
+                  <p className="text-base font-semibold" data-testid="time-summary">
+                    {t("time.openWindows", { windows: openWindows(slots.data.segments).join(" · ") })}
+                  </p>
+                ) : null}
                 {timeBounds ? (
                   <TimeRibbon
                     from={timeBounds.from}
