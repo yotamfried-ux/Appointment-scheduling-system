@@ -12,6 +12,7 @@ import { StatStrip } from "@/components/lab/dashboard/stat-strip";
 import { ManualDialog } from "@/components/owner/manual-dialog";
 import { MoveDialog } from "@/components/owner/move-dialog";
 import { OfferDialog } from "@/components/owner/offer-dialog";
+import { UndeliveredBanner } from "@/components/owner/undelivered-banner";
 import { WaitlistPanel, type WaitlistEntry } from "@/components/owner/waitlist-panel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -221,11 +222,7 @@ export function OwnerAgenda() {
         </div>
       </div>
 
-      {agenda.undelivered > 0 ? (
-        <p role="status" className="rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm font-medium text-warning-soft-foreground" data-testid="undelivered">
-          {t("agenda.undelivered", { count: agenda.undelivered })}
-        </p>
-      ) : null}
+      <UndeliveredBanner items={agenda.undeliveredItems} onOpenDay={(d) => { setPerson(undefined); go(d); }} />
 
       {agenda.orphans.total > 0 ? (
         <section role="status" className="grid gap-2 rounded-lg border border-warning/40 bg-warning-soft px-4 py-3 text-sm text-warning-soft-foreground" data-testid="orphans">
