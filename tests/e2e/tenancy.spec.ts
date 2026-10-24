@@ -47,12 +47,12 @@ test.describe("onboarding persists a tenant (ACC-01, ACC-04, ACC-06)", () => {
     await expect(page.getByTestId("whoami")).toHaveText(email);
     await completeOnboarding(page, "מספרת הדר בדיקה");
 
-    const link = (await page.getByTestId("share-link").innerText()).trim();
+    await expect(page.getByTestId("share-link")).toHaveCount(0); // the link is not shown before publishing
     await page.getByRole("link", { name: "לדשבורד" }).click();
     await expect(page).toHaveURL(/\/dashboard/);
     await expect(page.getByRole("heading", { level: 1 })).toContainText("מספרת הדר בדיקה");
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
-    await expect(page.getByTestId("biz-link")).toHaveText(link); // the slug the server really assigned
+    await expect(page.getByTestId("biz-link")).toHaveText(/\/book\/[a-z0-9]+(-[a-z0-9]+)*$/); // the slug the server really assigned
     await expect(page.getByTestId("biz-kind")).toHaveText("מספרה");
     await expect(page.getByTestId("biz-status")).toContainText("טיוטה");
 
@@ -75,7 +75,8 @@ test.describe("onboarding persists a tenant (ACC-01, ACC-04, ACC-06)", () => {
       const tab = await context.newPage(); // fresh page: no scroll/layout state carried over from the first owner
       await signUpVerified(tab, unique(p));
       await completeOnboarding(tab, `Same Name Studio ${runId}`);
-      slugs.push((await tab.getByTestId("share-link").innerText()).trim().split("/book/")[1]);
+      await tab.getByRole("link", { name: "לדשבורד" }).click();
+      slugs.push((await tab.getByTestId("biz-link").innerText()).trim().split("/book/")[1]);
       await tab.close();
     }
     void page;
