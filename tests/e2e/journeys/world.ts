@@ -35,11 +35,9 @@ export async function ownerSignsUp(page: Page, email: string, businessName: stri
   await page.getByLabel("סוג העסק").selectOption(kind);
   for (let i = 0; i < 3; i++) await page.getByTestId("continue").click();
   await expect(page.getByTestId("done-title")).toBeVisible();
-  await expect(page.getByTestId("publish-hint")).toBeVisible(); // no link before the business is published
+  const link = (await page.getByTestId("share-link").innerText()).trim(); // the link is live as soon as the business exists
   await page.getByRole("link", { name: "לדשבורד" }).click();
-  await page.getByTestId("publish").click();
   await expect(page.getByTestId("biz-status")).toHaveText("פורסם");
-  const link = (await page.getByTestId("biz-link").innerText()).trim();
   return { slug: link.split("/book/")[1] };
 }
 

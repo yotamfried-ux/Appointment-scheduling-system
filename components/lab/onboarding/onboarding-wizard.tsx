@@ -25,10 +25,11 @@ import {
 import { cn } from "@/lib/utils";
 
 const VISIBLE = ONBOARDING_STEPS.slice(0, 3) as ("business" | "services" | "hours")[];
+const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const DURATIONS = [15, 20, 30, 45, 60, 90, 120];
 
 
-type FinishResult = { ok: true; slug: string } | { ok: false; code: string };
+type FinishResult = { ok: true; slug: string; published?: boolean } | { ok: false; code: string };
 
 /**
  * Lab mode (no props): prototype, nothing is saved. Real mode (`onFinish`): the last step saves through a Server Action
@@ -41,6 +42,9 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [savedSlug, setSavedSlug] = useState<string | null>(null);
+  const [published, setPublished] = useState(false);
+  const [customSlug, setCustomSlug] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const first = useRef(true);
   useEffect(() => {
@@ -50,12 +54,13 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
   }, [s.step]);
 
   const stepIndex = VISIBLE.indexOf(s.step as (typeof VISIBLE)[number]);
-  const slug = savedSlug ?? suggestSlug(s.business.name);
+  const slug = savedSlug ?? customSlug ?? suggestSlug(s.business.name);
+  const slugInvalid = customSlug !== null && !(customSlug.length >= 3 && customSlug.length <= 40 && SLUG_RE.test(customSlug));
   const link = `${host ?? "tori.example"}/book/${slug}`;
   const next = async () => {
     if (saving) return;
     setTouched(true);
-    if (!canContinueOnboarding(s)) return;
+    if (!canContinueOnboarding(s) || slugInvalid) return;
     if (s.step === "hours" && onFinish) {
       setSaving(true);
       setSaveError(null);
@@ -64,6 +69,7 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
           name: s.business.name,
           kind: s.business.type,
           phone: s.business.phone,
+          ...(customSlug ? { slug: customSlug } : {}),
           services: s.services.map(({ name, durationMinutes, priceNis }) => ({ name, durationMinutes, priceNis })),
           hours: s.hours,
         });
@@ -72,6 +78,7 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
           return;
         }
         setSavedSlug(r.slug);
+        setPublished(r.published === true);
       } catch {
         setSaveError(t("submit.errors.generic"));
         return;
@@ -90,14 +97,30 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
           <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground motion-safe:animate-in motion-safe:zoom-in-50" aria-hidden><Check className="size-8" strokeWidth={3} /></div>
           <h1 ref={heading} tabIndex={-1} className="mt-5 text-3xl font-bold outline-none" data-testid="done-title">{t("done.title")}</h1>
           <p className="mt-1 text-balance text-muted-foreground">{t("done.subtitle")}</p>
-          {onFinish ? (
+          {onFinish && !published ? (
             <p className="mt-8 rounded-lg border bg-card p-4 text-start text-sm text-muted-foreground" data-testid="publish-hint">{t("done.publishHint")}</p>
           ) : (
             <div className="mt-8 rounded-lg border bg-card p-4 text-start">
               <p className="text-sm text-muted-foreground">{t("done.link")}</p>
               <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="min-w-0 text-lg font-semibold [overflow-wrap:anywhere]"><bdi data-testid="share-link">{link}</bdi></p>
-                <Button variant="outline" className="w-full sm:w-auto" onClick={() => toast(t("done.copied"), { variant: "success" })}><Copy aria-hidden />{t("done.copy")}</Button>
+                <Button
+                  variant="outline"
+                  className="w-full sm:w-auto"
+                  data-testid="copy-link"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(`https://${link}`);
+                      setCopied(true);
+                      toast(t("done.copied"), { variant: "success" });
+                      setTimeout(() => setCopied(false), 2000);
+                    } catch {
+                      setCopied(false); // the link stays selectable next to the button
+                    }
+                  }}
+                >
+                  {copied ? <Check aria-hidden /> : <Copy aria-hidden />}{t("done.copy")}
+                </Button>
               </div>
             </div>
           )}
@@ -153,11 +176,14 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
             <FormField label={t("business.phone")} hint={t("business.phoneHint")} error={touched && normalizePhone(s.business.phone) === null ? "מספר הטלפון אינו תקין." : undefined}>
               {(a) => <Input {...a} type="tel" inputMode="tel" autoComplete="tel" value={s.business.phone} onChange={(e) => dispatch({ type: "setBusiness", business: { ...s.business, phone: e.target.value } })} />}
             </FormField>
-            <div className="min-w-0 rounded-lg border bg-card p-4">
-              <p className="text-sm text-muted-foreground">{t("business.link")}</p>
-              <p className="mt-1 font-semibold [overflow-wrap:anywhere]"><bdi data-testid="link-preview">{link}</bdi></p>
-              <p className="mt-1 text-xs text-muted-foreground">{t("business.linkHint")}</p>
-            </div>
+            <FormField label={t("business.link")} hint={t("business.linkHint")} error={slugInvalid ? t("business.linkInvalid") : undefined}>
+              {(a) => (
+                <div className="flex items-center gap-2" dir="ltr">
+                  <span className="shrink-0 text-sm text-muted-foreground">{host ?? "tori.example"}/book/</span>
+                  <Input {...a} dir="ltr" autoCapitalize="none" autoCorrect="off" spellCheck={false} data-testid="link-input" value={slug} onChange={(e) => setCustomSlug(e.target.value.trim().toLowerCase())} />
+                </div>
+              )}
+            </FormField>
           </div>
         )}
 

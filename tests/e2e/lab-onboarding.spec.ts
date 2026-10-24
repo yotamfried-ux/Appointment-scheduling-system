@@ -25,7 +25,7 @@ test.describe("design lab · onboarding wizard", () => {
     await page.getByTestId("continue").click();
     await expect(page.getByText("מספר הטלפון אינו תקין.")).toBeVisible();
     await page.getByLabel("טלפון ליצירת קשר").fill("050-1234567");
-    await expect(page.getByTestId("link-preview")).toHaveText(/^tori\.example\/book\/[a-z0-9-]+$/);
+    await expect(page.getByTestId("link-input")).toHaveValue(/^[a-z0-9-]+$/);
     await page.getByTestId("continue").click();
 
     // 2 · services: pre-filled from the business kind; a removed one comes back as a suggestion; a price is required
@@ -135,7 +135,7 @@ test.describe("design lab · onboarding layout with long values", () => {
     await page.goto("/design/onboarding");
     await page.getByLabel("שם העסק").fill("Same Name Studio With A Really Long Business Name kpxzaxqwe");
     await page.getByLabel("טלפון ליצירת קשר").fill("050-1234567");
-    await expect(page.getByTestId("link-preview")).toContainText("same-name-studio");
+    await expect(page.getByTestId("link-input")).toHaveValue(/same-name-studio/);
     await noOverflow(page);
     const box = await page.getByTestId("continue").boundingBox();
     expect(box!.x).toBeGreaterThanOrEqual(0);
