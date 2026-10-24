@@ -1,3 +1,4 @@
+import { Check, CircleOff, Clock, UserX, type LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -10,16 +11,16 @@ export type AppointmentStatus =
   | "cancellationRequested"
   | "available";
 
-// Each status = soft background + AA-checked foreground + an icon-free text label,
-// so meaning never relies on colour alone (WCAG 1.4.1).
-const STYLES: Record<AppointmentStatus, string> = {
-  pending: "bg-warning-soft text-warning-soft-foreground",
-  confirmed: "bg-success-soft text-success-soft-foreground",
-  completed: "bg-info-soft text-info-soft-foreground",
-  noShow: "bg-destructive-soft text-destructive-soft-foreground",
-  cancelled: "bg-neutral-soft text-neutral-soft-foreground line-through decoration-1",
-  cancellationRequested: "bg-warning-soft text-warning-soft-foreground",
-  available: "bg-success-soft text-success-soft-foreground",
+// One colour rule: status is never told by colour. Every status is the same quiet outline pill; the meaning is the word,
+// and each exception also carries its own icon or line-through (WCAG 1.4.1). The brand colour stays for what is selected or next.
+const ICONS: Record<AppointmentStatus, LucideIcon | null> = {
+  pending: Clock,
+  confirmed: Check,
+  completed: Check,
+  noShow: UserX,
+  cancelled: CircleOff,
+  cancellationRequested: Clock,
+  available: null,
 };
 
 export function StatusBadge({
@@ -31,8 +32,14 @@ export function StatusBadge({
   label: string;
   className?: string;
 }) {
+  const Icon = ICONS[status];
   return (
-    <Badge variant="outline" className={cn("border-transparent font-medium", STYLES[status], className)} data-status={status}>
+    <Badge
+      variant="outline"
+      className={cn("border-border bg-transparent font-medium text-foreground", status === "cancelled" && "text-muted-foreground line-through decoration-1", className)}
+      data-status={status}
+    >
+      {Icon ? <Icon aria-hidden="true" /> : null}
       {label}
     </Badge>
   );

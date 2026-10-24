@@ -69,7 +69,7 @@ export function DaySchedule({ appointments, windows, now, onAddInGap, renderActi
                   {showPerson && a.personName ? <span data-testid={`person-of-${a.id}`} className="font-medium text-foreground">{a.personName} · </span> : null}
                   {a.service}
                   {a.manual ? <> · {t("owner.agenda.manualTag")}</> : null}
-                  {a.outOfHours ? <> · <span className="font-medium text-warning-soft-foreground">{t("owner.agenda.outOfHoursTag")}</span></> : null}
+                  {a.outOfHours ? <> · <span className="font-medium text-foreground underline decoration-dotted underline-offset-4">{t("owner.agenda.outOfHoursTag")}</span></> : null}
                   {a.note ? <> · {a.note}</> : null}
                 </p>
               </div>
@@ -79,9 +79,9 @@ export function DaySchedule({ appointments, windows, now, onAddInGap, renderActi
           );
         } else {
           out.push(
-            <li key={`gap-${r.start}`} className="grid grid-cols-[4.25rem_minmax(0,1fr)_auto] items-center gap-x-4 border-b border-dashed bg-success-soft/40 px-4 py-2 last:border-b-0" data-testid={`gap-${fmt(r.start)}`}>
-              <bdi className="text-sm font-semibold tabular-nums text-success">{fmt(r.start)}</bdi>
-              <p className="text-sm text-success-soft-foreground">
+            <li key={`gap-${r.start}`} className="grid grid-cols-[4.25rem_minmax(0,1fr)_auto] items-center gap-x-4 border-b border-dashed bg-transparent px-4 py-2 last:border-b-0" data-testid={`gap-${fmt(r.start)}`}>
+              <bdi className="text-sm font-semibold tabular-nums text-muted-foreground">{fmt(r.start)}</bdi>
+              <p className="text-sm text-muted-foreground">
                 <span className="font-semibold">{t("owner.gap.label")}</span> · {formatDuration(r.end - r.start)}
               </p>
               <Button type="button" variant="ghost" size="sm" onClick={() => onAddInGap(r.start)}>
