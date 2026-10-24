@@ -59,6 +59,8 @@ test("booking time picker: the free / taken parts of the day are named in words,
   await page.getByTestId(`day-${f.date}`).check({ force: true });
   await page.getByTestId("continue").click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("באיזו שעה?");
+  // one plain sentence above the strip tells when the day is open: "פנוי: 09:00–11:30 · 13:00–15:00"
+  await expect(page.getByTestId("time-summary")).toHaveText(/^פנוי: \d{2}:\d{2}–\d{2}:\d{2}/);
   const figure = page.locator("figure").first();
   await expect(figure.getByText("פנוי", { exact: true })).toBeVisible();
   await expect(figure.getByText("תפוס", { exact: true })).toBeVisible();

@@ -38,3 +38,15 @@ export function ribbonSummary(segments: RibbonSegment[], labels: Record<RibbonSt
   }
   return order.map((st) => `${labels[st]}: ${byState.get(st)!.join(", ")}.`).join(" ");
 }
+
+/** The open windows of a day ("free" and "selected" count as open), merged when they touch, as "09:00–11:30". Empty when nothing is open. */
+export function openWindows(segments: RibbonSegment[]): string[] {
+  const open = segments.filter((s) => (s.state === "free" || s.state === "selected") && s.end > s.start).sort((a, b) => a.start - b.start);
+  const merged: { start: number; end: number }[] = [];
+  for (const s of open) {
+    const last = merged[merged.length - 1];
+    if (last && s.start <= last.end) last.end = Math.max(last.end, s.end);
+    else merged.push({ start: s.start, end: s.end });
+  }
+  return merged.map((w) => `${fmtMinutes(w.start)}–${fmtMinutes(w.end)}`);
+}
