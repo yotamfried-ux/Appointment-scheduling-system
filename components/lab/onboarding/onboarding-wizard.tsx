@@ -97,18 +97,13 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
           <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground motion-safe:animate-in motion-safe:zoom-in-50" aria-hidden><Check className="size-8" strokeWidth={3} /></div>
           <h1 ref={heading} tabIndex={-1} className="mt-5 text-3xl font-bold outline-none" data-testid="done-title">{t("done.title")}</h1>
           <p className="mt-1 text-balance text-muted-foreground">{t("done.subtitle")}</p>
-<<<<<<< HEAD
           {onFinish && !published ? (
-=======
-          {onFinish ? (
->>>>>>> origin/main
             <p className="mt-8 rounded-lg border bg-card p-4 text-start text-sm text-muted-foreground" data-testid="publish-hint">{t("done.publishHint")}</p>
           ) : (
             <div className="mt-8 rounded-lg border bg-card p-4 text-start">
               <p className="text-sm text-muted-foreground">{t("done.link")}</p>
               <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="min-w-0 text-lg font-semibold [overflow-wrap:anywhere]"><bdi data-testid="share-link">{link}</bdi></p>
-<<<<<<< HEAD
                 <Button
                   variant="outline"
                   className="w-full sm:w-auto"
@@ -126,9 +121,6 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
                 >
                   {copied ? <Check aria-hidden /> : <Copy aria-hidden />}{t("done.copy")}
                 </Button>
-=======
-                <Button variant="outline" className="w-full sm:w-auto" onClick={() => toast(t("done.copied"), { variant: "success" })}><Copy aria-hidden />{t("done.copy")}</Button>
->>>>>>> origin/main
               </div>
             </div>
           )}
