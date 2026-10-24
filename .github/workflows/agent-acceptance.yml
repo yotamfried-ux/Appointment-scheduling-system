@@ -1,0 +1,281 @@
+name: Isolated agent repair acceptance
+
+on:
+  push:
+    branches: [agent-sandbox/appointment-acceptance-20261024]
+    paths: [.agent-acceptance/request.json]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-acceptance-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CI: 'true'
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+      E2E_REAL_SUPABASE: '1'
+      MAIL_API_URL: http://127.0.0.1:54324
+      BILLING_PROVIDER: fake
+      EMAIL_PROVIDER: fake
+      OUTBOX_KICK: '0'
+      ALLOW_NON_PRODUCTION_DEFAULTS: '1'
+    steps:
+      - name: Checkout the triggering commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Verify immutable target and agent patch
+        id: guard
+        env:
+          EVENT_SHA: ${{ github.sha }}
+          EVENT_REPOSITORY: ${{ github.repository }}
+          EVENT_REF: ${{ github.ref }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, subprocess
+          def require(ok, why):
+              if not ok: raise SystemExit(why)
+          def git(*args): return subprocess.check_output(['git', *args], text=True).strip()
+          require(os.environ['EVENT_REPOSITORY'] == 'yotamfried-ux/Appointment-scheduling-system', 'wrong repository')
+          require(os.environ['EVENT_REF'] == 'refs/heads/agent-sandbox/appointment-acceptance-20261024', 'wrong ref')
+          require(git('rev-parse', 'HEAD') == os.environ['EVENT_SHA'], 'checkout/event SHA mismatch')
+          base = '0d9fc5dfcd827c7a20a5b0c15c984222a6ca3733'
+          request = json.loads(pathlib.Path('.agent-acceptance/request.json').read_text())
+          require(request.get('base_sha') == base, 'wrong base SHA')
+          subprocess.run(['git', 'merge-base', '--is-ancestor', base, 'HEAD'], check=True)
+          changed = git('diff', '--name-only', base, 'HEAD').splitlines()
+          allowed = lambda p: p.startswith('.agent-acceptance/') or p in ['.github/workflows/agent-acceptance.yml', 'docs/plans/agent-acceptance-20261024.md']
+          require(all(allowed(p) for p in changed), 'source changes exist outside the isolated acceptance files')
+          patch = pathlib.Path('.agent-acceptance/repair.patch').read_bytes()
+          digest = hashlib.sha256(patch).hexdigest()
+          require(request.get('patch_sha256') == digest, 'agent patch digest mismatch')
+          subprocess.run(['git', 'apply', '--check', '.agent-acceptance/repair.patch'], check=True)
+          subprocess.run(['git', 'apply', '.agent-acceptance/repair.patch'], check=True)
+          require(git('diff', '--name-only').splitlines() == ['package.json'], 'patch changed files other than package.json')
+          before = json.loads(subprocess.check_output(['git', 'show', 'HEAD:package.json'], text=True))
+          after = json.loads(pathlib.Path('package.json').read_text())
+          for section, name in [('dependencies', 'next'), ('devDependencies', 'eslint-config-next')]:
+              require(after[section][name] == '16.4.1', 'dependency repair is not the approved exact version')
+              before[section][name] = '16.4.1'
+          require(before == after, 'patch contains unapproved package changes')
+          out = pathlib.Path('acceptance-reports'); out.mkdir()
+          (out/'target.json').write_text(json.dumps({'repository': os.environ['EVENT_REPOSITORY'], 'branch': os.environ['EVENT_REF'], 'event_sha': os.environ['EVENT_SHA'], 'base_sha': base, 'patch_sha256': digest, 'request': request}, indent=2))
+          PY
+
+      - name: Prepare Node
+        id: node
+        if: steps.guard.outcome == 'success'
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        with:
+          node-version: 22
+
+      - name: Install bounded evidence helpers
+        id: helpers
+        if: steps.guard.outcome == 'success' && steps.node.outcome == 'success'
+        run: |
+          cat > "$RUNNER_TEMP/acceptance-log.py" <<'PY'
+          import pathlib, subprocess, sys
+          name, *command = sys.argv[1:]
+          p = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+          tail = bytearray()
+          while True:
+              chunk = p.stdout.read(8192)
+              if not chunk: break
+              tail.extend(chunk)
+              if len(tail) > 1048576: del tail[:-1048576]
+          rc = p.wait()
+          pathlib.Path('acceptance-reports', name+'.log').write_bytes(tail)
+          print(name+': exit '+str(rc)+'; bounded log stored')
+          sys.exit(rc)
+          PY
+          cat > "$RUNNER_TEMP/acceptance-local.sh" <<'SH'
+          set -euo pipefail
+          source scripts/local-env.sh
+          node -e 'const u=new URL(process.env.NEXT_PUBLIC_SUPABASE_URL); if(u.protocol!=="http:" || u.hostname!=="127.0.0.1" || u.port!=="54321") throw Error("non-local Supabase rejected"); const m=new URL(process.env.MAIL_API_URL); if(m.protocol!=="http:" || m.hostname!=="127.0.0.1" || m.port!=="54324") throw Error("non-local mail rejected"); if(!process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || !process.env.SUPABASE_SECRET_KEY) throw Error("local keys absent");'
+          exec "$@"
+          SH
+
+      - name: Regenerate the repair lockfile and install
+        id: install
+        continue-on-error: true
+        if: steps.helpers.outcome == 'success'
+        run: |
+          python3 "$RUNNER_TEMP/acceptance-log.py" lock npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          python3 "$RUNNER_TEMP/acceptance-log.py" install npm ci --no-audit --no-fund
+          node -e 'const p=require("./package-lock.json"); for(const n of ["next","eslint-config-next"]) if(p.packages["node_modules/"+n].version!=="16.4.1") throw Error("wrong installed lock version: "+n)'
+          test "$(git diff --name-only | sort | tr '\n' ' ')" = 'package-lock.json package.json '
+
+      - name: Unit tests
+        id: unit
+        continue-on-error: true
+        if: always() && steps.install.outcome == 'success'
+        run: python3 "$RUNNER_TEMP/acceptance-log.py" unit npx --no-install vitest run --maxWorkers=2 --reporter=json --outputFile=acceptance-reports/unit.json
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        if: always() && steps.install.outcome == 'success'
+        run: python3 "$RUNNER_TEMP/acceptance-log.py" lint npm run lint
+
+      - name: Typecheck
+        id: types
+        continue-on-error: true
+        if: always() && steps.install.outcome == 'success'
+        run: python3 "$RUNNER_TEMP/acceptance-log.py" types npm run typecheck
+
+      - name: Production dependency audit
+        id: audit
+        continue-on-error: true
+        if: always() && steps.install.outcome == 'success'
+        run: python3 "$RUNNER_TEMP/acceptance-log.py" audit npm audit --omit=dev --audit-level=high --json
+
+      - name: Install Chromium
+        id: browser
+        continue-on-error: true
+        if: always() && steps.install.outcome == 'success'
+        run: python3 "$RUNNER_TEMP/acceptance-log.py" browser npx --no-install playwright install --with-deps chromium
+
+      - name: Start this job's isolated local Supabase stack
+        id: dbstart
+        continue-on-error: true
+        if: always() && steps.install.outcome == 'success'
+        run: |
+          docker info >/dev/null
+          if docker ps -a --format '{{.Names}}' | grep -Eq '^supabase_.*_appointment-scheduling-system$'; then
+            echo 'existing stack found; refusing to reuse or stop it'; exit 1
+          fi
+          touch "$RUNNER_TEMP/acceptance-stack-owned"
+          # Supabase startup can print generated local keys; discard that output.
+          python3 "$RUNNER_TEMP/acceptance-log.py" db-start bash -c 'npm run db:start >/dev/null 2>&1'
+
+      - name: Production build against generated local public configuration
+        id: build
+        continue-on-error: true
+        if: always() && steps.dbstart.outcome == 'success'
+        # Next embeds NEXT_PUBLIC values at build time; use the actual local stack key.
+        run: python3 "$RUNNER_TEMP/acceptance-log.py" build bash "$RUNNER_TEMP/acceptance-local.sh" npm run build
+
+      - name: Real database pgTAP suite
+        id: dbtests
+        continue-on-error: true
+        if: always() && steps.dbstart.outcome == 'success'
+        run: python3 "$RUNNER_TEMP/acceptance-log.py" database npm run db:test
+
+      - name: Database schema lint
+        id: dblint
+        continue-on-error: true
+        if: always() && steps.dbstart.outcome == 'success'
+        run: |
+          docker exec supabase_db_appointment-scheduling-system psql -U postgres -At -v ON_ERROR_STOP=1 -c "select rule||' '||object_name from private.lint_violations()" > acceptance-reports/schema-lint.log
+          test ! -s acceptance-reports/schema-lint.log
+
+      - name: Focused real public booking and browser flow
+        id: booking
+        continue-on-error: true
+        if: always() && steps.dbstart.outcome == 'success' && steps.build.outcome == 'success' && steps.browser.outcome == 'success'
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: acceptance-reports/booking.json
+        run: python3 "$RUNNER_TEMP/acceptance-log.py" booking bash "$RUNNER_TEMP/acceptance-local.sh" npx --no-install playwright test tests/e2e/public-booking.spec.ts tests/e2e/public-booking-ui.spec.ts --project=desktop --workers=1 --retries=0 --reporter=json
+
+      - name: Full owner to first visit journey
+        id: journey
+        continue-on-error: true
+        if: always() && steps.dbstart.outcome == 'success' && steps.build.outcome == 'success' && steps.browser.outcome == 'success'
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: acceptance-reports/journey.json
+        run: python3 "$RUNNER_TEMP/acceptance-log.py" journey bash "$RUNNER_TEMP/acceptance-local.sh" npx --no-install playwright test tests/e2e/journeys/j1-owner-to-first-visit.spec.ts --project=journeys --workers=1 --retries=0 --reporter=json
+
+      - name: Complete mobile desktop and journey simulation
+        id: broad
+        continue-on-error: true
+        if: always() && steps.dbstart.outcome == 'success' && steps.build.outcome == 'success' && steps.browser.outcome == 'success'
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: acceptance-reports/full-e2e.json
+        run: python3 "$RUNNER_TEMP/acceptance-log.py" full-e2e bash "$RUNNER_TEMP/acceptance-local.sh" npx --no-install playwright test --workers=2 --retries=0 --reporter=json
+
+      - name: Independently enforce all required outcomes
+        id: acceptance
+        if: always() && steps.guard.outcome == 'success'
+        env:
+          STEP_OUTCOMES: ${{ toJSON(steps) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, subprocess
+          out = pathlib.Path('acceptance-reports')
+          steps = json.loads(os.environ['STEP_OUTCOMES'])
+          required = ['guard','node','helpers','install','unit','lint','types','audit','build','browser','dbstart','dbtests','dblint','booking','journey','broad']
+          errors = [name+': '+steps.get(name,{}).get('outcome','missing') for name in required if steps.get(name,{}).get('outcome') != 'success']
+          report_checks = {}
+          for name, files in [('booking.json', ['public-booking.spec.ts','public-booking-ui.spec.ts']), ('journey.json', ['j1-owner-to-first-visit.spec.ts']), ('full-e2e.json', ['public-booking.spec.ts','public-booking-ui.spec.ts','j1-owner-to-first-visit.spec.ts'])]:
+              try:
+                  data = json.loads((out/name).read_text())
+                  tests = []
+                  def walk(s):
+                      for spec in s.get('specs',[]):
+                          for test in spec.get('tests',[]): tests.append((spec.get('file', s.get('file','')),test))
+                      for sub in s.get('suites',[]): walk(sub)
+                  walk(data)
+                  if not tests: errors.append(name+': zero tests')
+                  for wanted in files:
+                      selected = [t for f,t in tests if f.endswith(wanted)]
+                      if not selected: errors.append(name+': missing '+wanted)
+                      if any(t.get('status') != 'expected' or not t.get('results') or any(r.get('status')!='passed' for r in t['results']) for t in selected): errors.append(name+': failed/skipped/flaky required suite '+wanted)
+                  if name == 'full-e2e.json':
+                      projects = {t.get('projectName') for _,t in tests}
+                      if not {'mobile-360','desktop','journeys'} <= projects: errors.append('full E2E missing required projects')
+                  stats = data.get('stats',{})
+                  if data.get('errors') or stats.get('unexpected',0) or stats.get('flaky',0): errors.append(name+': global errors, failures or flakiness')
+                  report_checks[name] = {'tests':len(tests),'stats':stats,'required_files':files}
+              except Exception as e: errors.append(name+': '+str(e))
+          try:
+              unit = json.loads((out/'unit.json').read_text())
+              if unit.get('success') is not True or unit.get('numPassedTests',0) < 1 or unit.get('numPendingTests',0) or unit.get('numFailedTests',0): errors.append('unit tests failed, absent or skipped')
+          except Exception as e: errors.append('unit.json: '+str(e))
+          (out/'acceptance.json').write_text(json.dumps({'accepted':not errors,'errors':errors,'step_outcomes':{k:v.get('outcome') for k,v in steps.items()},'reports':report_checks},indent=2))
+          for p in ['package.json','package-lock.json']: (out/pathlib.Path(p).name).write_bytes(pathlib.Path(p).read_bytes())
+          (out/'repaired.diff').write_bytes(subprocess.check_output(['git','diff','--','package.json','package-lock.json']))
+          print(json.dumps({'accepted':not errors,'errors':errors},indent=2))
+          if errors: raise SystemExit(1)
+          PY
+
+      - name: Stop only the local stack this job attempted to start
+        if: always() && steps.install.outcome == 'success'
+        run: |
+          if test -f "$RUNNER_TEMP/acceptance-stack-owned"; then
+            python3 "$RUNNER_TEMP/acceptance-log.py" db-stop npm run db:stop
+          fi
+
+      - name: Bound artifact report sizes
+        id: artifactbounds
+        if: always() && steps.guard.outcome == 'success'
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          out=pathlib.Path('acceptance-reports')
+          for p in out.iterdir():
+              if p.suffix=='.log' and p.stat().st_size>1048576:
+                  with p.open('rb') as f: f.seek(-1048576,2); tail=f.read()
+                  p.write_bytes(tail)
+              elif p.stat().st_size>16777216:
+                  raise SystemExit('report exceeds 16 MiB bound: '+p.name)
+          if sum(p.stat().st_size for p in out.iterdir())>67108864: raise SystemExit('artifact exceeds 64 MiB bound')
+          PY
+
+      - name: Upload scoped acceptance evidence
+        if: always() && steps.guard.outcome == 'success' && steps.artifactbounds.outcome == 'success'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: agent-acceptance-${{ github.run_id }}-${{ github.sha }}
+          path: acceptance-reports/
+          retention-days: 3
+          if-no-files-found: error
