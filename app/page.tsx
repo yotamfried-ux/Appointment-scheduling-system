@@ -71,7 +71,10 @@ export default async function Home() {
                 className="text-3xl leading-[1.12] font-bold tracking-tight text-balance sm:text-5xl"
                 data-testid="home-title"
               >
-                {t("hero.title")}
+                {(() => {
+                  const [first, ...rest] = t("hero.title").split(". ");
+                  return rest.length ? (<>{first}.{" "}<br className="hidden sm:block" />{rest.join(". ")}</>) : first;
+                })()}
               </h1>
               <p className="max-w-xl text-sm leading-relaxed text-pretty text-muted-foreground sm:text-base">
                 {t("hero.subtitle")}
