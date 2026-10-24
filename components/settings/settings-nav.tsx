@@ -11,7 +11,6 @@ const ITEMS = [
   { href: "/settings/team", key: "team" },
   { href: "/settings/booking", key: "booking" },
   { href: "/settings/billing", key: "billing" },
-  { href: "/settings/security", key: "security" },
   { href: "/settings/account", key: "account" },
 ] as const;
 

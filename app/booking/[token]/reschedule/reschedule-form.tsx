@@ -9,7 +9,25 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { formatDayLabel } from "@/lib/lab/booking-data";
 import { labApi } from "@/lib/api/client";
 
-export function RescheduleForm({ slug, serviceId: currentServiceId, services, token, manageHref }: { slug: string; serviceId: string; services: { id: string; name: string }[]; token: string; manageHref: string }) {
+export function RescheduleForm({
+  slug,
+  serviceId: currentServiceId,
+  services,
+  token,
+  manageHref,
+  today,
+  horizonDays = 60,
+  personId,
+}: {
+  slug: string;
+  serviceId: string;
+  services: { id: string; name: string }[];
+  token: string;
+  manageHref: string;
+  today?: string;
+  horizonDays?: number;
+  personId?: string;
+}) {
   const t = useTranslations("reschedule");
   const router = useRouter();
   const opts = { kind: "other", session: "public", base: `/api/public/${slug}` } as const;
@@ -22,16 +40,23 @@ export function RescheduleForm({ slug, serviceId: currentServiceId, services, to
   const [pending, start] = useTransition();
 
   useEffect(() => {
-    const from = new Date().toISOString().slice(0, 10);
-    labApi.availability(opts, { service: serviceId, from, days: 30 }).then((r) => setDays(r.days.filter((d) => d.freeSlots > 0).map((d) => d.date))).catch(() => setDays([]));
+    const from = today ?? new Date().toISOString().slice(0, 10);
+    const maxDays = Math.min(90, Math.max(1, horizonDays));
+    labApi
+      .availability(opts, { service: serviceId, from, days: maxDays, ...(personId ? { person: personId } : {}) })
+      .then((r) => setDays(r.days.filter((d) => d.freeSlots > 0).map((d) => d.date)))
+      .catch(() => setDays([]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serviceId, slug]);
+  }, [serviceId, slug, today, horizonDays, personId]);
 
   const pickService = (id: string) => { setServiceId(id); setDays(null); setDate(null); setTime(null); setTimes(null); setMessage(null); };
 
   const pickDay = (d: string) => {
     setDate(d); setTime(null); setTimes(null); setMessage(null);
-    labApi.slots(opts, { service: serviceId, date: d }).then((r) => setTimes(r.slots.map((s) => s.time))).catch(() => setTimes([]));
+    labApi
+      .slots(opts, { service: serviceId, date: d, ...(personId ? { person: personId } : {}) })
+      .then((r) => setTimes(r.slots.map((s) => s.time)))
+      .catch(() => setTimes([]));
   };
 
   const submit = () =>

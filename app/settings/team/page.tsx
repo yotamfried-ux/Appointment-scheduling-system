@@ -12,7 +12,7 @@ export const metadata = { title: "צוות", robots: { index: false, follow: fal
 
 export default async function TeamPage() {
   const t = await getTranslations("settings.team");
-  const { supabase, claims } = await requireUser();
+  const { supabase } = await requireUser();
   const business = (await listMyBusinesses(supabase))[0];
   if (!business) redirect("/onboarding");
   const [people, rules, serviceStaff, services] = await Promise.all([
@@ -22,7 +22,7 @@ export default async function TeamPage() {
     listServices(supabase, business.id),
   ]);
   return (
-    <SettingsPage email={String(claims.email ?? "")} title={t("title")} description={t("subtitle")}>
+    <SettingsPage email={business.name} title={t("title")} description={t("subtitle")}>
       <TeamManager
         people={people.map((p) => ({ ...p, hours: rulesToDayHours(rules.get(p.id) ?? []) }))}
         services={services.filter((s) => s.active && s.capacity === 1).map((s) => ({ id: s.id, name: s.name, personIds: serviceStaff.get(s.id) ?? [] }))}

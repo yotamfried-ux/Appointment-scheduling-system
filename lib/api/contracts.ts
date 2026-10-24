@@ -40,6 +40,8 @@ export const BusinessDto = z.object({
   vocab: z.record(z.string(), z.string()),
   requireApproval: z.boolean(),
   cancelUntilHours: z.number(),
+  /** Configured booking horizon in days (1..90). */
+  horizonDays: z.number().int().positive().optional(),
   /** Public pages only: customers may join the waitlist for a full day. */
   waitlistEnabled: z.boolean().optional(),
   /** False when the business's subscription has lapsed (BKG-11/BIL-01): the page says so instead of offering times. */
@@ -53,10 +55,15 @@ export const ServicesResponse = z.object({ kind: KindSchema, business: BusinessD
 export const AvailabilityQuery = z.object({
   service: z.string().min(1),
   from: IsoDate,
-  days: z.coerce.number().int().min(1).max(31),
+  days: z.coerce.number().int().min(1).max(90),
   person: z.string().min(1).optional(),
 });
-export const DayAvailabilityDto = z.object({ date: IsoDate, closed: z.boolean(), freeSlots: z.number().int().nonnegative() });
+export const DayAvailabilityDto = z.object({
+  date: IsoDate,
+  closed: z.boolean(),
+  freeSlots: z.number().int().nonnegative(),
+  windows: z.array(z.object({ from: z.number().int(), to: z.number().int() })).optional(),
+});
 export const AvailabilityResponse = z.object({ days: z.array(DayAvailabilityDto) });
 
 export const SlotsQuery = z.object({ service: z.string().min(1), date: IsoDate, selected: HHmm.optional(), person: z.string().min(1).optional() });
@@ -198,12 +205,20 @@ export const OwnerWaitlistEntryDto = z.object({
 });
 export const FailureCode = z.enum(["rate_limited", "provider_rejected", "unknown", "bounced", "no_email"]);
 export type FailureCode = z.infer<typeof FailureCode>;
+export const OwnerRangeDayDto = z.object({
+  date: IsoDate,
+  closed: z.boolean(),
+  windows: z.array(z.object({ from: z.number().int(), to: z.number().int() })),
+  appointments: z.array(OwnerAppointmentDto),
+});
 export const OwnerAgendaResponse = z.object({
   date: IsoDate,
   today: IsoDate,
   windows: z.array(z.object({ from: z.number().int(), to: z.number().int() })),
   now: z.number().int().nullable(),
   appointments: z.array(OwnerAppointmentDto),
+  /** Multi-day schedule for Weekly and Monthly calendar views when `from`/`to` are requested. */
+  rangeDays: z.array(OwnerRangeDayDto).optional(),
   /** Everything awaiting a decision from today onwards (any day) — the approvals inbox. */
   inbox: z.array(OwnerAppointmentDto),
   /** Messages that could not be delivered after all retries in the last 7 days (NTF-04): the owner should reach those customers another way. */
@@ -216,7 +231,14 @@ export const OwnerAgendaResponse = z.object({
   billing: z.object({ state: z.enum(["trial", "active", "grace", "degraded"]), features: z.object({ waitlist: z.boolean(), export: z.boolean() }) }).optional(),
   /** Cheap change marker: the client polls `/api/owner/version` and reloads only when it differs. */
   version: z.string(),
-  services: z.array(z.object({ id: z.string(), name: z.string(), durationMinutes: z.number().int().positive() })),
+  services: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      durationMinutes: z.number().int().positive(),
+      personIds: z.array(z.string()).nullable().optional(),
+    }),
+  ),
   business: z.object({ name: z.string(), kind: KindSchema }),
   /** Stage 16. The active people and that day's hours of each; `person` is the filter in effect (null = everyone). One entry for a one-person business. */
   person: z.string().nullable(),

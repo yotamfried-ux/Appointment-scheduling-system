@@ -13,5 +13,5 @@ export const ownerPage = cache(async function ownerPage() {
   } catch {
     redirect("/onboarding"); // signed in but no business yet
   }
-  return { ctx, email: String(claims.email ?? "") };
+  return { ctx, email: ctx.business.name || String(claims.email ?? "") };
 });

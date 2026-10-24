@@ -36,7 +36,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
       <PageHeader
         title={t("title")}
         description={t("subtitle")}
-        actions={isAdmin ? <Button asChild variant="outline"><a href="/api/owner/export/customers" download data-testid="export-customers">{t("export")}</a></Button> : undefined}
+        actions={isAdmin ? <Button asChild variant="outline"><a href="/api/owner/export/customers?format=xlsx" download data-testid="export-customers">{t("export")}</a></Button> : undefined}
       />
       <form method="get" action="/customers" role="search" className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
         <label className="grid min-w-0 flex-1 gap-1 text-sm basis-56">

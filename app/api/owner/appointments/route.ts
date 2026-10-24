@@ -7,10 +7,14 @@ import { systemClock, zonedParts } from "@/platform/clock";
 
 export const GET = api(async (req) => {
   const ctx = await ownerContext();
-  const q = new URL(req.url).searchParams.get("date");
+  const url = new URL(req.url);
+  const q = url.searchParams.get("date");
   const date = q === null ? zonedParts(systemClock.now(), ctx.business.timezone).date : parse(IsoDate, q);
-  const person = new URL(req.url).searchParams.get("person");
-  return agenda(ctx, date, person ? parse(z.uuid(), person) : undefined);
+  const person = url.searchParams.get("person");
+  const fromQ = url.searchParams.get("from");
+  const toQ = url.searchParams.get("to");
+  const range = fromQ && toQ ? { from: parse(IsoDate, fromQ), to: parse(IsoDate, toQ) } : undefined;
+  return agenda(ctx, date, person ? parse(z.uuid(), person) : undefined, range);
 }, { lab: false });
 
 export const POST = api(async (req) => {

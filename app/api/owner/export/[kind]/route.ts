@@ -3,7 +3,8 @@ import { IsoDate } from "@/lib/api/contracts";
 import { api, fail, parse } from "@/lib/api/http";
 import { clientIp, enforce, limitFromHeader } from "@/modules/booking/public/rate-limit";
 import { ownerContext } from "@/modules/booking/owner/service";
-import { exportAppointments, exportCustomers, requireAdmin } from "@/modules/reports/service";
+import { exportAppointments, exportAppointmentsXlsx, exportCustomers, exportCustomersXlsx, requireAdmin } from "@/modules/reports/service";
+import { XLSX_MIME } from "@/modules/reports/xlsx";
 
 const Range = z.object({ from: IsoDate, to: IsoDate });
 
@@ -23,6 +24,17 @@ export const GET = api<{ kind: string }>(async (req, { kind }) => {
     { scope: "owner-export", value: ctx.business.id, windowSeconds: 3600, max: limitFromHeader(req, 20) },
     { scope: "owner-export-ip", value: clientIp(req), windowSeconds: 3600, max: limitFromHeader(req, 60) },
   ]);
+  const wantsXlsx = sp.get("format") === "xlsx" || req.headers.get("sec-fetch-dest") === "document";
+  if (wantsXlsx) {
+    const out = range ? await exportAppointmentsXlsx(ctx, range.from, range.to) : await exportCustomersXlsx(ctx);
+    return new Response(Buffer.from(out.body), {
+      headers: {
+        "Content-Type": XLSX_MIME,
+        "Content-Disposition": `attachment; filename="${out.filename}"`,
+        "X-Content-Type-Options": "nosniff",
+      },
+    });
+  }
   const out = range ? await exportAppointments(ctx, range.from, range.to) : await exportCustomers(ctx);
   return new Response(out.body, {
     headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${out.filename}"`, "X-Content-Type-Options": "nosniff" },

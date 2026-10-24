@@ -10,12 +10,12 @@ export const metadata = { title: "שירותים", robots: { index: false, follo
 
 export default async function ServicesPage() {
   const t = await getTranslations("settings.services");
-  const { supabase, claims } = await requireUser();
+  const { supabase } = await requireUser();
   const business = (await listMyBusinesses(supabase))[0];
   if (!business) redirect("/onboarding");
   const services = await listServices(supabase, business.id);
   return (
-    <SettingsPage email={String(claims.email ?? "")} title={t("title")} description={t("subtitle")}>
+    <SettingsPage email={business.name} title={t("title")} description={t("subtitle")}>
       <ServicesManager services={services} />
     </SettingsPage>
   );

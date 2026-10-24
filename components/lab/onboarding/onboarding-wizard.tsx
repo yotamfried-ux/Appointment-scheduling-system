@@ -28,7 +28,6 @@ const VISIBLE = ONBOARDING_STEPS.slice(0, 3) as ("business" | "services" | "hour
 const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const DURATIONS = [15, 20, 30, 45, 60, 90, 120];
 
-
 type FinishResult = { ok: true; slug: string; published?: boolean } | { ok: false; code: string };
 
 /**
@@ -57,6 +56,8 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
   const slug = savedSlug ?? customSlug ?? suggestSlug(s.business.name);
   const slugInvalid = customSlug !== null && !(customSlug.length >= 3 && customSlug.length <= 40 && SLUG_RE.test(customSlug));
   const link = `${host ?? "tori.example"}/book/${slug}`;
+  const ownerClean = s.business.ownerName?.trim() ?? "";
+
   const next = async () => {
     if (saving) return;
     setTouched(true);
@@ -67,6 +68,7 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
       try {
         const r = await onFinish({
           name: s.business.name,
+          ...(ownerClean.length >= 2 ? { ownerName: ownerClean } : {}),
           kind: s.business.type,
           phone: s.business.phone,
           ...(customSlug ? { slug: customSlug } : {}),
@@ -92,7 +94,7 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
 
   if (s.step === "done") {
     return (
-      <Shell email={email}>
+      <Shell email={s.business.name.trim() || email}>
         <main id="main" className="mx-auto w-full max-w-xl px-4 py-12 text-center sm:py-16">
           <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground motion-safe:animate-in motion-safe:zoom-in-50" aria-hidden><Check className="size-8" strokeWidth={3} /></div>
           <h1 ref={heading} tabIndex={-1} className="mt-5 text-3xl font-bold outline-none" data-testid="done-title">{t("done.title")}</h1>
@@ -115,7 +117,7 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
                       toast(t("done.copied"), { variant: "success" });
                       setTimeout(() => setCopied(false), 2000);
                     } catch {
-                      setCopied(false); // the link stays selectable next to the button
+                      setCopied(false);
                     }
                   }}
                 >
@@ -142,7 +144,7 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
   }
 
   return (
-    <Shell email={email}>
+    <Shell email={s.business.name.trim() || email}>
       <div className="mx-auto w-full max-w-xl px-4 pt-6">
         <nav aria-label={t("stepper")}>
           <p className="mb-3 text-sm font-medium text-muted-foreground">{t("stepOf", { current: stepIndex + 1, total: VISIBLE.length })}</p>
@@ -165,6 +167,9 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
           <div className="mt-6 grid gap-5">
             <FormField label={t("business.name")} error={touched && s.business.name.trim().length < 2 ? t("services.errors.name") : undefined}>
               {(a) => <Input {...a} autoComplete="organization" value={s.business.name} onChange={(e) => dispatch({ type: "setBusiness", business: { ...s.business, name: e.target.value } })} />}
+            </FormField>
+            <FormField label={t("business.ownerName")} hint={t("business.ownerNameHint")}>
+              {(a) => <Input {...a} autoComplete="name" data-testid="owner-name-input" value={s.business.ownerName ?? ""} onChange={(e) => dispatch({ type: "setBusiness", business: { ...s.business, ownerName: e.target.value } })} />}
             </FormField>
             <FormField label={t("business.type")} hint={t("business.typeHint")}>
               {(a) => (

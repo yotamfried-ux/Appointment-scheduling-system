@@ -1,6 +1,5 @@
 import "server-only";
-// Customer side of the waitlist (system path). Hours are not checked here: a waitlist is for days that are FULL; offers only ever
-// reuse a slot that was just freed by a real booking, and accepting goes through the same EXCLUDE as any booking.
+// Customer side of the waitlist (system path).
 import { createHash } from "node:crypto";
 import type { z } from "zod";
 import type * as C from "@/lib/api/contracts";
@@ -26,6 +25,19 @@ export async function joinWaitlist(c: Catalog, input: C.JoinWaitlistInput, idemK
   // A day the business is closed can never free up a slot: refuse it instead of keeping the customer waiting for nothing.
   const day = (await computeAvailability(c, svc.id, input.date, 1)).days[0];
   if (day?.closed) throw fail("VALIDATION_FAILED", "הבקשה אינה תקינה.", [{ field: "date", message: "העסק סגור ביום הזה. בחרו יום אחר." }]);
+  if (input.window) {
+    const fromM = minutesOf(input.window.from);
+    const toM = minutesOf(input.window.to);
+    if (toM - fromM < svc.durationMinutes) {
+      throw fail("VALIDATION_FAILED", "הבקשה אינה תקינה.", [{ field: "window.to", message: `טווח השעות קצר ממשך השירות (${svc.durationMinutes} דק׳).` }]);
+    }
+    if (day?.windows && day.windows.length > 0) {
+      const fitsOpening = day.windows.some((w) => Math.min(toM, w.to) - Math.max(fromM, w.from) >= svc.durationMinutes);
+      if (!fitsOpening) {
+        throw fail("VALIDATION_FAILED", "הבקשה אינה תקינה.", [{ field: "window.to", message: "טווח השעות שנבחר אינו חופף לשעות הפעילות של העסק ביום זה." }]);
+      }
+    }
+  }
   const { data, error } = await systemDb().rpc("waitlist_join", {
     p_business: c.business.id,
     p_service: svc.id,

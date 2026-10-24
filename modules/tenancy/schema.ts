@@ -27,6 +27,7 @@ export const OnboardingHoursInput = z
 export const CreateBusinessInput = z
   .object({
     name: z.string().trim().min(2).max(80),
+    ownerName: z.string().trim().min(2).max(80).optional(),
     kind: z.enum(KIND_IDS),
     // Optional link name chosen by the owner; the database still enforces uniqueness and format.
     slug: z.string().trim().toLowerCase().min(3).max(40).regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).optional(),
@@ -54,4 +55,3 @@ export function slugCandidates(name: string, rand: () => number = Math.random, p
   const random = [0, 1, 2].map(() => `${trim(base, 5)}-${Math.floor(rand() * 36 ** 4).toString(36).padStart(4, "0")}`);
   return [base, ...numbered, ...random].map(pad);
 }
-

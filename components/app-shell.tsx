@@ -17,7 +17,11 @@ export function AppShell({ email, children, width = "max-w-2xl", nav }: { email?
             <Logo />
           </Link>
           <div className="flex min-w-0 items-center gap-3">
-            {email ? <bdi className="hidden min-w-0 truncate text-sm text-muted-foreground sm:block" data-testid="whoami">{email}</bdi> : null}
+            {email ? (
+              <bdi className="hidden min-w-0 truncate rounded-md border bg-muted/50 px-2.5 py-1 text-xs font-medium text-foreground sm:block" data-testid="whoami">
+                {email}
+              </bdi>
+            ) : null}
             <ThemeSwitcher />
             <LogoutButton />
           </div>

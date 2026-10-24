@@ -12,7 +12,27 @@ import { ApiClientError, ownerApi } from "@/lib/api/client";
 import { fmt } from "@/lib/lab/dashboard-data";
 
 /** RSC-04: move one booking to another time. The customer is told by mail and can decline without any condition. */
-export function MoveDialog({ id, customer, date, start, people = [], personId, onClose, onDone }: { id: string; customer: string; date: string; start: number; people?: { id: string; name: string }[]; personId?: string; onClose: () => void; onDone: (date: string) => void }) {
+export function MoveDialog({
+  id,
+  customer,
+  date,
+  start,
+  people = [],
+  personId,
+  windows = [],
+  onClose,
+  onDone,
+}: {
+  id: string;
+  customer: string;
+  date: string;
+  start: number;
+  people?: { id: string; name: string }[];
+  personId?: string;
+  windows?: { from: number; to: number }[];
+  onClose: () => void;
+  onDone: (date: string) => void;
+}) {
   const t = useTranslations("owner.move");
   const [d, setD] = useState(date);
   const [time, setTime] = useState(fmt(start));
@@ -61,6 +81,11 @@ export function MoveDialog({ id, customer, date, start, people = [], personId, o
           <FormField label={t("time")} error={undefined}>
             {(a) => <Input {...a} type="time" step={300} dir="ltr" className="text-start" value={time} onChange={(e) => setTime(e.target.value)} data-testid="move-time" />}
           </FormField>
+          {windows.length > 0 && d === date ? (
+            <p className="text-xs text-muted-foreground">
+              שעות הפעילות ביום זה: <bdi className="font-semibold tabular-nums">{windows.map((w) => `${fmt(w.from)}–${fmt(w.to)}`).join(" · ")}</bdi>
+            </p>
+          ) : null}
           {error ? <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-sm font-medium text-destructive" data-testid="move-error">{error}</p> : null}
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={onClose}>{t("cancel")}</Button>

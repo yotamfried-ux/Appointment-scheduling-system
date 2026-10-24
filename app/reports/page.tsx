@@ -180,10 +180,10 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
               <Link href="/settings/billing" className="inline-flex min-h-11 items-center font-semibold underline underline-offset-4">{up("action")}</Link>
             </div>
           ) : (
-          <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline"><a href={`/api/owner/export/appointments?from=${period.from}&to=${period.to}`} data-testid="export-appointments" download>{t("export.appointments")}</a></Button>
-            <Button asChild variant="outline"><a href="/api/owner/export/customers" data-testid="export-customers" download>{t("export.customers")}</a></Button>
-          </div>
+            <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline"><a href={`/api/owner/export/appointments?from=${period.from}&to=${period.to}&format=xlsx`} data-testid="export-appointments" download>{t("export.appointments")}</a></Button>
+              <Button asChild variant="outline"><a href="/api/owner/export/customers?format=xlsx" data-testid="export-customers" download>{t("export.customers")}</a></Button>
+            </div>
           )}
         </section>
       ) : null}

@@ -60,14 +60,26 @@ export async function saveHoursAction(raw: unknown): Promise<Ok | Fail<Availabil
   return r;
 }
 
-export async function addExceptionAction(raw: unknown): Promise<Ok | Fail<AvailabilityErrorCode>> {
+export async function addExceptionAction(raw: unknown): Promise<(Ok & { conflictCount?: number }) | Fail<AvailabilityErrorCode>> {
   const c = await context();
   if (!c.ok) return { ok: false, code: c.error };
   const parsed = ExceptionInput.safeParse(raw);
   if (!parsed.success) return { ok: false, code: "VALIDATION" };
   const r = await addException(c.supabase, c.businessId, parsed.data);
-  if (r.ok) revalidatePath("/settings/hours");
-  return r;
+  if (!r.ok) return r;
+  let conflictCount = 0;
+  if (parsed.data.kind === "closed") {
+    const { count } = await c.supabase
+      .from("appointments")
+      .select("id", { count: "exact", head: true })
+      .eq("business_id", c.businessId)
+      .in("status", ["pending", "confirmed", "cancellation_requested"])
+      .gte("starts_at", `${parsed.data.date}T00:00:00Z`)
+      .lte("starts_at", `${parsed.data.date}T23:59:59Z`);
+    conflictCount = count ?? 0;
+  }
+  revalidatePath("/settings/hours");
+  return { ok: true, conflictCount };
 }
 
 export async function removeExceptionAction(id: unknown): Promise<Ok | Fail<AvailabilityErrorCode>> {

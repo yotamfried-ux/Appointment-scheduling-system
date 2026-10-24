@@ -4,7 +4,7 @@ import { Logo } from "@/components/brand/logo";
 import { LegalFooter } from "@/components/legal/legal-footer";
 import { formatDayLabel } from "@/lib/lab/booking-data";
 import { resolveCatalog, viewAppointment } from "@/modules/booking/public/service";
-import { zonedParts } from "@/platform/clock";
+import { systemClock, zonedParts } from "@/platform/clock";
 
 // RSC-01/02. GET only shows the picker; the move itself is a POST (Server Action) from the customer's own link.
 export const dynamic = "force-dynamic";
@@ -21,9 +21,10 @@ export default async function ReschedulePage({ params }: { params: Promise<{ tok
       </main>
     );
   }
-  // RSC-03: other services are offered only when the business allows changing the service while moving
-  const catalog = a.serviceChangeAllowed ? await resolveCatalog(a.businessSlug) : null;
-  const services = catalog?.kind === "ok" ? catalog.catalog.services.map((s) => ({ id: s.id, name: s.name })) : [];
+  const catalog = await resolveCatalog(a.businessSlug);
+  const services = a.serviceChangeAllowed && catalog?.kind === "ok" ? catalog.catalog.services.map((s) => ({ id: s.id, name: s.name })) : [];
+  const horizonDays = catalog?.kind === "ok" ? catalog.catalog.business.horizonDays : 60;
+  const today = zonedParts(systemClock.now(), a.timezone).date;
   const start = zonedParts(new Date(a.startsAt), a.timezone);
   const hhmm = `${String(Math.floor(start.minutes / 60)).padStart(2, "0")}:${String(start.minutes % 60).padStart(2, "0")}`;
   return (
@@ -34,7 +35,16 @@ export default async function ReschedulePage({ params }: { params: Promise<{ tok
         {a.canReschedule ? (
           <>
             <p className="text-muted-foreground" data-testid="resched-current">{t("current", { service: a.serviceName, when: `${formatDayLabel(start.date)} · ${hhmm}` })}</p>
-            <RescheduleForm slug={a.businessSlug} serviceId={a.serviceId} services={services} token={token} manageHref={`/book/${a.businessSlug}?m=${encodeURIComponent(token)}`} />
+            <RescheduleForm
+              slug={a.businessSlug}
+              serviceId={a.serviceId}
+              services={services}
+              token={token}
+              manageHref={`/book/${a.businessSlug}?m=${encodeURIComponent(token)}`}
+              today={today}
+              horizonDays={horizonDays}
+              personId={a.resourceChosen ? a.resourceId : undefined}
+            />
           </>
         ) : (
           <section className="grid gap-3" data-testid="resched-closed">

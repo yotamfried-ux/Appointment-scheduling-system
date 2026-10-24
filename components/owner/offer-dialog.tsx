@@ -12,9 +12,19 @@ import { fmt } from "@/lib/lab/dashboard-data";
 import type { WaitlistEntry } from "@/components/owner/waitlist-panel";
 
 /** Offer a specific time to one waiting customer (used when automatic offers are off, or to jump the queue deliberately). */
-export function OfferDialog({ entry, onClose, onDone }: { entry: WaitlistEntry; onClose: () => void; onDone: () => void }) {
+export function OfferDialog({
+  entry,
+  windows = [],
+  onClose,
+  onDone,
+}: {
+  entry: WaitlistEntry;
+  windows?: { from: number; to: number }[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
   const t = useTranslations("owner.waitlist.offerDialog");
-  const [time, setTime] = useState(entry.fromMinute !== null ? fmt(entry.fromMinute) : "");
+  const [time, setTime] = useState(entry.fromMinute !== null ? fmt(entry.fromMinute) : windows[0] ? fmt(windows[0].from) : "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -36,6 +46,9 @@ export function OfferDialog({ entry, onClose, onDone }: { entry: WaitlistEntry; 
     }
   }
 
+  const requestedWindow =
+    entry.fromMinute !== null && entry.toMinute !== null ? `${fmt(entry.fromMinute)}–${fmt(entry.toMinute)}` : "כל שעה פנויה";
+
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
@@ -43,6 +56,18 @@ export function OfferDialog({ entry, onClose, onDone }: { entry: WaitlistEntry; 
           <DialogTitle className="[overflow-wrap:anywhere]">{t("title", { name: entry.customer })}</DialogTitle>
           <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
+        <div className="rounded-lg border bg-card p-3 text-xs">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">טווח שעות מבוקש על ידי הלקוח:</span>
+            <span className="font-semibold tabular-nums" data-testid="offer-requested-window"><bdi>{requestedWindow}</bdi></span>
+          </div>
+          {windows.length > 0 ? (
+            <div className="mt-1.5 flex items-center justify-between gap-2 border-t pt-1.5">
+              <span className="text-muted-foreground">שעות פעילות העסק:</span>
+              <span className="font-semibold tabular-nums"><bdi>{windows.map((w) => `${fmt(w.from)}–${fmt(w.to)}`).join(" · ")}</bdi></span>
+            </div>
+          ) : null}
+        </div>
         <form method="post" onSubmit={submit} noValidate className="grid gap-4" data-testid="offer-form">
           <FormField label={t("time")} hint={t("hint", { service: entry.service })} error={undefined}>
             {(a) => <Input {...a} type="time" step={300} dir="ltr" className="text-start" value={time} onChange={(e) => setTime(e.target.value)} data-testid="offer-time" />}

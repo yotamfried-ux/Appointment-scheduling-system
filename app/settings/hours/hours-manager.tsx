@@ -18,7 +18,7 @@ import type { ExceptionRow } from "@/modules/availability/schema";
 const fmt = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const TIMES = Array.from({ length: 49 }, (_, i) => fmt(i * 30)).filter((x) => x !== "24:00");
 
-export function HoursManager({ initial, exceptions }: { initial: DayHours[]; exceptions: ExceptionRow[] }) {
+export function HoursManager({ initial, exceptions, today }: { initial: DayHours[]; exceptions: ExceptionRow[]; today?: string }) {
   const t = useTranslations("settings");
   const router = useRouter();
   const [hours, setHours] = useState(initial);
@@ -52,12 +52,12 @@ export function HoursManager({ initial, exceptions }: { initial: DayHours[]; exc
           {pending ? t("hours.saving") : t("hours.save")}
         </Button>
       </section>
-      <ExceptionsManager exceptions={exceptions} />
+      <ExceptionsManager exceptions={exceptions} today={today} />
     </div>
   );
 }
 
-function ExceptionsManager({ exceptions }: { exceptions: ExceptionRow[] }) {
+function ExceptionsManager({ exceptions, today }: { exceptions: ExceptionRow[]; today?: string }) {
   const t = useTranslations("settings.exceptions");
   const router = useRouter();
   const [date, setDate] = useState("");
@@ -77,7 +77,11 @@ function ExceptionsManager({ exceptions }: { exceptions: ExceptionRow[] }) {
     start(async () => {
       const r = await addExceptionAction({ date, kind, ...(hasRange ? { from, to } : {}), note });
       if (!r.ok) return setErrors({ form: t("generic") });
-      toast(t("saved"), { variant: "success" });
+      if (r.conflictCount && r.conflictCount > 0) {
+        toast(`החריג נוסף. שימו לב: קיימים ${r.conflictCount} תורים פעילים בתאריך זה ביומן.`, { variant: "warning" });
+      } else {
+        toast(t("saved"), { variant: "success" });
+      }
       setDate("");
       setNote("");
       router.refresh();
@@ -136,7 +140,7 @@ function ExceptionsManager({ exceptions }: { exceptions: ExceptionRow[] }) {
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField label={t("date")} error={errors.date}>
-            {(a) => <Input {...a} type="date" value={date} onChange={(e) => setDate(e.target.value)} />}
+            {(a) => <Input {...a} type="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} />}
           </FormField>
           <FormField label={t("kind")}>
             {(a) => (

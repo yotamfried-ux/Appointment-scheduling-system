@@ -36,7 +36,7 @@ export function AccountPanel({ businessName, isOwner, pendingDate }: { businessN
       <section aria-labelledby="exp-h" className="grid gap-2">
         <h2 id="exp-h" className="text-lg font-semibold">{t("exportTitle")}</h2>
         <p className="text-sm text-muted-foreground">{t("exportBody")}</p>
-        <div><Button asChild variant="outline" size="lg"><a href="/api/owner/account/export" download data-testid="account-export">{t("exportButton")}</a></Button></div>
+        <div><Button asChild variant="outline" size="lg"><a href="/api/owner/account/export?format=xlsx" download data-testid="account-export">{t("exportButton")}</a></Button></div>
       </section>
 
       <section aria-labelledby="del-h" className="grid gap-3 rounded-lg border border-destructive/40 p-4">

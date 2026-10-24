@@ -85,6 +85,7 @@ export function toServicesResponse(c: Catalog): z.infer<typeof C.ServicesRespons
       vocab: { ...k.vocab } as Record<string, string>,
       requireApproval: c.business.requiresApproval,
       cancelUntilHours: c.business.cancelUntilHours,
+      horizonDays: c.business.horizonDays,
       waitlistEnabled: c.business.waitlistEnabled,
       acceptingBookings: c.business.acceptingBookings,
     },
@@ -131,7 +132,15 @@ export async function computeSlots(c: Catalog, svcId: string, date: string, sele
 export async function computeAvailability(c: Catalog, svcId: string, from: string, days: number, personId?: string, busyIn?: TeamBusy[]): Promise<z.infer<typeof C.AvailabilityResponse>> {
   if (!c.business.acceptingBookings) throw fail("BOOKINGS_CLOSED", "העסק אינו מקבל כרגע תורים חדשים.");
   const { base } = engine(c, svcId, busyIn ?? (await busyBetween(c, from, days)), personId);
-  const r = teamAvailabilityForRange({ ...base, from, days }).map((d) => ({ date: d.date, closed: d.closed, freeSlots: withinHorizon(c, d.date) ? d.freeSlots : 0 }));
+  const r = teamAvailabilityForRange({ ...base, from, days }).map((d) => {
+    const windows = teamWindowsForDate(d.date, base.people, rulesOf(c), exceptionsOf(c));
+    return {
+      date: d.date,
+      closed: d.closed,
+      freeSlots: withinHorizon(c, d.date) ? d.freeSlots : 0,
+      windows: windows.map((w) => ({ from: w.from, to: w.to })),
+    };
+  });
   return { days: r };
 }
 
@@ -251,6 +260,8 @@ export interface AppointmentView {
   movedByBusinessAt: string | null;
   /** Stage 16: shown only when the business has two or more people. */
   personName?: string | null;
+  resourceId?: string;
+  resourceChosen?: boolean;
   teamSize?: number;
 }
 

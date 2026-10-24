@@ -14,10 +14,24 @@ import { cn } from "@/lib/utils";
 const FIELD: Record<string, string> = { serviceId: "service", date: "date", window: "window", "window.from": "window", "window.to": "window", "customer.fullName": "name", "customer.phone": "phone", "customer.email": "email", acceptedTerms: "terms", "acceptedTerms.terms": "terms", "acceptedTerms.privacy": "terms" };
 
 const MAX_DAYS = 3; // the same limit the server enforces (WAITLIST_LIMIT)
+const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
-type Day = { date: string; closed: boolean; freeSlots: number };
+type Day = { date: string; closed: boolean; freeSlots: number; windows?: { from: number; to: number }[] };
 
-export function WaitlistJoinForm({ slug, services, initialService, today, horizonDays }: { slug: string; services: { id: string; name: string }[]; initialService: string; today: string; horizonDays: number }) {
+export function WaitlistJoinForm({
+  slug,
+  services,
+  initialService,
+  today,
+  horizonDays,
+}: {
+  slug: string;
+  services: { id: string; name: string; durationMinutes?: number }[];
+  initialService: string;
+  today: string;
+  horizonDays: number;
+}) {
   const t = useTranslations("waitlist.join");
   const [f, setF] = useState({ service: initialService, from: "", to: "", name: "", phone: "", email: "" });
   const [picked, setPicked] = useState<string[]>([]);
@@ -28,20 +42,19 @@ export function WaitlistJoinForm({ slug, services, initialService, today, horizo
   const terms = useTermsAcceptance();
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ joined: { date: string; url: string | null; created: boolean }[]; failed: string[] } | null>(null);
-  const idemKeys = useRef(new Map<string, string>()); // one proof per day: that this browser created that entry
+  const idemKeys = useRef(new Map<string, string>());
   const keyFor = (date: string) => {
     if (!idemKeys.current.has(date)) idemKeys.current.set(date, crypto.randomUUID());
     return idemKeys.current.get(date)!;
   };
 
-  // The days to suggest: every open day the business takes bookings for, the full ones first. The customer never has to remember a date.
   useEffect(() => {
     if (!f.service) return;
     const ctl = new AbortController();
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on service change
     setDays({ status: "loading" });
     labApi
-      .availability({ kind: "other", session: "public", base: `/api/public/${slug}`, signal: ctl.signal }, { service: f.service, from: today, days: Math.min(31, Math.max(1, horizonDays + 1)) })
+      .availability({ kind: "other", session: "public", base: `/api/public/${slug}`, signal: ctl.signal }, { service: f.service, from: today, days: Math.min(90, Math.max(1, horizonDays + 1)) })
       .then((r) => {
         setDays({ status: "ready", list: r.days.filter((d) => !d.closed) });
         setPicked((p) => p.filter((d) => r.days.some((x) => x.date === d && !x.closed)));
@@ -56,6 +69,9 @@ export function WaitlistJoinForm({ slug, services, initialService, today, horizo
   const manual = days.status === "error" || (days.status === "ready" && list.length === 0);
   const toggle = (date: string) => setPicked((p) => (p.includes(date) ? p.filter((d) => d !== date) : p.length >= MAX_DAYS ? p : [...p, date]));
 
+  const selectedService = services.find((s) => s.id === f.service);
+  const pickedDayObjs = list.filter((d) => picked.includes(d.date));
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy) return;
@@ -63,6 +79,24 @@ export function WaitlistJoinForm({ slug, services, initialService, today, horizo
     if (!f.service) next.service = t("required");
     const dates = manual ? (manualDate ? [manualDate] : []) : picked;
     if (dates.length === 0) next.date = t(manual ? "required" : "pickDay");
+    if ((f.from && !f.to) || (!f.from && f.to)) {
+      next.window = "יש לבחור גם שעת התחלה וגם שעת סיום, או להשאיר את שתיהן ריקות.";
+    } else if (f.from && f.to) {
+      const fromM = toMin(f.from);
+      const toM = toMin(f.to);
+      const dur = selectedService?.durationMinutes ?? 15;
+      if (toM <= fromM) {
+        next.window = "שעת הסיום חייבת להיות אחרי שעת ההתחלה.";
+      } else if (toM - fromM < dur) {
+        next.window = `טווח השעות קצר ממשך השירות (${dur} דק׳).`;
+      } else if (pickedDayObjs.length > 0) {
+        const outsideDay = pickedDayObjs.find((d) => d.windows && d.windows.length > 0 && !d.windows.some((w) => Math.min(toM, w.to) - Math.max(fromM, w.from) >= dur));
+        if (outsideDay) {
+          const hrs = outsideDay.windows!.map((w) => `${hhmm(w.from)}–${hhmm(w.to)}`).join(", ");
+          next.window = `הטווח שנבחר אינו חופף לשעות הפעילות (${hrs}).`;
+        }
+      }
+    }
     if (!f.name.trim()) next.name = t("required");
     if (!f.phone.trim()) next.phone = t("required");
     if (!f.email.trim()) next.email = t("required");
@@ -165,6 +199,11 @@ export function WaitlistJoinForm({ slug, services, initialService, today, horizo
       )}
       <fieldset className="grid gap-2">
         <legend className="mb-3 text-sm font-medium">{t("window")}</legend>
+        {pickedDayObjs.length > 0 && pickedDayObjs[0].windows && pickedDayObjs[0].windows.length > 0 ? (
+          <p className="mb-1 text-xs text-muted-foreground" data-testid="wl-opening-hours">
+            שעות פעילות ביום שנבחר: <bdi className="font-medium text-foreground">{pickedDayObjs[0].windows.map((w) => `${hhmm(w.from)}–${hhmm(w.to)}`).join(", ")}</bdi>
+          </p>
+        ) : null}
         <div className="grid gap-4 sm:grid-cols-2 sm:gap-3">
           <FormField label={t("from")}>{(a) => <Input {...a} type="time" step={900} dir="ltr" className="text-start" value={f.from} onChange={(e) => setF({ ...f, from: e.target.value })} data-testid="wl-from" />}</FormField>
           <FormField label={t("to")} error={errors.window}>{(a) => <Input {...a} type="time" step={900} dir="ltr" className="text-start" value={f.to} onChange={(e) => setF({ ...f, to: e.target.value })} data-testid="wl-to" />}</FormField>

@@ -12,7 +12,7 @@ export const metadata = { title: "כללי הזמנה", robots: { index: false, 
 
 export default async function BookingSettingsPage() {
   const t = await getTranslations("settings.booking");
-  const { supabase, claims } = await requireUser();
+  const { supabase } = await requireUser();
   const [business, host] = await Promise.all([listMyBusinesses(supabase).then((b) => b[0]), siteHost()]);
   if (!business) redirect("/onboarding");
   const { data } = await supabase.from("businesses").select("requires_approval, cancel_until_hours, min_notice_minutes, booking_horizon_days, address, no_show_policy, no_show_threshold, block_message, attendance_alert_minutes, auto_complete_hours, digest_frequency, reschedule_service_change").eq("id", business.id).single();
@@ -31,7 +31,7 @@ export default async function BookingSettingsPage() {
     rescheduleServiceChange: Boolean(data?.reschedule_service_change),
   };
   return (
-    <SettingsPage email={String(claims.email ?? "")} title={t("title")} description={t("subtitle")}>
+    <SettingsPage email={business.name} title={t("title")} description={t("subtitle")}>
       <div className="grid gap-10">
         <BookingLinkForm prefix={bookingUrl(host, "")} initial={business.slug} />
         <BookingRulesForm initial={initial} />

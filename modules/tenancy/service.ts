@@ -25,7 +25,25 @@ export async function createBusiness(supabase: SupabaseClient, input: CreateBusi
       p_services: input.services,
       p_hours: input.hours,
     });
-    if (!error) return { ok: true, value: data as BusinessSummary };
+    if (!error) {
+      const summary = data as BusinessSummary;
+      if (input.ownerName && input.ownerName.trim().length >= 2) {
+        const { data: defaultRes } = await supabase
+          .from("resources")
+          .select("id")
+          .eq("business_id", summary.id)
+          .eq("is_default", true)
+          .single();
+        if (defaultRes?.id) {
+          await supabase.rpc("update_staff", {
+            p_resource: defaultRes.id,
+            p_name: input.ownerName.trim(),
+            p_active: null,
+          });
+        }
+      }
+      return { ok: true, value: summary };
+    }
     const code = mapRpcError(error);
     if (code !== "SLUG_TAKEN") return { ok: false, code };
   }

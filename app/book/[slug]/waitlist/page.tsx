@@ -28,7 +28,7 @@ export default async function WaitlistJoinPage({ params, searchParams }: { param
         </div>
         <WaitlistJoinForm
           slug={c.business.slug}
-          services={c.services.map((s) => ({ id: s.id, name: s.name }))}
+          services={c.services.map((s) => ({ id: s.id, name: s.name, durationMinutes: s.durationMinutes }))}
           initialService={c.services.some((s) => s.id === service) ? service! : ""}
           today={zonedParts(systemClock.now(), c.business.timezone).date}
           horizonDays={c.business.horizonDays}

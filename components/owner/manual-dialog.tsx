@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { FormField } from "@/components/patterns/form-field";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -10,11 +10,13 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ApiClientError, ownerApi } from "@/lib/api/client";
+import { fmt } from "@/lib/lab/dashboard-data";
 
 export interface ManualService {
   id: string;
   name: string;
   durationMinutes: number;
+  personIds?: string[] | null;
 }
 
 const FIELD: Record<string, "service" | "date" | "time" | "name" | "phone" | "note"> = {
@@ -27,12 +29,39 @@ const FIELD: Record<string, "service" | "date" | "time" | "name" | "phone" | "no
 };
 
 /** A phone call or a walk-in: the owner books it directly. Confirmed at once; the server decides conflicts and opening hours. */
-export function ManualDialog({ open, onOpenChange, services, people = [], defaultPerson = "", date, time, onCreated }: { people?: { id: string; name: string }[]; defaultPerson?: string; open: boolean; onOpenChange: (o: boolean) => void; services: ManualService[]; date: string; time: string; onCreated: (date: string) => void }) {
+export function ManualDialog({
+  open,
+  onOpenChange,
+  services,
+  people = [],
+  defaultPerson = "",
+  date,
+  time,
+  windows = [],
+  onCreated,
+}: {
+  people?: { id: string; name: string }[];
+  defaultPerson?: string;
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  services: ManualService[];
+  date: string;
+  time: string;
+  windows?: { from: number; to: number }[];
+  onCreated: (date: string) => void;
+}) {
   const t = useTranslations("owner.manual");
   const [form, setForm] = useState({ service: "", person: defaultPerson, date, time, name: "", phone: "", note: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const selectedService = useMemo(() => services.find((s) => s.id === form.service) ?? null, [services, form.service]);
+  const eligiblePeople = useMemo(() => {
+    if (!selectedService?.personIds || selectedService.personIds.length === 0) return people;
+    return people.filter((p) => selectedService.personIds!.includes(p.id));
+  }, [people, selectedService]);
+  const effectivePerson = form.person && eligiblePeople.some((p) => p.id === form.person) ? form.person : "";
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,7 +77,14 @@ export function ManualDialog({ open, onOpenChange, services, people = [], defaul
     if (Object.keys(next).length) return;
     setBusy(true);
     try {
-      const r = await ownerApi.createManual({ serviceId: form.service, date: form.date, time: form.time, customer: { fullName: form.name, phone: form.phone }, ...(form.note.trim() ? { note: form.note } : {}), ...(form.person ? { personId: form.person } : {}) });
+      const r = await ownerApi.createManual({
+        serviceId: form.service,
+        date: form.date,
+        time: form.time,
+        customer: { fullName: form.name, phone: form.phone },
+        ...(form.note.trim() ? { note: form.note } : {}),
+        ...(effectivePerson ? { personId: effectivePerson } : {}),
+      });
       toast(r.outOfHours ? t("addedOutside") : t("added"), { variant: r.outOfHours ? "warning" : "success" });
       onCreated(form.date);
       onOpenChange(false);
@@ -79,12 +115,12 @@ export function ManualDialog({ open, onOpenChange, services, people = [], defaul
               </NativeSelect>
             )}
           </FormField>
-          {people.length > 1 ? (
+          {eligiblePeople.length > 1 ? (
             <FormField label={t("person")}>
               {(a) => (
-                <NativeSelect {...a} value={form.person} onChange={(e) => setForm({ ...form, person: e.target.value })} data-testid="manual-person">
+                <NativeSelect {...a} value={effectivePerson} onChange={(e) => setForm({ ...form, person: e.target.value })} data-testid="manual-person">
                   <option value="">{t("anyPerson")}</option>
-                  {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {eligiblePeople.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </NativeSelect>
               )}
             </FormField>
@@ -97,6 +133,11 @@ export function ManualDialog({ open, onOpenChange, services, people = [], defaul
               {(a) => <Input {...a} type="time" step={300} dir="ltr" className="text-start" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} data-testid="manual-time" />}
             </FormField>
           </div>
+          {windows.length > 0 && form.date === date ? (
+            <p className="text-xs text-muted-foreground">
+              שעות הפעילות ביום זה: <bdi className="font-semibold tabular-nums">{windows.map((w) => `${fmt(w.from)}–${fmt(w.to)}`).join(" · ")}</bdi>
+            </p>
+          ) : null}
           <FormField label={t("name")} error={errors.name}>
             {(a) => <Input {...a} autoComplete="off" maxLength={80} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} data-testid="manual-name" />}
           </FormField>

@@ -4,7 +4,6 @@ import { AlertTriangle, ArrowRight, CalendarPlus, Check, Timer } from "lucide-re
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { z } from "zod";
-import { TimeRibbon } from "@/components/brand/time-ribbon";
 import { openWindows } from "@/lib/ribbon";
 import { useHoldTimer } from "@/components/lab/booking/use-hold-timer";
 import { WeekPicker } from "@/components/lab/booking/week-picker";
@@ -18,7 +17,7 @@ import { TermsAcceptanceBox, useTermsAcceptance } from "@/components/legal/terms
 import { ApiClientError, labApi, resolveSession, type ClientOptions } from "@/lib/api/client";
 import type * as C from "@/lib/api/contracts";
 import { priceLabel } from "@/lib/price";
-import { dayPart, formatDayLabel, LAB_TODAY, todayInBusinessZone, type LabDay } from "@/lib/lab/booking-data";
+import { formatDayLabel, LAB_TODAY, todayInBusinessZone, type LabDay } from "@/lib/lab/booking-data";
 import { bookingReducer, canContinue, detailsValid, initialBookingState, STEP_ORDER, type BookingStep } from "@/lib/lab/booking-flow";
 import { normalizePhone } from "@/lib/phone";
 import { cn } from "@/lib/utils";
@@ -54,9 +53,8 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
   const headingRef = useRef<HTMLHeadingElement>(null);
   const firstRender = useRef(true);
 
-  // A real business needs no browser-side session id (the server keys everything by the business and the customer); only the design lab keeps one per tab, so a real visitor stores nothing.
   const [session] = useState(() => (base ? "public" : resolveSession(sessionParam)));
-  const [today] = useState(() => (base ? todayInBusinessZone() : LAB_TODAY)); // a real business is booked from the real date; only the design lab uses the fixed prototype day
+  const [today] = useState(() => (base ? todayInBusinessZone() : LAB_TODAY));
   const opts = useMemo<ClientOptions>(() => ({ kind, session, limit, base }), [kind, session, limit, base]);
 
   const [catalog, setCatalog] = useState<Load<Catalog>>(initialCatalog ? { status: "ready", data: initialCatalog } : { status: "loading" });
@@ -73,20 +71,21 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
     labApi.services(opts).then((data) => setCatalog({ status: "ready", data }), () => setCatalog({ status: "error" }));
   }, [opts]);
   useEffect(() => {
-    if (initialCatalog) return; // already rendered from the server
+    if (initialCatalog) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- initial fetch from the API
     loadCatalog();
   }, [loadCatalog, initialCatalog]);
 
   const business = catalog.status === "ready" ? catalog.data.business : null;
+  const horizon = Math.min(90, business?.horizonDays ?? HORIZON);
   const vocab = business?.vocab;
   const service = catalog.status === "ready" ? (catalog.data.services.find((x) => x.id === s.serviceId) ?? null) : null;
-  // Stage 16: who can do the chosen service (a service without a restriction = the whole team). The "with whom?" choice appears only for two or more.
   const people = useMemo(() => {
     const team = catalog.status === "ready" ? catalog.data.team : [];
     return service?.personIds && service.personIds.length > 0 ? team.filter((p) => service.personIds!.includes(p.id)) : team;
   }, [catalog, service]);
   const personId = s.personId && people.some((p) => p.id === s.personId) ? s.personId : null;
+  const selectedPerson = personId ? people.find((p) => p.id === personId) : null;
   const requiredIntake = useMemo(() => (business?.intake ?? []).map((f) => ({ id: f.id, required: f.required })), [business]);
 
   // Availability for the day picker (re-fetched when the service changes; latest request wins).
@@ -96,13 +95,12 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch on service change
     setAvail({ status: "loading" });
     labApi
-      .availability({ ...opts, signal: ctl.signal }, { service: s.serviceId, from: today, days: HORIZON, person: personId ?? undefined })
+      .availability({ ...opts, signal: ctl.signal }, { service: s.serviceId, from: today, days: horizon, person: personId ?? undefined })
       .then((r) => setAvail({ status: "ready", data: new Map(r.days.map((d) => [d.date, d])) }))
       .catch((e) => (e instanceof DOMException ? undefined : setAvail({ status: "error" })));
     return () => ctl.abort();
-  }, [opts, today, s.serviceId, personId, availTick, s.step === "day" ? "day" : "-"]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh whenever the day step is (re)entered
+  }, [opts, today, horizon, s.serviceId, personId, availTick, s.step === "day" ? "day" : "-"]); // eslint-disable-line react-hooks/exhaustive-deps -- refresh whenever the day step is (re)entered
 
-  // Slots for the chosen day. The chosen time is passed so the ribbon shows it selected; keep old data while refreshing.
   const reloadSlots = useCallback(
     (selected?: string | null) => {
       if (!s.serviceId || !s.day) return () => undefined;
@@ -122,7 +120,6 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
     return reloadSlots(s.time);
   }, [reloadSlots, s.step, s.time]);
 
-  // Move focus to the new step's heading so screen-reader and keyboard users land in the right place.
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false;
@@ -134,17 +131,18 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
 
   const holdActive = s.step === "time" && s.time !== null;
   const hold = useHoldTimer(holdActive, HOLD_SECONDS, `${s.day}-${s.time}`, () => {
-    dispatch({ type: "selectDay", iso: s.day! }); // clears the time, keeps the day
+    dispatch({ type: "selectDay", iso: s.day! });
     toast(t("time.holdExpired"), { variant: "warning" });
   });
 
   const days: LabDay[] = useMemo(
-    () => Array.from({ length: HORIZON }, (_, i) => {
-      const iso = addDays(today, i);
-      const a = avail.status === "ready" ? avail.data.get(iso) : undefined;
-      return { iso, weekday: weekdayOf(iso), closed: a?.closed ?? weekdayOf(iso) === 6 };
-    }),
-    [avail, today],
+    () =>
+      Array.from({ length: horizon }, (_, i) => {
+        const iso = addDays(today, i);
+        const a = avail.status === "ready" ? avail.data.get(iso) : undefined;
+        return { iso, weekday: weekdayOf(iso), closed: a?.closed ?? weekdayOf(iso) === 6 };
+      }),
+    [avail, today, horizon],
   );
   const hasFree = (iso: string) => (avail.status === "ready" ? (avail.data.get(iso)?.freeSlots ?? 0) > 0 : false);
   const firstAvailable = avail.status === "ready" ? days.find((d) => hasFree(d.iso)) : undefined;
@@ -182,7 +180,6 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
       intake: Object.fromEntries(Object.entries(intakeValues).filter(([, v]) => v.trim() !== "")),
       acceptedTerms: terms.payload,
     } as z.input<typeof C.CreateBookingRequest>;
-    // Same payload ⇒ same Idempotency-Key, so a retry after a lost response can never create a second booking.
     const sig = JSON.stringify(body);
     if (idem.current?.sig !== sig) idem.current = { sig, key: crypto.randomUUID() };
 
@@ -197,14 +194,12 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
     } catch (e) {
       if (!(e instanceof ApiClientError)) return setSubmit({ status: "error", message: t("errors.generic") });
       if (e.code === "SLOT_TAKEN" || e.code === "INVALID_SLOT") {
-        // Lost the race: go back to the times with fresh data. Details are kept.
         setSubmit({ status: "idle" });
         setSlots({ status: "loading" });
         dispatch({ type: "selectDay", iso: s.day });
         dispatch({ type: "back" });
         toast(e.code === "SLOT_TAKEN" ? t("errors.slotTaken") : t("errors.invalidSlot"), { variant: "warning" });
       } else if (e.code === "SERVICE_UNAVAILABLE") {
-        // The service was switched off while the form was open (BKG-10): choose again.
         setSubmit({ status: "idle" });
         toast(t("errors.serviceUnavailable"), { variant: "warning" });
         setBooking(null);
@@ -265,22 +260,24 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
   }
 
   const submitting = submit.status === "submitting";
-  const timeBounds = slots.status === "ready" && slots.data.windows.length ? { from: slots.data.windows[0].from, to: slots.data.windows.at(-1)!.to } : null;
 
   return (
-    <div className="mx-auto flex min-h-svh w-full max-w-lg flex-col pb-32" data-kind={kind}>
-      <header className="flex items-center gap-3 px-4 pt-5">
-        <div className="flex size-11 shrink-0 items-center justify-center rounded-md bg-foreground text-lg font-bold text-background" aria-hidden>
+    <div className="mx-auto flex min-h-svh w-full max-w-4xl flex-col pb-32" data-kind={kind}>
+      <header className="flex items-center gap-3 border-b px-4 py-5 sm:px-6">
+        <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary text-lg font-bold text-primary-foreground" aria-hidden>
           {business.name.replace(/^(ה|ס)/, "").slice(0, 1) || business.name.slice(0, 1)}
         </div>
-        <div className="min-w-0">
-          <p className="truncate text-base leading-tight font-semibold" data-testid="business-name">{business.name}</p>
-          <p className="truncate text-sm text-muted-foreground">{business.address}</p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-base leading-tight font-bold" data-testid="business-name">{business.name}</p>
+          {business.address ? <p className="truncate text-sm text-muted-foreground">{business.address}</p> : null}
         </div>
       </header>
 
-      <nav aria-label={t("stepper")} className="px-4 pt-5">
-        <p className="mb-2 text-sm font-medium text-muted-foreground">{t("stepOf", { current: stepIndex + 1, total: VISIBLE_STEPS.length })}</p>
+      <nav aria-label={t("stepper")} className="px-4 pt-5 sm:px-6">
+        <div className="mb-2 flex items-center justify-between text-xs font-medium text-muted-foreground">
+          <span>{t("stepOf", { current: stepIndex + 1, total: VISIBLE_STEPS.length })}</span>
+          <span>{t(`steps.${s.step as "service"}`)}</span>
+        </div>
         <ol className="flex gap-1.5">
           {VISIBLE_STEPS.map((st, i) => (
             <li key={st} className="flex-1" aria-current={i === stepIndex ? "step" : undefined}>
@@ -291,201 +288,241 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
         </ol>
       </nav>
 
-      <main id="main" className="flex-1 px-4 pt-6">
-        <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
-          {s.step === "service" ? vocab.pickService : t(`${s.step as "day"}.title`)}
-        </h1>
+      {/* Two-Column Concierge Card on desktop, single column on mobile */}
+      <div className="grid flex-1 items-start gap-6 px-4 pt-6 sm:px-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.9fr)]">
+        <main id="main" className="min-w-0">
+          <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
+            {s.step === "service" ? vocab.pickService : t(`${s.step as "day"}.title`)}
+          </h1>
 
-        {s.step === "service" && (
-          <fieldset className="mt-4">
-            <legend className="mb-3 text-sm text-muted-foreground">{vocab.pickServiceHint}</legend>
-            <div className="divide-y overflow-hidden rounded-lg border bg-card">
-              {catalog.data.services.map((x) => (
-                <ChoiceCard key={x.id} variant="row" name="service" value={x.id} checked={s.serviceId === x.id} onChange={(v) => dispatch({ type: "selectService", serviceId: v })} testId={`service-${x.id}`}>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold">{x.name}</p>
-                    <p className="text-sm text-muted-foreground">{x.description}</p>
-                  </div>
-                  <div className="shrink-0 text-end">
-                    {priceLabel(x.priceMode, x.priceNis) ? <p className="font-semibold">{priceLabel(x.priceMode, x.priceNis)}</p> : null}
-                    <p className="text-sm text-muted-foreground">{t("service.duration", { minutes: x.durationMinutes })}</p>
-                  </div>
-                </ChoiceCard>
-              ))}
-            </div>
-            {service && people.length >= 2 ? (
-              <fieldset className="mt-6" data-testid="person-choice">
-                <legend className="mb-3 text-sm text-muted-foreground">{t("person.legend")}</legend>
-                <div className="divide-y overflow-hidden rounded-lg border bg-card">
-                  <ChoiceCard variant="row" name="person" value="" checked={personId === null} onChange={() => dispatch({ type: "selectPerson", personId: null })} testId="person-any">
+          {s.step === "service" && (
+            <fieldset className="mt-4">
+              <legend className="mb-3 text-sm text-muted-foreground">{vocab.pickServiceHint}</legend>
+              <div className="divide-y overflow-hidden rounded-xl border bg-card">
+                {catalog.data.services.map((x) => (
+                  <ChoiceCard key={x.id} variant="row" name="service" value={x.id} checked={s.serviceId === x.id} onChange={(v) => dispatch({ type: "selectService", serviceId: v })} testId={`service-${x.id}`}>
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold">{t("person.any")}</p>
-                      <p className="text-sm text-muted-foreground">{t("person.anyHint")}</p>
+                      <p className="font-semibold">{x.name}</p>
+                      <p className="text-sm text-muted-foreground">{x.description}</p>
+                    </div>
+                    <div className="shrink-0 text-end">
+                      {priceLabel(x.priceMode, x.priceNis) ? <p className="font-semibold">{priceLabel(x.priceMode, x.priceNis)}</p> : null}
+                      <p className="text-sm text-muted-foreground">{t("service.duration", { minutes: x.durationMinutes })}</p>
                     </div>
                   </ChoiceCard>
-                  {people.map((p) => (
-                    <ChoiceCard key={p.id} variant="row" name="person" value={p.id} checked={personId === p.id} onChange={(v) => dispatch({ type: "selectPerson", personId: v })} testId={`person-${p.id}`}>
+                ))}
+              </div>
+              {service && people.length >= 2 ? (
+                <fieldset className="mt-6" data-testid="person-choice">
+                  <legend className="mb-3 text-sm text-muted-foreground">{t("person.legend")}</legend>
+                  <div className="divide-y overflow-hidden rounded-xl border bg-card">
+                    <ChoiceCard variant="row" name="person" value="" checked={personId === null} onChange={() => dispatch({ type: "selectPerson", personId: null })} testId="person-any">
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold">{p.name}</p>
+                        <p className="font-semibold">{t("person.any")}</p>
+                        <p className="text-sm text-muted-foreground">{t("person.anyHint")}</p>
                       </div>
                     </ChoiceCard>
-                  ))}
-                </div>
-              </fieldset>
-            ) : null}
-          </fieldset>
-        )}
-
-        {s.step === "day" && (
-          <div className="mt-4 grid gap-5">
-            <p className="text-sm text-muted-foreground">{t("day.subtitle")}</p>
-            {avail.status === "error" ? (
-              <InlineError message={t("day.loadError")} retry={t("loadError.retry")} onRetry={() => setAvailTick((n) => n + 1)} />
-            ) : (
-              <div aria-busy={avail.status !== "ready"} className={cn(avail.status !== "ready" && "pointer-events-none opacity-60")}>
-                <WeekPicker days={days} value={s.day} onChange={(iso) => dispatch({ type: "selectDay", iso })} today={today} hasFree={hasFree} />
-              </div>
-            )}
-            {firstAvailable ? (
-              <Button type="button" variant="outline" className="justify-between" onClick={() => dispatch({ type: "selectDay", iso: firstAvailable.iso })}>
-                {t("day.firstAvailable")}
-                <span className="text-muted-foreground">{formatDayLabel(firstAvailable.iso, "short")}</span>
-              </Button>
-            ) : null}
-            {base && business?.waitlistEnabled && s.serviceId ? (
-              <p className="text-sm text-muted-foreground" data-testid="waitlist-hint">
-                {t("day.waitlistHint")}{" "}
-                <a href={`/book/${base.split("/").pop()}/waitlist?service=${encodeURIComponent(s.serviceId)}`} className="inline-flex min-h-11 items-center font-semibold text-primary underline underline-offset-2" data-testid="waitlist-link">
-                  {t("day.waitlistLink")}
-                </a>
-              </p>
-            ) : null}
-          </div>
-        )}
-
-        {s.step === "time" && s.day && service && (
-          <div className="mt-4 grid gap-6">
-            <p className="text-sm text-muted-foreground">{t("time.subtitle", { day: formatDayLabel(s.day), service: service.name })}</p>
-            {slots.status === "error" ? (
-              <InlineError message={t("time.loadError")} retry={t("loadError.retry")} onRetry={() => reloadSlots(s.time)} />
-            ) : slots.status !== "ready" ? (
-              <p role="status" className="text-sm text-muted-foreground" data-testid="slots-loading">{t("time.loading")}</p>
-            ) : (
-              <>
-                {openWindows(slots.data.segments).length ? (
-                  <p className="text-base font-semibold" data-testid="time-summary">
-                    {t("time.openWindows", { windows: openWindows(slots.data.segments).join(" · ") })}
-                  </p>
-                ) : null}
-                {timeBounds ? (
-                  <TimeRibbon
-                    from={timeBounds.from}
-                    to={timeBounds.to}
-                    segments={slots.data.segments}
-                    tickEvery={(timeBounds.to - timeBounds.from) / 60 > 6 ? 3 : 1}
-                    label={t("time.ribbonLabel", { day: formatDayLabel(s.day, "short") })}
-                    legend
-                  />
-                ) : null}
-                {slots.data.slots.length === 0 ? (
-                  <div className="rounded-lg border border-dashed p-6 text-center">
-                    <p className="text-sm text-muted-foreground">{t("time.none")}</p>
-                    <Button type="button" variant="outline" className="mt-3" onClick={() => dispatch({ type: "back" })}>
-                      {t("time.noneAction")}
-                    </Button>
-                  </div>
-                ) : (
-                  (["morning", "afternoon", "evening"] as const).map((part) => {
-                    const group = slots.data.slots.filter((x) => dayPart(x.time) === part);
-                    if (group.length === 0) return null;
-                    return (
-                      <fieldset key={part}>
-                        <legend className="mb-2 text-sm font-semibold text-muted-foreground">{t(`time.${part}`)}</legend>
-                        <div className="grid grid-cols-4 gap-2">
-                          {group.map((x) => (
-                            <ChoiceCard key={x.time} variant="chip" name="time" value={x.time} checked={s.time === x.time} onChange={(v) => dispatch({ type: "selectTime", time: v })} className="flex-col gap-0 text-base font-semibold" testId={`time-${x.time}`}>
-                              <bdi>{x.time}</bdi>
-                              {x.spotsLeft !== undefined ? <span className="text-xs font-normal opacity-80" data-testid={`left-${x.time}`}>{t("time.left", { count: x.spotsLeft })}</span> : null}
-                            </ChoiceCard>
-                          ))}
+                    {people.map((p) => (
+                      <ChoiceCard key={p.id} variant="row" name="person" value={p.id} checked={personId === p.id} onChange={(v) => dispatch({ type: "selectPerson", personId: v })} testId={`person-${p.id}`}>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold">{p.name}</p>
                         </div>
-                      </fieldset>
-                    );
-                  })
-                )}
-              </>
-            )}
-            {holdActive ? (
-              <p role="status" className="flex items-center gap-2 rounded-md bg-info-soft px-3 py-2 text-sm font-medium text-info-soft-foreground" data-testid="hold">
-                <Timer className="size-4" aria-hidden />
-                {t("time.held", { time: hold.label })}
-              </p>
-            ) : null}
-          </div>
-        )}
+                      </ChoiceCard>
+                    ))}
+                  </div>
+                </fieldset>
+              ) : null}
+            </fieldset>
+          )}
 
-        {s.step === "details" && service && s.day && s.time && (
-          <form
-            method="post"
-            noValidate
-            className="mt-4 grid gap-5"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (!submitting) onContinue();
-            }}
-          >
-            <p className="text-sm text-muted-foreground">{t("details.subtitle")}</p>
-            <FormField label={t("details.fullName")} error={detailsErrors.fullName}>
-              {(a) => <Input {...a} autoComplete="name" value={s.details.fullName} onChange={(e) => setDetails({ fullName: e.target.value })} />}
-            </FormField>
-            <FormField label={t("details.phone")} hint={t("details.phoneHint")} error={detailsErrors.phone}>
-              {(a) => <Input {...a} type="tel" inputMode="tel" autoComplete="tel" value={s.details.phone} onChange={(e) => setDetails({ phone: e.target.value })} />}
-            </FormField>
-            <FormField label={t("details.email")} hint={t("details.emailHint")} error={detailsErrors.email}>
-              {(a) => <Input {...a} type="email" inputMode="email" autoComplete="email" value={s.details.email} onChange={(e) => setDetails({ email: e.target.value })} />}
-            </FormField>
-
-            {business.locations.length > 1 ? (
-              <fieldset>
-                <legend className="mb-2 text-sm font-medium">{t("details.location")}</legend>
-                <div className="grid grid-cols-1 gap-2">
-                  {business.locations.map((l) => (
-                    <ChoiceCard key={l} variant="card" name="location" value={l} checked={(s.details.location ?? business.locations[0]) === l} onChange={(v) => setDetails({ location: v })} testId={`location-${l}`}>
-                      <span className="font-medium">{t(`details.locations.${l}`)}</span>
-                    </ChoiceCard>
-                  ))}
+          {s.step === "day" && (
+            <div className="mt-4 grid gap-5">
+              <p className="text-sm text-muted-foreground">{t("day.subtitle")}</p>
+              {avail.status === "error" ? (
+                <InlineError message={t("day.loadError")} retry={t("loadError.retry")} onRetry={() => setAvailTick((n) => n + 1)} />
+              ) : (
+                <div aria-busy={avail.status !== "ready"} className={cn(avail.status !== "ready" && "pointer-events-none opacity-60")}>
+                  <WeekPicker days={days} value={s.day} onChange={(iso) => dispatch({ type: "selectDay", iso })} today={today} hasFree={hasFree} />
                 </div>
-              </fieldset>
-            ) : null}
+              )}
+              {firstAvailable ? (
+                <Button type="button" variant="outline" className="justify-between" onClick={() => dispatch({ type: "selectDay", iso: firstAvailable.iso })}>
+                  {t("day.firstAvailable")}
+                  <span className="text-muted-foreground">{formatDayLabel(firstAvailable.iso, "short")}</span>
+                </Button>
+              ) : null}
+              {base && business?.waitlistEnabled && s.serviceId ? (
+                <p className="text-sm text-muted-foreground" data-testid="waitlist-hint">
+                  {t("day.waitlistHint")}{" "}
+                  <a href={`/book/${base.split("/").pop()}/waitlist?service=${encodeURIComponent(s.serviceId)}`} className="inline-flex min-h-11 items-center font-semibold text-primary underline underline-offset-2" data-testid="waitlist-link">
+                    {t("day.waitlistLink")}
+                  </a>
+                </p>
+              ) : null}
+            </div>
+          )}
 
-            {business.intake.map((f) => (
-              <FormField key={f.id} label={f.label} error={detailsErrors[`intake.${f.id}`]}>
-                {(a) =>
-                  f.type === "select" ? (
-                    <NativeSelect {...a} value={intakeValues[f.id] ?? ""} onChange={(e) => setDetails({ intake: { ...intakeValues, [f.id]: e.target.value } })} data-testid={`intake-${f.id}`}>
-                      <option value="">{t("details.choose")}</option>
-                      {f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
-                    </NativeSelect>
+          {s.step === "time" && s.day && service && (
+            <div className="mt-4 grid gap-5">
+              <p className="text-sm text-muted-foreground">{t("time.subtitle", { day: formatDayLabel(s.day), service: service.name })}</p>
+              {slots.status === "error" ? (
+                <InlineError message={t("time.loadError")} retry={t("loadError.retry")} onRetry={() => reloadSlots(s.time)} />
+              ) : slots.status !== "ready" ? (
+                <p role="status" className="text-sm text-muted-foreground" data-testid="slots-loading">{t("time.loading")}</p>
+              ) : (
+                <>
+                  {openWindows(slots.data.segments).length ? (
+                    <p className="text-sm font-medium text-muted-foreground" data-testid="time-summary">
+                      {t("time.openWindows", { windows: openWindows(slots.data.segments).join(" · ") })}
+                    </p>
+                  ) : null}
+                  {slots.data.slots.length === 0 ? (
+                    <div className="rounded-xl border border-dashed p-6 text-center">
+                      <p className="text-sm text-muted-foreground">{t("time.none")}</p>
+                      <Button type="button" variant="outline" className="mt-3" onClick={() => dispatch({ type: "back" })}>
+                        {t("time.noneAction")}
+                      </Button>
+                    </div>
                   ) : (
-                    <Input {...a} value={intakeValues[f.id] ?? ""} maxLength={200} onChange={(e) => setDetails({ intake: { ...intakeValues, [f.id]: e.target.value } })} data-testid={`intake-${f.id}`} />
-                  )
-                }
-              </FormField>
-            ))}
+                    /* Single continuous chronological grid without morning/afternoon/evening sub-headers */
+                    <fieldset>
+                      <legend className="sr-only">{t("time.title")}</legend>
+                      <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4">
+                        {slots.data.slots.map((x) => (
+                          <ChoiceCard
+                            key={x.time}
+                            variant="chip"
+                            name="time"
+                            value={x.time}
+                            checked={s.time === x.time}
+                            onChange={(v) => dispatch({ type: "selectTime", time: v })}
+                            className="min-h-11 justify-center rounded-xl text-base font-semibold tabular-nums"
+                            testId={`time-${x.time}`}
+                          >
+                            <bdi>{x.time}</bdi>
+                            {x.spotsLeft !== undefined ? (
+                              <span className="sr-only" data-testid={`left-${x.time}`}>
+                                {t("time.left", { count: x.spotsLeft })}
+                              </span>
+                            ) : null}
+                          </ChoiceCard>
+                        ))}
+                      </div>
+                    </fieldset>
+                  )}
+                </>
+              )}
+              {holdActive ? (
+                <p role="status" className="flex items-center gap-2 rounded-md bg-info-soft px-3 py-2 text-sm font-medium text-info-soft-foreground" data-testid="hold">
+                  <Timer className="size-4" aria-hidden />
+                  {t("time.held", { time: hold.label })}
+                </p>
+              ) : null}
+            </div>
+          )}
 
-            {submit.status === "error" ? (
-              <div role="alert" className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-sm font-medium text-destructive" data-testid="submit-error">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-                {submit.message}
+          {s.step === "details" && service && s.day && s.time && (
+            <form
+              method="post"
+              noValidate
+              className="mt-4 grid gap-5"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!submitting) onContinue();
+              }}
+            >
+              <p className="text-sm text-muted-foreground">{t("details.subtitle")}</p>
+              <FormField label={t("details.fullName")} error={detailsErrors.fullName}>
+                {(a) => <Input {...a} autoComplete="name" value={s.details.fullName} onChange={(e) => setDetails({ fullName: e.target.value })} />}
+              </FormField>
+              <FormField label={t("details.phone")} hint={t("details.phoneHint")} error={detailsErrors.phone}>
+                {(a) => <Input {...a} type="tel" inputMode="tel" autoComplete="tel" value={s.details.phone} onChange={(e) => setDetails({ phone: e.target.value })} />}
+              </FormField>
+              <FormField label={t("details.email")} hint={t("details.emailHint")} error={detailsErrors.email}>
+                {(a) => <Input {...a} type="email" inputMode="email" autoComplete="email" value={s.details.email} onChange={(e) => setDetails({ email: e.target.value })} />}
+              </FormField>
+
+              {business.locations.length > 1 ? (
+                <fieldset>
+                  <legend className="mb-2 text-sm font-medium">{t("details.location")}</legend>
+                  <div className="grid grid-cols-1 gap-2">
+                    {business.locations.map((l) => (
+                      <ChoiceCard key={l} variant="card" name="location" value={l} checked={(s.details.location ?? business.locations[0]) === l} onChange={(v) => setDetails({ location: v })} testId={`location-${l}`}>
+                        <span className="font-medium">{t(`details.locations.${l}`)}</span>
+                      </ChoiceCard>
+                    ))}
+                  </div>
+                </fieldset>
+              ) : null}
+
+              {business.intake.map((f) => (
+                <FormField key={f.id} label={f.label} error={detailsErrors[`intake.${f.id}`]}>
+                  {(a) =>
+                    f.type === "select" ? (
+                      <NativeSelect {...a} value={intakeValues[f.id] ?? ""} onChange={(e) => setDetails({ intake: { ...intakeValues, [f.id]: e.target.value } })} data-testid={`intake-${f.id}`}>
+                        <option value="">{t("details.choose")}</option>
+                        {f.options?.map((o) => <option key={o} value={o}>{o}</option>)}
+                      </NativeSelect>
+                    ) : (
+                      <Input {...a} value={intakeValues[f.id] ?? ""} maxLength={200} onChange={(e) => setDetails({ intake: { ...intakeValues, [f.id]: e.target.value } })} data-testid={`intake-${f.id}`} />
+                    )
+                  }
+                </FormField>
+              ))}
+
+              {submit.status === "error" ? (
+                <div role="alert" className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-sm font-medium text-destructive" data-testid="submit-error">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                  {submit.message}
+                </div>
+              ) : null}
+              {terms.needed ? <TermsAcceptanceBox checked={terms.checked} onChange={(v) => { setServerErrors({}); terms.setChecked(v); }} error={detailsErrors.acceptedTerms} /> : null}
+            </form>
+          )}
+        </main>
+
+        {/* Live Summary Ticket (Direction B Concierge Card) */}
+        <aside aria-label={t("summary.title")} className="hidden rounded-xl border bg-card p-5 lg:sticky lg:top-6 lg:block">
+          <p className="text-xs font-semibold tracking-wide text-muted-foreground">{t("summary.title")}</p>
+          <p className="mt-1 text-base font-bold">{business.name}</p>
+          {business.address ? <p className="text-xs text-muted-foreground">{business.address}</p> : null}
+
+          <dl className="mt-4 divide-y border-t text-sm">
+            <div className="flex items-baseline justify-between gap-3 py-3">
+              <dt className="text-muted-foreground">{t("summary.service")}</dt>
+              <dd className="text-end font-semibold">{service ? service.name : t("summary.none")}</dd>
+            </div>
+            {people.length >= 2 ? (
+              <div className="flex items-baseline justify-between gap-3 py-3">
+                <dt className="text-muted-foreground">{t("summary.person")}</dt>
+                <dd className="text-end font-semibold">{selectedPerson ? selectedPerson.name : t("person.any")}</dd>
               </div>
             ) : null}
-            {terms.needed ? <TermsAcceptanceBox checked={terms.checked} onChange={(v) => { setServerErrors({}); terms.setChecked(v); }} error={detailsErrors.acceptedTerms} /> : null}
-          </form>
-        )}
-      </main>
+            <div className="flex items-baseline justify-between gap-3 py-3">
+              <dt className="text-muted-foreground">{t("summary.when")}</dt>
+              <dd className="text-end font-semibold">
+                {s.day ? (
+                  <>
+                    {formatDayLabel(s.day, "short")}
+                    {s.time ? <> · <bdi>{s.time}</bdi></> : null}
+                  </>
+                ) : (
+                  t("summary.none")
+                )}
+              </dd>
+            </div>
+            {service && priceLabel(service.priceMode, service.priceNis) ? (
+              <div className="flex items-baseline justify-between gap-3 py-3">
+                <dt className="text-muted-foreground">{t("summary.price")}</dt>
+                <dd className="text-end font-bold">{priceLabel(service.priceMode, service.priceNis)}</dd>
+              </div>
+            ) : null}
+          </dl>
+        </aside>
+      </div>
 
       <div className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-lg items-center gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-3 sm:px-6">
           {s.step !== "service" ? (
             <Button type="button" variant="outline" size="lg" disabled={submitting} onClick={() => dispatch({ type: "back" })} aria-label={t("actions.back")}>
               <ArrowRight aria-hidden />
@@ -559,7 +596,7 @@ function Confirmation({ service, booking, email, opts, doneTitle, cancelUntilHou
     labApi.notification(opts, booking.id).then(setMail, () => undefined);
   }, [email, opts, booking.id]);
   const pending = booking.status === "pending";
-  const real = Boolean(booking.manageUrl); // real page: only promise what exists today (no e-mail, calendar file or rescheduling yet)
+  const real = Boolean(booking.manageUrl);
   return (
     <main id="main" className="mx-auto flex min-h-svh w-full max-w-lg flex-col items-center px-4 py-10 text-center">
       <div className="flex size-20 items-center justify-center rounded-full bg-primary text-primary-foreground motion-safe:animate-in motion-safe:zoom-in-50 motion-safe:duration-300" aria-hidden>
@@ -628,4 +665,3 @@ function Confirmation({ service, booking, email, opts, doneTitle, cancelUntilHou
     </main>
   );
 }
-

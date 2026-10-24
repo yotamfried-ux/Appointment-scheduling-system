@@ -2,11 +2,10 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { TimeRibbon } from "@/components/brand/time-ribbon";
 import { Button } from "@/components/ui/button";
 import { NativeSelect } from "@/components/ui/native-select";
 import { Switch } from "@/components/ui/switch";
-import { onboardingToMinutes as toMin, windowProblem, type DayHours } from "@/lib/lab/onboarding";
+import { windowProblem, type DayHours } from "@/lib/lab/onboarding";
 import { cn } from "@/lib/utils";
 
 const TIMES = Array.from({ length: 37 }, (_, i) => {
@@ -14,7 +13,7 @@ const TIMES = Array.from({ length: 37 }, (_, i) => {
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 });
 
-/** Weekly opening hours: per-day switch, up to three windows per day, inline validation, ribbon preview. Controlled. */
+/** Weekly opening hours: per-day switch, up to three windows per day, inline validation. Controlled. */
 export function HoursEditor({
   hours,
   onToggle,
@@ -36,8 +35,6 @@ export function HoursEditor({
       {hours.map((h) => {
         const day = t(`hours.days.${h.weekday}`);
         const all = h.windows;
-        const bounds = { from: Math.min(...all.map((w) => toMin(w.from))), to: Math.max(...all.map((w) => toMin(w.to))) };
-        const valid = all.every((_, i) => windowProblem(all, i) === null);
         return (
           <li key={h.weekday} className="grid gap-3 px-4 py-4" data-testid={`hours-${h.weekday}`}>
             <div className="flex items-center justify-between gap-3">
@@ -97,16 +94,6 @@ export function HoursEditor({
                     </div>
                   );
                 })}
-                {valid ? (
-                  <TimeRibbon
-                    from={Math.min(bounds.from, 6 * 60)}
-                    to={Math.max(bounds.to, 22 * 60)}
-                    segments={all.map((w) => ({ start: toMin(w.from), end: toMin(w.to), state: "free" as const }))}
-                    height="sm"
-                    ticks={false}
-                    label={`${day} ${all.map((w) => `${w.from}–${w.to}`).join(", ")}`}
-                  />
-                ) : null}
                 {all.length < 3 ? (
                   <Button
                     type="button"

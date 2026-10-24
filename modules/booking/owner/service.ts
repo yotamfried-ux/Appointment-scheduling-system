@@ -10,7 +10,7 @@ import { createClient } from "@/lib/supabase/server";
 import { normalizePhone } from "@/lib/phone";
 import { addDaysIso } from "@/modules/availability/slots";
 import { insideHours, teamWindowsForDate } from "@/modules/availability/team";
-import { loadTeamCalendar } from "@/modules/team/repo";
+import { loadServiceStaff, loadTeamCalendar } from "@/modules/team/repo";
 import type { BusinessKindId } from "@/modules/tenancy/business-kind";
 import { systemClock, zonedParts, zonedTimeToUtc } from "@/platform/clock";
 
@@ -30,20 +30,18 @@ export async function ownerContext(): Promise<OwnerCtx> {
   const gate = claims ? await checkSession(supabase, claims) : null;
   if (!claims || !gate?.live) throw fail("UNAUTHENTICATED", "יש להתחבר מחדש.");
   if (!gate.secondFactor) throw fail("UNAUTHENTICATED", "נדרש אימות דו-שלבי.");
-  // One round trip: my membership with its business embedded (a business is only visible to its members, so this is the same business as "the first one I can see").
-  // Anything unexpected falls back to the two separate reads.
   const [accepted, joined] = await Promise.all([
-    legalAccepted(supabase), // CMP-03 on the API too: new terms must be accepted before any owner request is served (VULN-0007); read in parallel with the membership
+    legalAccepted(supabase),
     supabase.from("business_members").select("role, businesses!inner(id, name, kind, timezone, waitlist_enabled, waitlist_auto_offer, created_at)").eq("user_id", String(claims.sub)).order("businesses(created_at)").limit(1),
   ]);
   if (!accepted) throw fail("FORBIDDEN", "יש לאשר את התנאים ומדיניות הפרטיות המעודכנים לפני המשך השימוש.");
   const row = joined.data?.[0] as { role?: string; businesses?: OwnerCtx["business"] | OwnerCtx["business"][] } | undefined;
   const embedded = Array.isArray(row?.businesses) ? row?.businesses[0] : row?.businesses;
   if (!joined.error && embedded && row?.role) {
-    const { id, name, kind, timezone, waitlist_enabled, waitlist_auto_offer } = embedded; // created_at is only there so the rows can be ordered by it
+    const { id, name, kind, timezone, waitlist_enabled, waitlist_auto_offer } = embedded;
     return { supabase, business: { id, name, kind, timezone, waitlist_enabled, waitlist_auto_offer }, role: row.role };
   }
-  if (joined.error) console.error(JSON.stringify({ level: "warn", msg: "owner context: joined read failed, using the two-step read", code: joined.error.code })); // a silent fallback once hid a broken query (it cost an extra round trip on every owner request)
+  if (joined.error) console.error(JSON.stringify({ level: "warn", msg: "owner context: joined read failed, using the two-step read", code: joined.error.code }));
   const { data: rows } = await supabase.from("businesses").select("id, name, kind, timezone, waitlist_enabled, waitlist_auto_offer").order("created_at").limit(1);
   const b = rows?.[0] as OwnerCtx["business"] | undefined;
   if (!b) throw fail("FORBIDDEN", "אין עסק מקושר לחשבון.");
@@ -89,15 +87,33 @@ interface FailureRow {
   waitlist_offers: { slot_starts_at: string; waitlist_entries: { customers: { full_name: string } | null } | null } | null;
 }
 
-export async function agenda(ctx: OwnerCtx, date: string, personId?: string): Promise<z.infer<typeof C.OwnerAgendaResponse>> {
+export async function agenda(
+  ctx: OwnerCtx,
+  date: string,
+  personId?: string,
+  range?: { from: string; to: string },
+): Promise<z.infer<typeof C.OwnerAgendaResponse>> {
   const tz = ctx.business.timezone;
-  const from = zonedTimeToUtc(date, 0, tz);
-  const to = zonedTimeToUtc(addDaysIso(date, 1), 0, tz);
-  const dayQuery = ctx.supabase.from("appointments").select(COLUMNS).eq("business_id", ctx.business.id).gte("starts_at", from.toISOString()).lt("starts_at", to.toISOString());
-  const [appts, cal, svcs, inbox, dead, wl, version, billing] = await Promise.all([
-    (personId ? dayQuery.eq("resource_id", personId) : dayQuery).order("starts_at").limit(300),
+  const validRange =
+    range && range.from <= range.to && (Date.parse(`${range.to}T12:00:00Z`) - Date.parse(`${range.from}T12:00:00Z`)) / 86_400_000 <= 45
+      ? range
+      : undefined;
+  const queryStartDate = validRange && validRange.from < date ? validRange.from : date;
+  const queryEndDate = validRange && validRange.to > date ? validRange.to : date;
+  const from = zonedTimeToUtc(queryStartDate, 0, tz);
+  const to = zonedTimeToUtc(addDaysIso(queryEndDate, 1), 0, tz);
+  const dayQuery = ctx.supabase
+    .from("appointments")
+    .select(COLUMNS)
+    .eq("business_id", ctx.business.id)
+    .gte("starts_at", from.toISOString())
+    .lt("starts_at", to.toISOString());
+
+  const [appts, cal, svcs, svcStaff, inbox, dead, wl, version, billing] = await Promise.all([
+    (personId ? dayQuery.eq("resource_id", personId) : dayQuery).order("starts_at").limit(validRange ? 1500 : 300),
     loadTeamCalendar(ctx.supabase, ctx.business.id),
     ctx.supabase.from("services").select("id, name, duration_minutes").eq("business_id", ctx.business.id).eq("active", true).eq("capacity", 1).order("position"),
+    loadServiceStaff(ctx.supabase, ctx.business.id),
     ctx.supabase
       .from("appointments")
       .select(COLUMNS)
@@ -160,6 +176,25 @@ export async function agenda(ctx: OwnerCtx, date: string, personId?: string): Pr
     outOfHours: r.out_of_availability,
     ...(r.owner_note ? { note: r.owner_note } : {}),
   });
+  const allDtos = (appts.data as unknown as Row[]).map(dto);
+  const dayAppointments = allDtos.filter((a) => a.date === date);
+
+  let rangeDays: z.infer<typeof C.OwnerRangeDayDto>[] | undefined;
+  if (validRange) {
+    rangeDays = [];
+    let cursor = validRange.from;
+    while (cursor <= validRange.to) {
+      const w = teamWindowsForDate(cursor, shown, cal.rules, cal.exceptions).map((x) => ({ from: x.from, to: x.to }));
+      rangeDays.push({
+        date: cursor,
+        closed: w.length === 0,
+        windows: w,
+        appointments: allDtos.filter((a) => a.date === cursor),
+      });
+      cursor = addDaysIso(cursor, 1);
+    }
+  }
+
   const now = systemClock.now();
   const today = zonedParts(now, tz);
   return {
@@ -170,7 +205,8 @@ export async function agenda(ctx: OwnerCtx, date: string, personId?: string): Pr
     people: active.map((p) => ({ id: p.id, name: p.name, windows: teamWindowsForDate(date, [p], cal.rules, cal.exceptions).map((w) => ({ from: w.from, to: w.to })) })),
     orphans,
     now: today.date === date ? today.minutes : null,
-    appointments: (appts.data as unknown as Row[]).map(dto),
+    appointments: dayAppointments,
+    ...(rangeDays ? { rangeDays } : {}),
     inbox: (inbox.data as unknown as Row[]).map(dto),
     undelivered: failures.filter((f) => f.code !== "no_email").length,
     undeliveredItems: failures,
@@ -191,7 +227,12 @@ export async function agenda(ctx: OwnerCtx, date: string, personId?: string): Pr
     settings: { waitlistEnabled: ctx.business.waitlist_enabled, waitlistAutoOffer: ctx.business.waitlist_auto_offer },
     billing: { state: billing.state, features: billing.features },
     version,
-    services: (svcs.data ?? []).map((s) => ({ id: s.id as string, name: s.name as string, durationMinutes: s.duration_minutes as number })),
+    services: (svcs.data ?? []).map((s) => ({
+      id: s.id as string,
+      name: s.name as string,
+      durationMinutes: s.duration_minutes as number,
+      personIds: svcStaff.get(s.id as string) ?? null,
+    })),
     business: { name: ctx.business.name, kind: ctx.business.kind },
   };
 }
@@ -223,8 +264,6 @@ export async function createManual(ctx: OwnerCtx, input: C.CreateManualInput): P
   const cal = await loadTeamCalendar(ctx.supabase, ctx.business.id);
   const active = cal.people.filter((p) => p.active);
   if (input.personId && !active.some((p) => p.id === input.personId)) throw fail("VALIDATION_FAILED", "האדם שנבחר אינו פעיל.", [{ field: "personId", message: "האדם שנבחר אינו פעיל." }]);
-  // AVL-10: the owner may book anywhere; whether it falls inside opening hours is computed here (the server knows the rules), never trusted from the client.
-  // With a named person only that person's hours count; otherwise anybody's.
   const inside = insideHours({ date: input.date, startMinute: startMin, durationMinutes: svc.duration_minutes as number, people: input.personId ? active.filter((p) => p.id === input.personId) : active, rules: cal.rules, exceptions: cal.exceptions });
   const { data, error } = await ctx.supabase.rpc("create_manual_appointment_team", {
     p_business: ctx.business.id,
@@ -248,7 +287,7 @@ export async function moveAppointment(ctx: OwnerCtx, id: string, input: z.infer<
   const startMin = hhmmToMinutes(input.time);
   const duration = Number((row.service_snapshot as { durationMinutes?: number }).durationMinutes ?? 30);
   const cal = await loadTeamCalendar(ctx.supabase, ctx.business.id);
-  const target = input.personId ?? (row.resource_id as string); // T7: the owner may move it to another person; otherwise it stays with the same one
+  const target = input.personId ?? (row.resource_id as string);
   const inside = insideHours({ date: input.date, startMinute: startMin, durationMinutes: duration, people: cal.people.filter((p) => p.id === target), rules: cal.rules, exceptions: cal.exceptions });
   const { data, error } = await ctx.supabase.rpc("owner_move_appointment", {
     p_id: id,
@@ -307,7 +346,7 @@ export async function waitlistOffer(ctx: OwnerCtx, id: string, time: string): Pr
 }
 
 export async function waitlistSettings(ctx: OwnerCtx, input: { autoOffer?: boolean; enabled?: boolean }): Promise<void> {
-  if (input.enabled === true || input.autoOffer === true) await requireFeature(ctx, "waitlist"); // BIL-08
+  if (input.enabled === true || input.autoOffer === true) await requireFeature(ctx, "waitlist");
   const patch = { ...(input.autoOffer !== undefined ? { waitlist_auto_offer: input.autoOffer } : {}), ...(input.enabled !== undefined ? { waitlist_enabled: input.enabled } : {}) };
   const { data, error } = await ctx.supabase.from("businesses").update(patch).eq("id", ctx.business.id).select("id");
   if (error) throw mapError(error);

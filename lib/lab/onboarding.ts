@@ -28,7 +28,7 @@ export interface DayHours {
 
 export interface OnboardingState {
   step: OnboardingStep;
-  business: { name: string; type: string; phone: string };
+  business: { name: string; ownerName?: string; type: string; phone: string };
   services: OnboardingService[];
   hours: DayHours[];
 }
@@ -52,7 +52,7 @@ export const DEFAULT_HOURS: DayHours[] = kindHours("barber");
 
 export const initialOnboarding: OnboardingState = {
   step: "business",
-  business: { name: "", type: "barber", phone: "" },
+  business: { name: "", ownerName: "", type: "barber", phone: "" },
   services: kindServices("barber").map((x, i) => ({ id: `k${i + 1}`, ...x })),
   hours: DEFAULT_HOURS,
 };
