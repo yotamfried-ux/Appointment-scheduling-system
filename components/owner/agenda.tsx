@@ -178,15 +178,15 @@ export function OwnerAgenda() {
     const off = busy.size > 0;
     // NSH-04: an outcome marked by mistake can be flipped; the audit log keeps both marks.
     if (a.status === "completed")
-      return <Button size="sm" variant="outline" disabled={off} onClick={() => act("noShow", a, [t("agenda.toastNoShow"), "info"])} data-testid={`fix-noshow-${a.id}`}>{t("agenda.fixNoShow")}</Button>;
+      return <Button size="sm" variant="ghost" disabled={off} onClick={() => act("noShow", a, [t("agenda.toastNoShow"), "info"])} data-testid={`fix-noshow-${a.id}`}>{t("agenda.fixNoShow")}</Button>;
     if (a.status === "noShow")
-      return <Button size="sm" variant="outline" disabled={off} onClick={() => act("complete", a, [t("agenda.toastCompleted"), "success"])} data-testid={`fix-attended-${a.id}`}>{t("agenda.fixAttended")}</Button>;
+      return <Button size="sm" variant="ghost" disabled={off} onClick={() => act("complete", a, [t("agenda.toastCompleted"), "success"])} data-testid={`fix-attended-${a.id}`}>{t("agenda.fixAttended")}</Button>;
     if (a.status !== "confirmed") return null;
     if (started(a))
       return (
         <>
-          <Button size="sm" variant="outline" disabled={off} onClick={() => act("complete", a, [t("agenda.toastCompleted"), "success"])} data-testid={`complete-${a.id}`}>{t("agenda.complete")}</Button>
-          <Button size="sm" variant="outline" disabled={off} onClick={() => act("noShow", a, [t("agenda.toastNoShow"), "info"])} data-testid={`noshow-${a.id}`}>{t("agenda.noShow")}</Button>
+          <Button size="sm" variant="ghost" disabled={off} onClick={() => act("complete", a, [t("agenda.toastCompleted"), "success"])} data-testid={`complete-${a.id}`}>{t("agenda.complete")}</Button>
+          <Button size="sm" variant="ghost" disabled={off} onClick={() => act("noShow", a, [t("agenda.toastNoShow"), "info"])} data-testid={`noshow-${a.id}`}>{t("agenda.noShow")}</Button>
         </>
       );
     if (confirming === a.id)
@@ -199,8 +199,8 @@ export function OwnerAgenda() {
       );
     return (
       <>
-        <Button size="sm" variant="outline" disabled={off} onClick={() => { dismissAllToasts(); setMoving(a); }} data-testid={`move-${a.id}`}>{t("agenda.move")}</Button>
-        <Button size="sm" variant="outline" disabled={off} onClick={() => setConfirming(a.id)} data-testid={`cancel-${a.id}`}>{t("agenda.cancel")}</Button>
+        <Button size="sm" variant="ghost" disabled={off} onClick={() => { dismissAllToasts(); setMoving(a); }} data-testid={`move-${a.id}`}>{t("agenda.move")}</Button>
+        <Button size="sm" variant="ghost" disabled={off} onClick={() => setConfirming(a.id)} data-testid={`cancel-${a.id}`}>{t("agenda.cancel")}</Button>
       </>
     );
   };
@@ -259,18 +259,7 @@ export function OwnerAgenda() {
         ]}
       />
 
-      <section aria-labelledby="overview-title" className="grid gap-3">
-        <h3 id="overview-title" className="text-base font-semibold">{t("today.overview")}</h3>
-        <div className="rounded-lg border bg-card p-4 sm:p-5">
-          {windows.length ? (
-            <TimeRibbon from={from} to={to} segments={ribbonIn(appts, windows)} now={agenda.now ?? undefined} height="lg" tickEvery={to - from > 600 ? 2 : 1} legend />
-          ) : (
-            <p className="text-sm text-muted-foreground" data-testid="closed-today">{appts.length ? t("agenda.closedWithManual") : t("agenda.closed")}</p>
-          )}
-        </div>
-      </section>
-
-      <div className="grid items-start gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] [&>*]:min-w-0">
+      <div className="grid items-start gap-8 xl:grid-cols-[minmax(0,1fr)_26rem] [&>*]:min-w-0">
         <section aria-labelledby="schedule-title" className="grid gap-3">
           <h3 id="schedule-title" className="text-base font-semibold">{t("today.schedule")}</h3>
           {appts.some((a) => a.status !== "cancelled") || windows.length ? (
@@ -279,7 +268,17 @@ export function OwnerAgenda() {
             <p className="rounded-lg border bg-card p-6 text-center text-sm text-muted-foreground" data-testid="no-appointments">{t("agenda.noAppointments")}</p>
           )}
         </section>
-        <div className={cn("grid gap-6", inbox.length > 0 && "order-first lg:order-none")}>
+        <div className={cn("grid gap-6", inbox.length > 0 && "order-first xl:order-none")}>
+      <section aria-labelledby="overview-title" className="grid gap-3">
+        <h3 id="overview-title" className="text-base font-semibold">{t("today.overview")}</h3>
+        <div className="rounded-xl border bg-card p-4">
+          {windows.length ? (
+            <TimeRibbon from={from} to={to} segments={ribbonIn(appts, windows)} now={agenda.now ?? undefined} height="md" tickEvery={to - from > 600 ? 2 : 1} legend />
+          ) : (
+            <p className="text-sm text-muted-foreground" data-testid="closed-today">{appts.length ? t("agenda.closedWithManual") : t("agenda.closed")}</p>
+          )}
+        </div>
+      </section>
           <ApprovalsPanel appointments={inbox} onAction={onApproval} busyIds={busy} />
           <WaitlistPanel
             entries={agenda.waitlist}

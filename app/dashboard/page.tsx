@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { AppShell } from "@/components/app-shell";
+import { AppShell, WIDE } from "@/components/app-shell";
 import { PublishButton } from "@/app/dashboard/publish-button";
 import { OwnerAgenda } from "@/components/owner/agenda";
 import { BillingBanner } from "@/components/owner/billing-banner";
@@ -31,7 +31,7 @@ export default async function DashboardPage() {
   const [billing, deletion] = await Promise.all([myBilling(ctx), deletionStatus(ctx)]);
 
   return (
-    <AppShell email={String(claims.email ?? "")} width="max-w-6xl" nav={<OwnerNav current="calendar" />}>
+    <AppShell email={String(claims.email ?? "")} width={WIDE} nav={<OwnerNav current="calendar" />}>
       <DeletionBanner scheduledFor={deletion?.scheduledFor ?? null} timezone={ctx.business.timezone} />
       <BillingBanner billing={billing} timezone={ctx.business.timezone} />
       <PageHeader title={t("welcome", { name: `\u2068${b.name}\u2069` })} />

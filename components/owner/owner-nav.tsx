@@ -14,7 +14,7 @@ export async function OwnerNav({ current }: { current: OwnerSection }) {
   const t = await getTranslations("owner.nav");
   return (
     <nav aria-label={t("group")} className="border-b bg-card/40">
-      <ul className="mx-auto flex max-w-6xl gap-1 px-4">
+      <ul className="mx-auto flex max-w-[88rem] gap-1 px-4 sm:px-6 lg:px-8">
         {ITEMS.map((i) => (
           <li key={i.id}>
             <Link

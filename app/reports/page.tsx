@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { BarChart3 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { AppShell } from "@/components/app-shell";
+import { AppShell, WIDE } from "@/components/app-shell";
 import { BarChart, type BarPoint } from "@/components/charts/bar-chart";
 import { StatStrip } from "@/components/lab/dashboard/stat-strip";
 import { OwnerNav } from "@/components/owner/owner-nav";
@@ -56,7 +56,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
   const wdPoints: BarPoint[] = r.byWeekday.map((n, i) => ({ label: wd[i], value: n, text: `${wd[i]} · ${n}` }));
 
   return (
-    <AppShell email={email} width="max-w-6xl" nav={<OwnerNav current="reports" />}>
+    <AppShell email={email} width={WIDE} nav={<OwnerNav current="reports" />}>
       <PageHeader title={t("title")} description={t("subtitle")} />
 
       <section aria-label={t("period")} className="grid gap-4 rounded-lg border bg-card p-4 lg:grid-cols-[1fr_auto] lg:items-end">
@@ -118,7 +118,7 @@ export default async function ReportsPage({ searchParams }: { searchParams: Prom
           </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <BarChart title={t("chartAppointments")} description={t("chartDesc")} points={apptPoints} tableHeaders={[t("period"), t("kpi.appointments")]} testId="chart-appointments" />
-            <BarChart title={t("chartRevenue")} description={t("chartDesc")} points={revPoints} tableHeaders={[t("period"), t("kpi.revenue")]} tone="accent" testId="chart-revenue" />
+            <BarChart title={t("chartRevenue")} description={t("chartDesc")} points={revPoints} tableHeaders={[t("period"), t("kpi.revenue")]} testId="chart-revenue" />
           </div>
           <section aria-labelledby="by-service" className="grid gap-3">
             <h2 id="by-service" className="text-lg font-semibold">{t("services")}</h2>

@@ -409,7 +409,8 @@
       "title": "רביעי, 14 באוקטובר",
       "overview": "היום במבט אחד",
       "schedule": "לוח היום",
-      "now": "עכשיו"
+      "now": "עכשיו",
+      "part": { "morning": "בוקר", "noon": "צהריים", "evening": "אחר הצהריים והערב" }
     },
     "stats": {
       "appointments": "תורים היום",
@@ -438,6 +439,8 @@
       "approveCancel": "אישור ביטול",
       "keep": "להשאיר את התור",
       "cancelRequest": "בקשת ביטול",
+      "showAll": "הצגת כל {count} הבקשות",
+      "showFewer": "הצגת פחות",
       "newCustomer": "לקוח חדש",
       "approved": "התור אושר",
       "rejected": "הבקשה נדחתה",

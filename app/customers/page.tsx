@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Users } from "lucide-react";
 import { getTranslations } from "next-intl/server";
-import { AppShell } from "@/components/app-shell";
+import { AppShell, WIDE } from "@/components/app-shell";
 import { OwnerNav } from "@/components/owner/owner-nav";
 import { EmptyState } from "@/components/patterns/empty-state";
 import { PageHeader } from "@/components/patterns/page-header";
@@ -32,7 +32,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   const isAdmin = mayExport && Boolean(billing?.features.export);
 
   return (
-    <AppShell email={email} width="max-w-6xl" nav={<OwnerNav current="customers" />}>
+    <AppShell email={email} width={WIDE} nav={<OwnerNav current="customers" />}>
       <PageHeader
         title={t("title")}
         description={t("subtitle")}
