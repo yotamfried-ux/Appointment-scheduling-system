@@ -41,7 +41,13 @@
 נותן גישה לממשק המפעיל (השהיית עסק). ההוראות ב-`docs/runbooks/abuse.md`. אפשר לדלג לפיילוט.
 
 ## 9. מסלול לעסק של אמא
-אחרי שתיצור את חשבון העסק שלה: ב-Supabase → SQL Editor, לפי `docs/runbooks/billing.md` (סעיף הענקת מסלול). כל עסק חדש מתחיל בניסיון חינם של 14 יום במסלול המלא, ואחריו העסק מפסיק לקבל תורים עד שמוענק מסלול.
+כל עסק חדש מתחיל בניסיון חינם של 14 יום במסלול המלא, ואחריו העסק מפסיק לקבל תורים עד שמוענק מסלול. כדי שהפיילוט לא ייעצר: ב-Supabase → SQL Editor, אחרי שחשבון העסק שלה קיים:
+```sql
+update public.subscriptions
+set status = 'active', current_period_end = now() + interval '1 year'
+where business_id = (select id from public.businesses where slug = '<הקישור של העסק שלה>');
+```
+בדיקה: `select status from public.subscriptions where business_id = ...` מחזיר `active`. (דרך חלופית דרך ממשק המפעיל: `docs/runbooks/billing.md`.)
 
 ## 10. משפטי
 1. ב-`docs/legal/legal-owner-approval.md` להוסיף את שמך המלא ואת משפט האישור (מתווסף לטקסט שכבר שם).
