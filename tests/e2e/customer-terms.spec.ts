@@ -1,7 +1,8 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { LEGAL } from "../../lib/legal/config";
 import { BUSINESS_KINDS } from "../../modules/tenancy/business-kind";
-import { customer, makeBusiness, sql, type TestBusiness } from "./helpers/business";
+import { customer, firstDayWithSlots, makeBusiness, sql, type TestBusiness } from "./helpers/business";
+import { fillDay } from "./helpers/sim";
 import { ACCEPTANCE_KEY, ACCEPTED } from "./helpers/terms";
 
 // The customer accepts the terms of use and the privacy policy ONCE per browser and version; the acceptance is stored with the booking / waitlist entry.
@@ -137,14 +138,16 @@ test.describe("API: only the current versions are accepted", () => {
   });
 });
 
-test("waitlist form: first join shows the box and is refused without it; the next join in this browser does not show it", async ({ page }) => {
+test("waitlist form: first join shows the box and is refused without it; the next join in this browser does not show it", async ({ page, request }) => {
   const b = await makeBusiness("barber");
   await sql(`update public.businesses set waitlist_enabled = true where id = '${b.id}'`);
-  const date = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
+  // the form lists the full days by itself: make one
+  const day = await firstDayWithSlots(request, b);
+  await fillDay(request, b, day.date);
   const join = async (email: string, tick: boolean) => {
     await page.goto(`/book/${b.slug}/waitlist`);
     await page.getByTestId("wl-service").selectOption(b.services[0].id);
-    await page.getByTestId("wl-date").fill(date);
+    await page.getByTestId(`wl-day-${day.date}`).check({ force: true });
     await page.getByTestId("wl-name").fill("נועם לוי");
     await page.getByTestId("wl-phone").fill("050-1234567");
     await page.getByTestId("wl-email").fill(email);
