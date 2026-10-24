@@ -62,7 +62,7 @@ OPEN = nothing done. PARTIAL = built or started, something remains. WAITING = on
 | G-23 | PARTIAL | the owner added `rua=mailto:d2r.yotam@gmail.com` at Namecheap on 2026-10-24; not yet verified (check DMARC Lookup for `d2ryf.com`). After a week of clean reports consider `p=quarantine` |
 | G-24 | WAITING | owner |
 | G-25 | DONE 2026-10-24 | merged (PR 36); nine simulations, each with a negative control |
-| G-26 | PARTIAL | step 1 merged (PR 40): status pills are one quiet outline with a word and an icon, free gaps and attention numbers lose their colour. Step 2 (a summary sentence above the time picker) and step 3 (the gap axis) are in progress |
+| G-26 | DONE 2026-10-24 | step 1 (PR 40): status pills are one quiet outline with a word and an icon, free gaps and attention numbers lose their colour. Step 2 (PR 42): a sentence above the time picker lists the open windows. Step 3 (the gap axis) was dropped on the owner's decision: the time picker with the grey stripes for taken times stays as the owner chose it |
 
 ## B. Gaps to close before production (GAP)
 
