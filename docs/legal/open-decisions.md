@@ -45,13 +45,19 @@ OPEN = nothing done. PARTIAL = built or started, something remains. WAITING = on
 | G-19 | Sign-up and account e-mail through the vendor's own sender | the hosted Supabase Auth still uses its default sender, which is rate limited and not branded. Templates in `supabase/templates` and the SMTP settings (Resend) are applied in the Supabase dashboard, not by code | owner | follow section 1 of `owner-checklist.md` (Resend key as the SMTP password, paste the five templates). Cannot be done with the available tools |
 | G-20 | Scheduled jobs are not running in production (2026-10-24: the Vercel connection used by the assistant is refused 403 when it lists or creates production variables, so the owner sets `CRON_SECRET` by hand) | reminders, waitlist offers and the retry of failed e-mail depend on `.github/workflows/jobs.yml`, which needs the repository secret `CRON_SECRET` | owner | add the secret in GitHub and the same value in Vercel (section 3 of `owner-checklist.md`) |
 | G-21 | Notification failures were invisible and one confirmation e-mail failed | production `notification_log` has a `booking_confirmed` e-mail that died with `provider 400`; the dashboard banner said only that one message was not delivered, without customer, type or reason | me (in progress) | find the cause of the provider rejection, show customer, message type and reason in the banner, add tests |
-| G-22 | Migration 46 is not applied in production (approved by the owner 2026-10-24; applied together with the notification failure-code migration once PR 37 is green) | the schema in the repository is ahead of production | owner approval, then me | the owner says "run migration 46"; afterwards run the advisors and the database tests against it |
+| G-22 | Migration 46 is not applied in production (applied to production 2026-10-24 together with the notification failure-code migration) | the schema in the repository is ahead of production | owner approval, then me | the owner says "run migration 46"; afterwards run the advisors and the database tests against it |
 | G-23 | DMARC for the sending domain | e-mail from the product domain can be spoofed without it, and deliverability to large providers suffers | owner (DNS) | add the record; if the domain DNS is managed in Vercel it can be added with the available tools |
 | G-24 | Production still holds demo data | demo business rows from the earlier test remain next to the realistic pilot data (services, hours, 60 customers, about 480 appointments marked demo). The MCP database tool hangs on delete | owner | delete in the Supabase SQL editor, or approve a scripted clean-up. Must be done before real customers, because demo customers have no e-mail and would be counted in reports |
 | G-25 | Owner feedback not yet simulated end to end | a suite of simulations for every reported problem (waitlist suggestions, closed days, link publication, phone/e-mail hint, undelivered message) | me (in progress) | merge the simulation branch after the waitlist PR; keep it in CI |
 | G-26 | Colour is the only signal for busy, free and statuses | the owner dislikes colour-coded status; it is also an accessibility risk (WCAG 1.4.1) | me, after the owner chooses | an artifact with colour-free alternatives (icons, text, shape, position) is being prepared; the chosen direction is then applied everywhere |
 
-| G-18 to G-26 | see below | added 2026-10-24 |
+| G-18 | PARTIAL | built in PR 38 (draft, tested locally); needs the owner's approval to apply its migration to production, then merge |
+| G-19, G-20 | WAITING | owner, in the Supabase and Vercel/GitHub dashboards |
+| G-21 | DONE (code and migration live 2026-10-24) | verify the next real failure shows Resend's own reason; the dead confirmation row from before the fix stays as it was |
+| G-22 | DONE 2026-10-24 | migration 46 applied to production, advisors show only the leaked-password warning |
+| G-23, G-24 | WAITING | owner |
+| G-25 | DONE 2026-10-24 | merged (PR 36); nine simulations, each with a negative control |
+| G-26 | WAITING | owner chooses a direction from the prepared artifact |
 
 ## B. Gaps to close before production (GAP)
 
