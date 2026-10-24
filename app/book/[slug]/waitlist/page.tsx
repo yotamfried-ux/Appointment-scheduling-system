@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { Logo } from "@/components/brand/logo";
 import { WaitlistJoinForm } from "@/components/waitlist/join-form";
+import { systemClock, zonedParts } from "@/platform/clock";
 import { resolveCatalog } from "@/modules/booking/public/service";
 
 // Join the waitlist for a full day. Unknown / unpublished / waitlist-off businesses are the same 404 as everywhere on the public surface.
@@ -29,6 +30,8 @@ export default async function WaitlistJoinPage({ params, searchParams }: { param
           slug={c.business.slug}
           services={c.services.map((s) => ({ id: s.id, name: s.name }))}
           initialService={c.services.some((s) => s.id === service) ? service! : ""}
+          today={zonedParts(systemClock.now(), c.business.timezone).date}
+          horizonDays={c.business.horizonDays}
         />
         <a href={`/book/${c.business.slug}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-primary underline underline-offset-2">{t("back")}</a>
       </main>

@@ -21,6 +21,7 @@ import { listMyBusinesses } from "@/modules/tenancy/service";
 // Auth is enforced in proxy.ts AND re-checked here (defense in depth, docs/05 §4.2). The agenda itself is fetched from /api/owner (RLS as the signed-in user).
 export default async function DashboardPage() {
   const t = await getTranslations("dashboard");
+  const ts = await getTranslations("settings.nav");
   const supabase = await createClient();
   // First wave: the session/MFA/terms gate and the reads that do not depend on it run together (the gate redirects away if it fails; the reads are row-level-secured as the signed-in user, so nothing is exposed meanwhile).
   const [{ claims }, businesses, owner, host] = await Promise.all([requireUser(), listMyBusinesses(supabase), ownerContext().catch(() => null), siteHost()]);
@@ -47,6 +48,7 @@ export default async function DashboardPage() {
           <dd className="flex min-w-0 flex-wrap items-center gap-2 font-semibold [overflow-wrap:anywhere]">
             <a href={bookingUrl(host, b.slug)} target="_blank" rel="noopener" className="rounded-sm underline-offset-4 hover:underline"><bdi data-testid="biz-link">{`${host}/book/${b.slug}`}</bdi></a>
             <CopyLink url={bookingUrl(host, b.slug)} />
+            <Link href="/settings/booking" className="inline-flex min-h-11 items-center text-sm font-medium text-primary underline-offset-4 hover:underline" data-testid="change-link">{t("changeLink")}</Link>
           </dd>
         </div>
         <div className="flex flex-col gap-1 p-4 sm:flex-row sm:justify-between sm:gap-4">
@@ -55,7 +57,7 @@ export default async function DashboardPage() {
         </div>
       </dl>
       <nav aria-label={t("settingsNav")} className="flex flex-wrap gap-x-5 gap-y-1 text-sm font-medium">
-        {[["/settings/services", t("settingsServices")], ["/settings/hours", t("settingsHours")], ["/settings/billing", t("settingsBilling")], ["/settings/security", t("security")]].map(([href, label]) => (
+        {[["/settings/services", t("settingsServices")], ["/settings/hours", t("settingsHours")], ["/settings/team", ts("team")], ["/settings/booking", ts("booking")], ["/settings/billing", t("settingsBilling")], ["/settings/security", t("security")], ["/settings/account", ts("account")]].map(([href, label]) => (
           <Link key={href} href={href} className="inline-flex min-h-11 items-center text-primary underline-offset-4 hover:underline">{label}</Link>
         ))}
       </nav>
