@@ -26,8 +26,8 @@ OPEN = nothing done. PARTIAL = built or started, something remains. WAITING = on
 | ID | Status | What remains |
 |---|---|---|
 | G-01 | WAITING | tax file and registration details |
-| G-02 | WAITING | the D2R mailbox, then the two Vercel variables (`NEXT_PUBLIC_LEGAL_CONTACT`, `NEXT_PUBLIC_A11Y_CONTACT`). The assistant cannot create production variables (Vercel answers 403), so the owner adds them in the Vercel dashboard |
-| G-03 | WAITING | dashboard switch in Supabase Auth (cannot be set with the available tools) |
+| G-02 | DONE 2026-10-24 | `d2r.yotam@gmail.com` is set in both Vercel variables (Production and Preview) and shows on the terms and accessibility pages; routing Vercel, Supabase and GitHub alerts to it is still open |
+| G-03 | DONE 2026-10-24 | leaked-password protection enabled and confirmed by the security advisor |
 | G-04 | PARTIAL | Frankfurt project is live and used; the old Singapore test project still has to be deleted by the owner; confirm the privacy text still says Frankfurt |
 | G-05 | WAITING | accept vendor processing terms (Supabase, Vercel, Resend) and record dates |
 | G-06 | OPEN | restore drill on production |
@@ -43,7 +43,7 @@ OPEN = nothing done. PARTIAL = built or started, something remains. WAITING = on
 | G-17 | PARTIAL | built; the platform-admin account is optional |
 | G-18 | End customers' acceptance of the terms is not recorded | at booking there is only a sentence next to the button (browsewrap). `legal_acceptances` is append-only for owners only. See `breach-and-liability-brief.md` section 1 | me (in progress); owner approves the migration | accept the terms once per customer (not at every booking), store version and time. A migration is needed; it is applied to production only after the owner's explicit approval |
 | G-19 | Sign-up and account e-mail through the vendor's own sender | the hosted Supabase Auth still uses its default sender, which is rate limited and not branded. Templates in `supabase/templates` and the SMTP settings (Resend) are applied in the Supabase dashboard, not by code | owner | follow section 1 of `owner-checklist.md` (Resend key as the SMTP password, paste the five templates). Cannot be done with the available tools |
-| G-20 | Scheduled jobs are not running in production (2026-10-24: the Vercel connection used by the assistant is refused 403 when it lists or creates production variables, so the owner sets `CRON_SECRET` by hand) | reminders, waitlist offers and the retry of failed e-mail depend on `.github/workflows/jobs.yml`, which needs the repository secret `CRON_SECRET` | owner | add the secret in GitHub and the same value in Vercel (section 3 of `owner-checklist.md`) |
+| G-20 | Scheduled jobs and their secret | CLOSED 2026-10-24. Jobs run from Vercel Cron (`vercel.json`, daily); `CRON_SECRET` already exists in Vercel (Production and Preview) and Vercel sends it itself. An earlier note that a GitHub secret and a `jobs` workflow were needed was wrong: that workflow does not exist on main | none | the daily frequency means reminders and retries once a morning; revisit with a paid Vercel plan if the pilot needs more |
 | G-21 | Notification failures were invisible and one confirmation e-mail failed | production `notification_log` has a `booking_confirmed` e-mail that died with `provider 400`; the dashboard banner said only that one message was not delivered, without customer, type or reason | me (in progress) | find the cause of the provider rejection, show customer, message type and reason in the banner, add tests |
 | G-22 | Migration 46 is not applied in production (applied to production 2026-10-24 together with the notification failure-code migration) | the schema in the repository is ahead of production | owner approval, then me | the owner says "run migration 46"; afterwards run the advisors and the database tests against it |
 | G-23 | DMARC for the sending domain | e-mail from the product domain can be spoofed without it, and deliverability to large providers suffers | owner (DNS) | add the record; if the domain DNS is managed in Vercel it can be added with the available tools |
@@ -52,10 +52,12 @@ OPEN = nothing done. PARTIAL = built or started, something remains. WAITING = on
 | G-26 | Colour is the only signal for busy, free and statuses | the owner dislikes colour-coded status; it is also an accessibility risk (WCAG 1.4.1) | me, after the owner chooses | an artifact with colour-free alternatives (icons, text, shape, position) is being prepared; the chosen direction is then applied everywhere |
 
 | G-18 | PARTIAL | built in PR 38 (draft, tested locally); needs the owner's approval to apply its migration to production, then merge |
-| G-19, G-20 | WAITING | owner, in the Supabase and Vercel/GitHub dashboards |
+| G-19 | PARTIAL | auth settings, six Hebrew templates, OTP expiry and site URL applied 2026-10-24; leaked-password protection enabled; Custom SMTP (Resend key) still to be set. The Resend domain `mail.d2ryf.com` shows `partially_failed` because of an old failed SPF record; re-verify |
+| G-20 | CLOSED | see below |
 | G-21 | DONE (code and migration live 2026-10-24) | verify the next real failure shows Resend's own reason; the dead confirmation row from before the fix stays as it was |
 | G-22 | DONE 2026-10-24 | migration 46 applied to production, advisors show only the leaked-password warning |
-| G-23, G-24 | WAITING | owner |
+| G-23 | WAITING | a `_dmarc` TXT record exists with `p=none` and no report address; the owner edits it at the registrar to add `rua=mailto:d2r.yotam@gmail.com` |
+| G-24 | WAITING | owner |
 | G-25 | DONE 2026-10-24 | merged (PR 36); nine simulations, each with a negative control |
 | G-26 | WAITING | owner chooses a direction from the prepared artifact |
 
