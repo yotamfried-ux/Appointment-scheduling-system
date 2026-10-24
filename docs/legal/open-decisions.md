@@ -51,7 +51,7 @@ OPEN = nothing done. PARTIAL = built or started, something remains. WAITING = on
 | G-25 | Owner feedback not yet simulated end to end | a suite of simulations for every reported problem (waitlist suggestions, closed days, link publication, phone/e-mail hint, undelivered message) | me (in progress) | merge the simulation branch after the waitlist PR; keep it in CI |
 | G-26 | Colour is the only signal for busy, free and statuses | the owner dislikes colour-coded status; it is also an accessibility risk (WCAG 1.4.1) | me, after the owner chooses | an artifact with colour-free alternatives (icons, text, shape, position) is being prepared; the chosen direction is then applied everywhere |
 
-| G-18 | PARTIAL | built in PR 38 (draft, tested locally); needs the owner's approval to apply its migration to production, then merge |
+| G-18 | DONE 2026-10-24 | PR 38 merged; migration 47 applied to production; acceptance (versions and time) is stored with each booking and waitlist entry, and the browser remembers it |
 | G-19 | PARTIAL | auth settings, six Hebrew templates, OTP expiry and site URL applied 2026-10-24; leaked-password protection enabled; Custom SMTP (Resend key) still to be set. The Resend domain `mail.d2ryf.com` shows `partially_failed` because of an old failed SPF record; re-verify |
 | G-20 | CLOSED | see below |
 | G-21 | DONE (code and migration live 2026-10-24) | verify the next real failure shows Resend's own reason; the dead confirmation row from before the fix stays as it was |
@@ -59,7 +59,7 @@ OPEN = nothing done. PARTIAL = built or started, something remains. WAITING = on
 | G-23 | WAITING | a `_dmarc` TXT record exists with `p=none` and no report address; the owner edits it at the registrar to add `rua=mailto:d2r.yotam@gmail.com` |
 | G-24 | WAITING | owner |
 | G-25 | DONE 2026-10-24 | merged (PR 36); nine simulations, each with a negative control |
-| G-26 | WAITING | owner chooses a direction from the prepared artifact |
+| G-26 | PARTIAL | the single-colour rule is in (status pills are one quiet outline with a word and an icon, free gaps and attention numbers lose their colour); the summary line and the gap axis in the time picker are next |
 
 ## B. Gaps to close before production (GAP)
 

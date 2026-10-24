@@ -53,7 +53,7 @@ export function ApprovalsPanel({ appointments, onAction, busyIds }: { appointmen
             </li>
           ))}
           {requests.map((a) => (
-            <li key={a.id} className="grid min-w-0 gap-3 bg-warning-soft/40 px-4 py-4" data-testid={`approval-${a.id}`}>
+            <li key={a.id} className="grid min-w-0 gap-3 bg-muted/40 px-4 py-4" data-testid={`approval-${a.id}`}>
               <div>
                 <p className="text-xs font-semibold text-warning">{t("cancelRequest")}</p>
                 <p className="font-medium [overflow-wrap:anywhere]">{a.customer}</p>

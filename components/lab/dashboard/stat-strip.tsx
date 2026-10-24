@@ -15,7 +15,7 @@ export function StatStrip({ stats }: { stats: Stat[] }) {
         <div key={s.label} className="bg-card p-4 sm:p-5">
           <dt className="text-sm text-muted-foreground">{s.label}</dt>
           <dd className="mt-1">
-            <span className={cn("text-3xl leading-none font-semibold tracking-tight tabular-nums", s.tone === "attention" && "text-warning")}>{s.value}</span>
+            <span className={cn("text-3xl leading-none font-semibold tracking-tight tabular-nums", s.tone === "attention" && "underline decoration-2 underline-offset-4")}>{s.value}</span>
             <span className="mt-1.5 block text-xs text-muted-foreground">{s.hint}</span>
           </dd>
         </div>
