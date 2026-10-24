@@ -224,7 +224,7 @@ export const OwnerAgendaResponse = z.object({
   /** Messages that could not be delivered after all retries in the last 7 days (NTF-04): the owner should reach those customers another way. */
   undelivered: z.number().int().nonnegative(),
   /** Which message, to whom, for which time and why (last 7 days, newest first). `no_email` rows are not failures: there was nobody to send to. */
-  undeliveredItems: z.array(z.object({ id: z.string(), kind: z.string(), code: FailureCode, customer: z.string(), date: IsoDate, start: z.number().int() })),
+  undeliveredItems: z.array(z.object({ id: z.string(), kind: z.string(), code: FailureCode, customer: z.string(), date: IsoDate, start: z.number().int(), customerId: z.string().optional() })),
   waitlist: z.array(OwnerWaitlistEntryDto),
   settings: z.object({ waitlistEnabled: z.boolean(), waitlistAutoOffer: z.boolean() }),
   /** What the subscription allows (BIL-08): the panel shows an upsell instead of a feature the plan does not include. */
@@ -254,17 +254,38 @@ export const CreateManualRequest = z
     serviceId: z.string().min(1),
     date: IsoDate,
     time: HHmm,
+    customerId: z.string().uuid().optional(),
     customer: z.object({
       fullName: z.string().trim().min(2, "יש להזין שם (לפחות 2 תווים).").max(80, "השם ארוך מדי."),
       phone: z.string().min(1, "יש להזין מספר טלפון.").refine((v) => normalizePhone(v) !== null, "מספר הטלפון אינו תקין."),
     }).strict(),
+    email: z.string().trim().refine((v) => v === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), "כתובת האימייל אינה תקינה.").optional(),
     note: z.string().trim().max(200, "ההערה ארוכה מדי.").optional(),
     /** Absent = whoever is free. */
     personId: z.string().min(1).optional(),
   })
   .strict();
 export type CreateManualInput = z.infer<typeof CreateManualRequest>;
-export const CreateManualResponse = z.object({ id: z.string(), reference: z.string(), outOfHours: z.boolean() });
+export const CreateManualResponse = z.object({ id: z.string(), reference: z.string(), outOfHours: z.boolean(), customerId: z.string().optional() });
+
+export const UpdateCustomerRequest = z
+  .object({
+    fullName: z.string().trim().min(2, "יש להזין שם (לפחות 2 תווים).").max(80, "השם ארוך מדי."),
+    phone: z.string().min(1, "יש להזין מספר טלפון.").refine((v) => normalizePhone(v) !== null, "מספר הטלפון אינו תקין."),
+    email: z
+      .string()
+      .trim()
+      .refine((v) => v === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v), "כתובת האימייל אינה תקינה.")
+      .nullable()
+      .optional(),
+  })
+  .strict();
+
+export const MergeCustomersRequest = z
+  .object({
+    targetId: z.string().uuid(),
+  })
+  .strict();
 
 export const OwnerOfferRequest = z.object({ time: HHmm }).strict();
 export const OwnerWaitlistSettingsRequest = z

@@ -111,4 +111,13 @@ export const ownerApi = {
   waitlistSettings: (body: { autoOffer?: boolean; enabled?: boolean }) => call<z.infer<typeof C.OwnerOutcomeResponse>>("waitlist/settings", OWNER, { method: "POST", body }).then((r) => r.data),
   move: (id: string, body: z.input<typeof C.OwnerMoveRequest>) => call<z.infer<typeof C.OwnerMoveResponse>>(`appointments/${encodeURIComponent(id)}/move`, OWNER, { method: "POST", body }).then((r) => r.data),
   createManual: (body: z.input<typeof C.CreateManualRequest>) => call<z.infer<typeof C.CreateManualResponse>>("appointments", OWNER, { method: "POST", body }).then((r) => r.data),
+  searchCustomers: (q: string, signal?: AbortSignal) =>
+    call<{ items: { id: string; fullName: string; phone: string; email: string | null; lastVisit: string | null }[] }>(
+      `customers?${qs({ q })}`,
+      { ...OWNER, signal },
+    ).then((r) => r.data.items),
+  updateCustomer: (id: string, body: z.input<typeof C.UpdateCustomerRequest>) =>
+    call<{ ok: boolean }>(`customers/${encodeURIComponent(id)}`, OWNER, { method: "PATCH", body }).then((r) => r.data),
+  mergeCustomers: (sourceId: string, targetId: string) =>
+    call<{ ok: boolean; targetId: string; appointmentsMoved: number }>(`customers/${encodeURIComponent(sourceId)}/merge`, OWNER, { method: "POST", body: { targetId } }).then((r) => r.data),
 };

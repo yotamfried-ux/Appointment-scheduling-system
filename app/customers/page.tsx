@@ -24,11 +24,16 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
   const sp = await searchParams;
   const q = (one(sp.q) ?? "").slice(0, 80);
   const sort = (SORTS as readonly string[]).includes(one(sp.sort) ?? "") ? (one(sp.sort) as CustomerSort) : "last_visit";
+  const filter = (["missing_email", "duplicates"] as const).find((f) => f === one(sp.filter));
   const page = Math.min(10_000, Math.max(1, Math.floor(Number(one(sp.page))) || 1));
   const mayExport = ctx.role === "admin" || ctx.role === "owner";
-  const [list, billing] = await Promise.all([listCustomers(ctx, { q, sort, page }), mayExport ? myBilling(ctx) : null]); // two independent reads, one wait
+  const [list, billing] = await Promise.all([
+    listCustomers(ctx, { q, sort, page, filter }),
+    mayExport ? myBilling(ctx) : null,
+  ]);
   const day = (iso: string) => zonedParts(new Date(iso), ctx.business.timezone).date.split("-").reverse().join(".");
-  const href = (p: number) => `/customers?${new URLSearchParams({ ...(q ? { q } : {}), sort, page: String(p) })}`;
+  const href = (p: number) => `/customers?${new URLSearchParams({ ...(q ? { q } : {}), ...(filter ? { filter } : {}), sort, page: String(p) })}`;
+  const filterHref = (f?: string) => `/customers?${new URLSearchParams({ ...(q ? { q } : {}), ...(f ? { filter: f } : {}), sort })}`;
   const isAdmin = mayExport && Boolean(billing?.features.export);
 
   return (
@@ -38,23 +43,38 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
         description={t("subtitle")}
         actions={isAdmin ? <Button asChild variant="outline"><a href="/api/owner/export/customers?format=xlsx" download data-testid="export-customers">{t("export")}</a></Button> : undefined}
       />
-      <form method="get" action="/customers" role="search" className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
-        <label className="grid min-w-0 flex-1 gap-1 text-sm basis-56">
-          <span className="text-muted-foreground">{t("searchLabel")}</span>
-          <Input type="search" name="q" defaultValue={q} maxLength={80} placeholder={t("searchPlaceholder")} className="h-11" data-testid="customer-search" />
-        </label>
-        <label className="grid gap-1 text-sm">
-          <span className="text-muted-foreground">{t("sortLabel")}</span>
-          <NativeSelect name="sort" defaultValue={sort} className="w-auto" data-testid="customer-sort">
-            {SORTS.map((s) => <option key={s} value={s}>{t(`sort.${s}`)}</option>)}
-          </NativeSelect>
-        </label>
-        <Button type="submit" data-testid="customer-search-go">{t("searchButton")}</Button>
-        {q ? <Button asChild variant="ghost"><Link href={`/customers?sort=${sort}`}>{t("clear")}</Link></Button> : null}
-      </form>
+      <div className="space-y-3">
+        <form method="get" action="/customers" role="search" className="flex flex-wrap items-end gap-3 rounded-lg border bg-card p-4">
+          {filter ? <input type="hidden" name="filter" value={filter} /> : null}
+          <label className="grid min-w-0 flex-1 gap-1 text-sm basis-56">
+            <span className="text-muted-foreground">{t("searchLabel")}</span>
+            <Input type="search" name="q" defaultValue={q} maxLength={80} placeholder={t("searchPlaceholder")} className="h-11" data-testid="customer-search" />
+          </label>
+          <label className="grid gap-1 text-sm">
+            <span className="text-muted-foreground">{t("sortLabel")}</span>
+            <NativeSelect name="sort" defaultValue={sort} className="w-auto" data-testid="customer-sort">
+              {SORTS.map((s) => <option key={s} value={s}>{t(`sort.${s}`)}</option>)}
+            </NativeSelect>
+          </label>
+          <Button type="submit" data-testid="customer-search-go">{t("searchButton")}</Button>
+          {q || filter ? <Button asChild variant="ghost"><Link href={`/customers?sort=${sort}`}>{t("clear")}</Link></Button> : null}
+        </form>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button asChild size="sm" variant={!filter ? "secondary" : "ghost"} className="h-8 text-xs font-medium">
+            <Link href={filterHref()}>כל הלקוחות</Link>
+          </Button>
+          <Button asChild size="sm" variant={filter === "missing_email" ? "secondary" : "ghost"} className="h-8 text-xs font-medium">
+            <Link href={filterHref("missing_email")}>ללא כתובת אימייל</Link>
+          </Button>
+          <Button asChild size="sm" variant={filter === "duplicates" ? "secondary" : "ghost"} className="h-8 text-xs font-medium">
+            <Link href={filterHref("duplicates")}>כפילויות אפשריות</Link>
+          </Button>
+        </div>
+      </div>
 
       {list.total === 0 ? (
-        q ? <EmptyState icon={<Users className="size-6" />} title={t("noResultsTitle")} description={t("noResultsDesc")} />
+        q || filter ? <EmptyState icon={<Users className="size-6" />} title={t("noResultsTitle")} description={t("noResultsDesc")} />
           : <EmptyState icon={<Users className="size-6" />} title={t("emptyTitle")} description={t("emptyDesc")} />
       ) : (
         <>
@@ -73,6 +93,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {c.upcoming > 0 ? <Badge variant="secondary">{t("upcoming", { count: c.upcoming })}</Badge> : null}
                       {c.noShows60d > 0 ? <Badge className="bg-destructive-soft text-destructive-soft-foreground">{t("noShows60", { count: c.noShows60d })}</Badge> : null}
+                      {!c.email && !c.anonymized ? <Badge variant="outline" className="border-dashed text-muted-foreground text-[10px]">חסר אימייל</Badge> : null}
                       {c.anonymized ? <Badge variant="outline">{t("anonymized")}</Badge> : null}
                     </div>
                   </div>

@@ -12,6 +12,7 @@ import { formatMoney, STATUS_LABEL_HE, type StatusKey } from "@/modules/reports/
 import { zonedParts } from "@/platform/clock";
 import { z } from "zod";
 import { AnonymizeCustomer } from "./anonymize";
+import { CustomerContactCard } from "./customer-contact-card";
 import { NotesForm } from "./notes-form";
 import { PolicyOverride } from "./policy-override";
 
@@ -50,10 +51,13 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
       <Link href="/customers" className="inline-flex min-h-11 items-center text-sm font-medium text-primary underline-offset-4 hover:underline">{t("back")}</Link>
       <PageHeader title={name} description={gone ? t("detail.anonymizedNote") : t("detail.since", { date: c.createdAt.slice(0, 10).split("-").reverse().join(".") })} />
       {gone ? null : (
-        <dl className="divide-y rounded-lg border bg-card text-sm">
-          <div className="flex justify-between gap-4 p-4"><dt className="text-muted-foreground">{t("col.phone")}</dt><dd className="font-semibold"><bdi dir="ltr" data-testid="customer-phone">{c.phone}</bdi></dd></div>
-          {c.email ? <div className="flex justify-between gap-4 p-4"><dt className="text-muted-foreground">{t("detail.email")}</dt><dd className="min-w-0 font-semibold [overflow-wrap:anywhere]"><bdi dir="ltr">{c.email}</bdi></dd></div> : null}
-        </dl>
+        <CustomerContactCard
+          id={c.id}
+          fullName={c.fullName}
+          phone={c.phone}
+          email={c.email}
+          duplicates={d.duplicates}
+        />
       )}
       <StatStrip
         stats={[

@@ -83,8 +83,8 @@ interface FailureRow {
   id: string;
   type: string;
   failure_code: C.FailureCode;
-  appointments: { starts_at: string; customers: { full_name: string } | null } | null;
-  waitlist_offers: { slot_starts_at: string; waitlist_entries: { customers: { full_name: string } | null } | null } | null;
+  appointments: { starts_at: string; customer_id: string; customers: { id: string; full_name: string } | null } | null;
+  waitlist_offers: { slot_starts_at: string; waitlist_entries: { customer_id: string; customers: { id: string; full_name: string } | null } | null } | null;
 }
 
 export async function agenda(
@@ -124,7 +124,7 @@ export async function agenda(
       .limit(50),
     ctx.supabase
       .from("notification_log")
-      .select("id, type, failure_code, appointments(starts_at, customers(full_name)), waitlist_offers(slot_starts_at, waitlist_entries(customers(full_name)))")
+      .select("id, type, failure_code, appointments(starts_at, customer_id, customers(id, full_name)), waitlist_offers(slot_starts_at, waitlist_entries(customer_id, customers(id, full_name)))")
       .eq("business_id", ctx.business.id)
       .eq("recipient", "customer")
       .not("failure_code", "is", null)
@@ -156,7 +156,16 @@ export async function agenda(
     const at = r.appointments?.starts_at ?? r.waitlist_offers?.slot_starts_at;
     if (!at) return [];
     const p = zonedParts(new Date(at), tz);
-    return [{ id: r.id, kind: r.type, code: r.failure_code, customer: r.appointments?.customers?.full_name ?? r.waitlist_offers?.waitlist_entries?.customers?.full_name ?? "", date: p.date, start: p.minutes }];
+    const customerId = r.appointments?.customer_id ?? r.waitlist_offers?.waitlist_entries?.customer_id ?? undefined;
+    return [{
+      id: r.id,
+      kind: r.type,
+      code: r.failure_code,
+      customer: r.appointments?.customers?.full_name ?? r.waitlist_offers?.waitlist_entries?.customers?.full_name ?? "",
+      date: p.date,
+      start: p.minutes,
+      ...(customerId ? { customerId } : {}),
+    }];
   });
   const nameOf = new Map(cal.people.map((p) => [p.id, p.name]));
   const active = cal.people.filter((p) => p.active);
@@ -274,10 +283,12 @@ export async function createManual(ctx: OwnerCtx, input: C.CreateManualInput): P
     p_note: input.note?.trim() || null,
     p_out_of_availability: !inside,
     p_resource: input.personId ?? null,
+    p_email: input.email?.trim() || null,
+    p_customer_id: input.customerId ?? null,
   });
   if (error) throw mapError(error);
-  const r = data as { id: string; reference: string };
-  return { id: r.id, reference: r.reference, outOfHours: !inside };
+  const r = data as { id: string; reference: string; customerId?: string };
+  return { id: r.id, reference: r.reference, outOfHours: !inside, customerId: r.customerId };
 }
 
 /** RSC-04: the owner moves a booking. Whether the new time is inside opening hours is computed here (flag only, as for manual bookings): the owner may book anywhere. */

@@ -1,5 +1,6 @@
 import "server-only";
 import { fail } from "@/lib/api/http";
+import { normalizePhone } from "@/lib/phone";
 import { mapError, type OwnerCtx } from "@/modules/booking/owner/service";
 
 // Customers are read and changed as the signed-in user: Row Level Security scopes every row to the owner's business,
@@ -30,7 +31,15 @@ interface DbRow {
   visits: number; no_shows: number; no_shows_60d: number; cancellations: number; upcoming: number; last_visit: string | null; spent_cents: number | string; total: number | string;
 }
 
-export async function listCustomers(ctx: OwnerCtx, o: { q?: string; sort?: CustomerSort; page?: number }) {
+export interface CustomerDuplicate {
+  id: string;
+  fullName: string;
+  phone: string;
+  email: string | null;
+  createdAt: string;
+}
+
+export async function listCustomers(ctx: OwnerCtx, o: { q?: string; sort?: CustomerSort; page?: number; filter?: "missing_email" | "duplicates" }) {
   const page = Math.max(1, o.page ?? 1);
   const { data, error } = await ctx.supabase.rpc("owner_customers", {
     p_business: ctx.business.id,
@@ -38,6 +47,7 @@ export async function listCustomers(ctx: OwnerCtx, o: { q?: string; sort?: Custo
     p_sort: o.sort ?? "last_visit",
     p_limit: PAGE_SIZE,
     p_offset: (page - 1) * PAGE_SIZE,
+    p_filter: o.filter ?? null,
   });
   if (error) throw mapError(error);
   const rows = (data ?? []) as DbRow[];
@@ -54,13 +64,80 @@ export interface CustomerDetail {
   customer: { id: string; fullName: string; phone: string; email: string | null; notes: string | null; createdAt: string; anonymizedAt: string | null };
   stats: { visits: number; noShows: number; noShows60d: number; cancellations: number; upcoming: number; spentCents: number };
   appointments: { id: string; reference: string; status: string; startsAt: string; service: string; priceCents: number; source: string }[];
+  duplicates: CustomerDuplicate[];
 }
 
 export async function customerDetail(ctx: OwnerCtx, id: string): Promise<CustomerDetail> {
   const { data, error } = await ctx.supabase.rpc("owner_customer_detail", { p_customer: id });
   if (error) throw mapError(error);
   if (!data) throw fail("NOT_FOUND", "לא נמצא.");
-  return data as CustomerDetail;
+  const res = data as CustomerDetail;
+  return {
+    ...res,
+    duplicates: res.duplicates ?? [],
+  };
+}
+
+export async function searchCustomers(
+  ctx: OwnerCtx,
+  query: string,
+  limit = 10
+): Promise<{ id: string; fullName: string; phone: string; email: string | null; lastVisit: string | null }[]> {
+  const { data, error } = await ctx.supabase.rpc("owner_customers", {
+    p_business: ctx.business.id,
+    p_search: query.trim() || null,
+    p_sort: "last_visit",
+    p_limit: limit,
+    p_offset: 0,
+    p_filter: null,
+  });
+  if (error) throw mapError(error);
+  return ((data ?? []) as DbRow[]).filter((r) => r.anonymized_at === null).map((r) => ({
+    id: r.id,
+    fullName: r.full_name,
+    phone: r.phone,
+    email: r.email,
+    lastVisit: r.last_visit,
+  }));
+}
+
+export async function updateCustomer(
+  ctx: OwnerCtx,
+  id: string,
+  input: { fullName: string; phone: string; email?: string | null }
+): Promise<void> {
+  const phone = normalizePhone(input.phone);
+  if (!phone) throw fail("VALIDATION_FAILED", "הבקשה אינה תקינה.", [{ field: "phone", message: "מספר הטלפון אינו תקין." }]);
+  const email = input.email?.trim() || null;
+  const { error } = await ctx.supabase.rpc("update_customer_details", {
+    p_customer: id,
+    p_full_name: input.fullName.trim(),
+    p_phone: phone,
+    p_email: email,
+  });
+  if (error) {
+    if (error.message.includes("email_conflict")) {
+      throw fail("VALIDATION_FAILED", "כתובת האימייל הזו כבר שייכת ללקוח אחר בעסק.", [{ field: "email", message: "כתובת אימייל זו כבר קיימת עבור לקוח אחר בעסק." }]);
+    }
+    if (error.message.includes("anonymized")) throw fail("INVALID_TRANSITION", "הלקוח הזה כבר נמחק.");
+    throw mapError(error);
+  }
+}
+
+export async function mergeCustomers(
+  ctx: OwnerCtx,
+  sourceId: string,
+  targetId: string
+): Promise<{ ok: boolean; targetId: string; appointmentsMoved: number }> {
+  const { data, error } = await ctx.supabase.rpc("merge_customers", {
+    p_source_id: sourceId,
+    p_target_id: targetId,
+  });
+  if (error) {
+    if (error.message.includes("anonymized")) throw fail("INVALID_TRANSITION", "אחד מהלקוחות נמחק ולא ניתן לאיחוד.");
+    throw mapError(error);
+  }
+  return data as { ok: boolean; targetId: string; appointmentsMoved: number };
 }
 
 export async function setNotes(ctx: OwnerCtx, id: string, notes: string): Promise<void> {
