@@ -1,0 +1,19 @@
+# Route Plan — isolated agent repair acceptance, 2026-10-24
+
+Scope: prove an actual saved repair agent's proposed dependency patch against the Appointment System application in an ephemeral GitHub runner. This document records planned validation, not successful results.
+
+Target: `yotamfried-ux/Appointment-scheduling-system`, base `0d9fc5dfcd827c7a20a5b0c15c984222a6ca3733`, isolated branch `agent-sandbox/appointment-acceptance-20261024`. Production/main are outside this change. The workflow runs only when `.agent-acceptance/request.json` changes on that branch.
+
+Only the acceptance directory, this route plan at `docs/plans/agent-acceptance-20261024.md`, and `.github/workflows/agent-acceptance.yml` may differ from the pinned base before applying the repair. Request `base_sha` must match the pinned base, and `patch_sha256` must match the exact bytes of `.agent-acceptance/repair.patch`. The runner applies that actual patch and rejects changes outside `package.json`, or changes beyond pinning `next` and `eslint-config-next` to exactly `16.4.1`. Lockfile regeneration and installation happen remotely. The resulting package files and diff are artifacts, not automatically committed.
+
+Adapted sources: existing `.github/workflows/ci.yml` action commit pins, local Supabase startup recipe, pgTAP/schema lint and build commands; existing `scripts/local-env.sh`; existing `playwright.config.ts` mobile/desktop/journey projects and fake email/billing providers. No new application feature or test implementation is introduced.
+
+Scenarios: OPS-04 real migration execution; SEC-01 tenant/RLS controls through existing DB/browser suites; BKG-02/04/05/07/09/10/11 public booking and consistency; ACC-01 signup/onboarding; the existing first-visit journey through emails, reminders, reschedule and reports. Full existing Playwright coverage is also attempted on all three configured projects.
+
+Validation gates: target and patch binding; exact lock versions; unit tests; lint; typecheck; production dependency audit at high severity; production build; Chromium; real local Supabase PostgreSQL/Auth/PostgREST/mail; all existing pgTAP files; empty schema lint; focused booking API/UI; first-visit journey; full mobile/desktop/journey suite. Independent steps continue after unrelated failures. Final acceptance requires every required step to succeed, nonempty unit reports with no pending tests, and nonempty required booking/journey suites with no skipped, failed or flaky tests. Full E2E must contain mobile, desktop and journey projects, with no unexpected/flaky results. Deliberate opt-in UX screenshot tests may remain skipped outside the required suites and are visible in report statistics.
+
+Negative controls: wrong target/SHA/hash, source changes outside allowed files, additional package edits, missing reports, absent required suites and skipped required tests fail closed. No remote execution has yet validated this workflow; these guards must be exercised/reviewed before relying on a green result.
+
+Isolation: Ubuntu 24.04 ephemeral runner, Node 22, read-only repository token, checkout credentials not persisted, no supplied cloud secrets, no deploy or PR/write steps. Generated local Supabase keys are consumed without printing and accepted only for loopback endpoints. The runner refuses a preexisting same-name Supabase stack and stops only a stack it attempted to start. Logs retain at most 1 MiB per step; artifact reports at most 16 MiB each and 64 MiB total; artifacts expire after three days. No screenshots, traces, environment files, node_modules or caches are uploaded.
+
+Limitations: a 45-minute timeout can interrupt the broad suite, which must then be reported incomplete. A repaired package diff is evidence for the modified working tree identified by base/event SHA and patch hash, not a new committed repair SHA. Local laptop Docker remains stopped. No validation outcome is invented or inferred from preparation.
