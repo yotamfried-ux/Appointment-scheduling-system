@@ -19,6 +19,9 @@ Jobs: `outbox` (every 5 min), `reminders` (15), `waitlist` (5), `maintenance` (d
 **Done when:** `/api/jobs/health` is 200. Reminders missed during an outage are **not** re-sent for appointments that already started (that is deliberate: a reminder after the fact is noise).
 
 
+## Scheduling on the free plan: `.github/workflows/jobs.yml`
+The workflow calls `outbox` and `waitlist` every 5 minutes and `reminders` every 15, then checks `/api/ready` and `/api/jobs/health`; a red run is the alert (GitHub e-mails the repository watchers). It needs the repository **secret** `CRON_SECRET` (same value as in Vercel) and optionally the **variable** `APP_URL` (default `https://turim.d2ryf.com`). Without the secret it only warns and checks that the site is up. GitHub can delay a scheduled run by a few minutes. The daily Vercel crons below keep running; running both is harmless.
+
 ## Cron schedules: test (Hobby) vs production
 `vercel.json` currently holds **daily** schedules, because the free Hobby plan refuses anything more frequent and the project cannot even be created with `*/5`. With daily runs the system works but mail, reminders and waitlist offers go out once a day, which is **not acceptable for production**.
 Before launch (checklist A3) either use a Pro plan and restore these values in `vercel.json`, or call the four URLs from another scheduler with `Authorization: Bearer $CRON_SECRET`:
