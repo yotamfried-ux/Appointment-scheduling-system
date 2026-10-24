@@ -55,6 +55,7 @@ test("booking time picker: the free / taken parts of the day are named in words,
   await page.goto(`/book/${b.slug}`);
   await page.getByTestId(`service-${b.services[0].id}`).check({ force: true });
   await page.getByTestId("continue").click();
+  await expect(page.getByTestId(`day-${f.date}`)).toBeEnabled(); // the days are enabled once their availability has loaded
   await page.getByTestId(`day-${f.date}`).check({ force: true });
   await page.getByTestId("continue").click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("באיזו שעה?");
