@@ -181,6 +181,8 @@ export const OwnerWaitlistEntryDto = z.object({
   /** Only for a live offer: until when the customer may accept, and which slot (local minutes). */
   offer: z.object({ expiresAt: z.string(), expiresMinute: z.number().int(), slotStartMinute: z.number().int() }).nullable(),
 });
+export const FailureCode = z.enum(["rate_limited", "provider_rejected", "unknown", "bounced", "no_email"]);
+export type FailureCode = z.infer<typeof FailureCode>;
 export const OwnerAgendaResponse = z.object({
   date: IsoDate,
   today: IsoDate,
@@ -191,6 +193,8 @@ export const OwnerAgendaResponse = z.object({
   inbox: z.array(OwnerAppointmentDto),
   /** Messages that could not be delivered after all retries in the last 7 days (NTF-04): the owner should reach those customers another way. */
   undelivered: z.number().int().nonnegative(),
+  /** Which message, to whom, for which time and why (last 7 days, newest first). `no_email` rows are not failures: there was nobody to send to. */
+  undeliveredItems: z.array(z.object({ id: z.string(), kind: z.string(), code: FailureCode, customer: z.string(), date: IsoDate, start: z.number().int() })),
   waitlist: z.array(OwnerWaitlistEntryDto),
   settings: z.object({ waitlistEnabled: z.boolean(), waitlistAutoOffer: z.boolean() }),
   /** What the subscription allows (BIL-08): the panel shows an upsell instead of a feature the plan does not include. */

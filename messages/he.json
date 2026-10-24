@@ -526,6 +526,33 @@
       "noAppointments": "אין תורים ביום הזה.",
       "pastHint": "ביום שעבר אפשר לסמן תורים כהושלמו או כ\"לא הגיע/ה\".",
       "undelivered": "{count, plural, one {הודעה אחת ללקוח לא נשלחה} other {# הודעות ללקוחות לא נשלחו}}. כדאי לפנות אליהם בטלפון.",
+      "undeliveredLine": "{customer} · {kind} · {when}",
+      "undeliveredWhy": "סיבה: {reason}",
+      "undeliveredOpen": "פתיחת היום",
+      "undeliveredShowAll": "הצגת כל {count}",
+      "undeliveredShowLess": "הצגת פחות",
+      "noEmailNote": "{count, plural, one {לקוח אחד בלי כתובת מייל: אין למי לשלוח, אין צורך בפעולה.} other {# לקוחות בלי כתובת מייל: אין למי לשלוח, אין צורך בפעולה.}}",
+      "noEmailLine": "{customer} · {kind} · {when}",
+      "kind": {
+        "booking_received": "אישור קבלת בקשה",
+        "booking_confirmed": "אישור הזמנה",
+        "booking_declined": "דחיית בקשה",
+        "booking_cancelled_by_business": "הודעת ביטול מהעסק",
+        "booking_cancelled_by_customer": "אישור ביטול ללקוח",
+        "reminder": "תזכורת",
+        "booking_rescheduled": "הודעת שינוי מועד",
+        "booking_moved_by_business": "העברת תור על ידי העסק",
+        "waitlist_offer": "הצעה מרשימת המתנה",
+        "waitlist_offer_expired": "הודעה על פקיעת הצעה",
+        "other": "הודעה"
+      },
+      "reason": {
+        "provider_rejected": "שירות הדואר דחה את ההודעה (לא ניתן לשלוח שוב)",
+        "bounced": "כתובת המייל לא קיימת או לא מקבלת הודעות",
+        "no_email": "אין כתובת מייל, אין מה לשלוח",
+        "rate_limited": "שירות הדואר הגביל זמנית את מספר ההודעות",
+        "unknown": "סיבה לא ידועה"
+      },
       "fixNoShow": "לא הגיע/ה (תיקון)",
       "fixAttended": "הגיע/ה (תיקון)",
       "move": "העברה"

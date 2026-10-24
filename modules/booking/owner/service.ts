@@ -81,6 +81,14 @@ interface Row {
   customers: { full_name: string; phone: string } | null;
 }
 
+interface FailureRow {
+  id: string;
+  type: string;
+  failure_code: C.FailureCode;
+  appointments: { starts_at: string; customers: { full_name: string } | null } | null;
+  waitlist_offers: { slot_starts_at: string; waitlist_entries: { customers: { full_name: string } | null } | null } | null;
+}
+
 export async function agenda(ctx: OwnerCtx, date: string, personId?: string): Promise<z.infer<typeof C.OwnerAgendaResponse>> {
   const tz = ctx.business.timezone;
   const from = zonedTimeToUtc(date, 0, tz);
@@ -100,10 +108,13 @@ export async function agenda(ctx: OwnerCtx, date: string, personId?: string): Pr
       .limit(50),
     ctx.supabase
       .from("notification_log")
-      .select("id", { count: "exact", head: true })
+      .select("id, type, failure_code, appointments(starts_at, customers(full_name)), waitlist_offers(slot_starts_at, waitlist_entries(customers(full_name)))")
       .eq("business_id", ctx.business.id)
-      .eq("status", "dead")
-      .gte("created_at", new Date(systemClock.now().getTime() - 7 * 86_400_000).toISOString()),
+      .eq("recipient", "customer")
+      .not("failure_code", "is", null)
+      .gte("created_at", new Date(systemClock.now().getTime() - 7 * 86_400_000).toISOString())
+      .order("created_at", { ascending: false })
+      .limit(100),
     ctx.supabase
       .from("waitlist_entries")
       .select("id, on_date, from_minute, to_minute, status, customers(full_name, phone), services(name), waitlist_offers(status, expires_at, slot_starts_at)")
@@ -125,6 +136,12 @@ export async function agenda(ctx: OwnerCtx, date: string, personId?: string): Pr
     items: ((orphanRows?.data ?? []) as unknown as { id: string; starts_at: string; resource_id: string; customers: { full_name: string } | null }[]).map((o) => ({ id: o.id, date: zonedParts(new Date(o.starts_at), tz).date, start: zonedParts(new Date(o.starts_at), tz).minutes, customer: o.customers?.full_name ?? "", personName: nameOf2(cal, o.resource_id) })),
   };
   if (appts.error || svcs.error || inbox.error || dead.error || wl.error) throw new Error("agenda unavailable");
+  const failures = ((dead.data ?? []) as unknown as FailureRow[]).flatMap((r) => {
+    const at = r.appointments?.starts_at ?? r.waitlist_offers?.slot_starts_at;
+    if (!at) return [];
+    const p = zonedParts(new Date(at), tz);
+    return [{ id: r.id, kind: r.type, code: r.failure_code, customer: r.appointments?.customers?.full_name ?? r.waitlist_offers?.waitlist_entries?.customers?.full_name ?? "", date: p.date, start: p.minutes }];
+  });
   const nameOf = new Map(cal.people.map((p) => [p.id, p.name]));
   const active = cal.people.filter((p) => p.active);
   const shown = personId ? active.filter((p) => p.id === personId) : active;
@@ -155,7 +172,8 @@ export async function agenda(ctx: OwnerCtx, date: string, personId?: string): Pr
     now: today.date === date ? today.minutes : null,
     appointments: (appts.data as unknown as Row[]).map(dto),
     inbox: (inbox.data as unknown as Row[]).map(dto),
-    undelivered: dead.count ?? 0,
+    undelivered: failures.filter((f) => f.code !== "no_email").length,
+    undeliveredItems: failures,
     waitlist: (wl.data as unknown as WaitlistRow[]).map((e) => {
       const live = e.waitlist_offers.find((o) => o.status === "pending" && Date.parse(o.expires_at) > systemClock.now().getTime());
       return {
