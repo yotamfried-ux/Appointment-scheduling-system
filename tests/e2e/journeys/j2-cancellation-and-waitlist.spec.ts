@@ -23,7 +23,7 @@ test("A books · B waits · A cancels · B is offered and accepts · C is refuse
   await test.step("B finds nothing she likes that day and joins the waitlist from her phone", async () => {
     await B.page.goto(`/book/${b.slug}/waitlist`);
     await B.page.getByTestId("wl-service").selectOption({ index: 1 });
-    await B.page.getByTestId("wl-date").fill(a.date);
+    await B.page.getByTestId(`wl-day-${a.date}`).check({ force: true }); // the day is suggested; nothing to remember
     await B.page.getByTestId("wl-name").fill("בר ב׳");
     await B.page.getByTestId("wl-phone").fill("050-7770002");
     await B.page.getByTestId("wl-email").fill(bMail);

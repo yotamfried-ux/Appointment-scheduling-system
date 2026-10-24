@@ -1,4 +1,4 @@
-# Decisions and gaps before a real production launch (updated 2026-10-21)
+# Decisions and gaps before a real production launch (updated 2026-10-24)
 
 Owner: the owner of D2R (the only person who runs the system). This file is the single list of what is decided, what is built, and what must still be closed **before the product takes real customers in production**. It is engineering evidence, not legal advice; it approves nothing. Status words: DECIDED, BUILT, GAP (must close before production), LATER (after launch), TO DECIDE.
 
@@ -18,6 +18,48 @@ Owner: the owner of D2R (the only person who runs the system). This file is the 
 | D-10 | Legal texts | Drafted fully by engineering using the Engineering-OS legal library, no lawyer retained | privacy (12 sections), terms (16 sections incl. processing terms for the business's customers' data), cookies, accessibility; versions `2026-10-20` (owners must re-accept). The "draft" banner was removed on 2026-10-21 on the owner's instruction (G-10; `legal-owner-approval.md`) |
 
 Note on D-10: the library says generic drafts are not a substitute for legal review and that an AI cannot sign off a legal text. The owner chose to proceed without counsel; the consequence is that the owner, as the responsible human, approves the texts (G-10) and accepts the residual risk. Clauses a lawyer normally writes (liability cap, indemnity, governing law and forum, subscription cancellation) are in the terms in their common form; they are the first thing to review if a lawyer is ever involved.
+
+## Status of every gap (2026-10-24)
+
+OPEN = nothing done. PARTIAL = built or started, something remains. WAITING = only the owner can act. DONE = closed. "In progress" items are being built right now and are not merged.
+
+| ID | Status | What remains |
+|---|---|---|
+| G-01 | WAITING | tax file and registration details |
+| G-02 | DONE 2026-10-24 | `d2r.yotam@gmail.com` is set in both Vercel variables (Production and Preview) and shows on the terms and accessibility pages; routing Vercel, Supabase and GitHub alerts to it is still open |
+| G-03 | DONE 2026-10-24 | leaked-password protection enabled and confirmed by the security advisor |
+| G-04 | PARTIAL | Frankfurt project is live and used; the old Singapore test project still has to be deleted by the owner; confirm the privacy text still says Frankfurt |
+| G-05 | WAITING | accept vendor processing terms (Supabase, Vercel, Resend) and record dates |
+| G-06 | OPEN | restore drill on production |
+| G-07 | WAITING | authority registration / security level check (privacy specialist) |
+| G-08 | OPEN | Grow contract and integration (billing is manual; the plan for the pilot business is granted with SQL, see `owner-checklist.md`) |
+| G-09, G-16 | OPEN (gated) | nothing promotional may be sent until consent storage and unsubscribe exist |
+| G-10 | PARTIAL | owner's full name and approval sentence in `legal-owner-approval.md` |
+| G-11 | OPEN | accessibility regulation applicability and external audit |
+| G-12 | OPEN | deputy contact, needed at the first paying customer |
+| G-13 | OPEN (low) | revisit if businesses charge deposits |
+| G-14 | OPEN | re-read the liability cap, indemnity, forum and update clauses; the trial-period cap of zero is the weakest point (see `breach-and-liability-brief.md`) |
+| G-15 | OPEN | classification of the database (counsel); controls mapped in `data-security-baseline.md` |
+| G-17 | PARTIAL | built; the platform-admin account is optional |
+| G-18 | End customers' acceptance of the terms is not recorded | at booking there is only a sentence next to the button (browsewrap). `legal_acceptances` is append-only for owners only. See `breach-and-liability-brief.md` section 1 | me (in progress); owner approves the migration | accept the terms once per customer (not at every booking), store version and time. A migration is needed; it is applied to production only after the owner's explicit approval |
+| G-19 | Sign-up and account e-mail through the vendor's own sender | the hosted Supabase Auth still uses its default sender, which is rate limited and not branded. Templates in `supabase/templates` and the SMTP settings (Resend) are applied in the Supabase dashboard, not by code | owner | follow section 1 of `owner-checklist.md` (Resend key as the SMTP password, paste the five templates). Cannot be done with the available tools |
+| G-20 | Scheduled jobs and their secret | CLOSED 2026-10-24. Jobs run from Vercel Cron (`vercel.json`, daily); `CRON_SECRET` already exists in Vercel (Production and Preview) and Vercel sends it itself. An earlier note that a GitHub secret and a `jobs` workflow were needed was wrong: that workflow does not exist on main | none | the daily frequency means reminders and retries once a morning; revisit with a paid Vercel plan if the pilot needs more |
+| G-21 | Notification failures were invisible and one confirmation e-mail failed | production `notification_log` has a `booking_confirmed` e-mail that died with `provider 400`; the dashboard banner said only that one message was not delivered, without customer, type or reason | me (in progress) | find the cause of the provider rejection, show customer, message type and reason in the banner, add tests |
+| G-22 | Migration 46 is not applied in production (applied to production 2026-10-24 together with the notification failure-code migration) | the schema in the repository is ahead of production | owner approval, then me | the owner says "run migration 46"; afterwards run the advisors and the database tests against it |
+| G-23 | DMARC for the sending domain | e-mail from the product domain can be spoofed without it, and deliverability to large providers suffers | owner (DNS) | add the record; if the domain DNS is managed in Vercel it can be added with the available tools |
+| G-24 | Production still holds demo data | demo business rows from the earlier test remain next to the realistic pilot data (services, hours, 60 customers, about 480 appointments marked demo). The MCP database tool hangs on delete | owner | delete in the Supabase SQL editor, or approve a scripted clean-up. Must be done before real customers, because demo customers have no e-mail and would be counted in reports |
+| G-25 | Owner feedback not yet simulated end to end | a suite of simulations for every reported problem (waitlist suggestions, closed days, link publication, phone/e-mail hint, undelivered message) | me (in progress) | merge the simulation branch after the waitlist PR; keep it in CI |
+| G-26 | Colour is the only signal for busy, free and statuses | the owner dislikes colour-coded status; it is also an accessibility risk (WCAG 1.4.1) | me, after the owner chooses | an artifact with colour-free alternatives (icons, text, shape, position) is being prepared; the chosen direction is then applied everywhere |
+
+| G-18 | PARTIAL | built in PR 38 (draft, tested locally); needs the owner's approval to apply its migration to production, then merge |
+| G-19 | PARTIAL | auth settings, six Hebrew templates, OTP expiry and site URL applied 2026-10-24; leaked-password protection enabled; Custom SMTP (Resend key) still to be set. The Resend domain `mail.d2ryf.com` shows `partially_failed` because of an old failed SPF record; re-verify |
+| G-20 | CLOSED | see below |
+| G-21 | DONE (code and migration live 2026-10-24) | verify the next real failure shows Resend's own reason; the dead confirmation row from before the fix stays as it was |
+| G-22 | DONE 2026-10-24 | migration 46 applied to production, advisors show only the leaked-password warning |
+| G-23 | WAITING | a `_dmarc` TXT record exists with `p=none` and no report address; the owner edits it at the registrar to add `rua=mailto:d2r.yotam@gmail.com` |
+| G-24 | WAITING | owner |
+| G-25 | DONE 2026-10-24 | merged (PR 36); nine simulations, each with a negative control |
+| G-26 | WAITING | owner chooses a direction from the prepared artifact |
 
 ## B. Gaps to close before production (GAP)
 

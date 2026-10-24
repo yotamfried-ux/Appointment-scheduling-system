@@ -42,7 +42,7 @@ test("customer waitlist screens are balanced at every state", async ({ page, req
   await expect(page.getByText("שדה חובה.").first()).toBeVisible();
   await page.getByTestId("wl-phone").fill("12");
   await page.getByTestId("wl-email").fill("nope");
-  await page.getByTestId("wl-date").fill(f.date);
+  await page.getByTestId(`wl-day-${f.date}`).check({ force: true });
   await page.getByTestId("wl-name").fill("שם-ארוך-מאוד-של-ממתין-שלא-נגמר-אף-פעם-ולא-נשבר-בשום-מקום-כלל");
   await page.getByTestId("wl-submit").click();
   await expect(page.getByText("מספר הטלפון אינו תקין.")).toBeVisible();

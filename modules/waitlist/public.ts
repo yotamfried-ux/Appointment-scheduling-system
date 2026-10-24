@@ -7,7 +7,7 @@ import type * as C from "@/lib/api/contracts";
 import { fail } from "@/lib/api/http";
 import { normalizePhone } from "@/lib/phone";
 import { signToken, verifyToken } from "@/modules/booking/token";
-import type { Catalog } from "@/modules/booking/public/service";
+import { computeAvailability, type Catalog } from "@/modules/booking/public/service";
 import { systemDb } from "@/platform/system-db";
 import { systemClock, zonedParts } from "@/platform/clock";
 
@@ -23,6 +23,9 @@ export async function joinWaitlist(c: Catalog, input: C.JoinWaitlistInput, idemK
   if (!svc) throw fail("SERVICE_UNAVAILABLE", "השירות כבר אינו זמין. בחרו שירות אחר.");
   const today = zonedParts(systemClock.now(), c.business.timezone).date;
   if (input.date < today) throw fail("VALIDATION_FAILED", "הבקשה אינה תקינה.", [{ field: "date", message: "אי אפשר להצטרף ליום שעבר." }]);
+  // A day the business is closed can never free up a slot: refuse it instead of keeping the customer waiting for nothing.
+  const day = (await computeAvailability(c, svc.id, input.date, 1)).days[0];
+  if (day?.closed) throw fail("VALIDATION_FAILED", "הבקשה אינה תקינה.", [{ field: "date", message: "העסק סגור ביום הזה. בחרו יום אחר." }]);
   const { data, error } = await systemDb().rpc("waitlist_join", {
     p_business: c.business.id,
     p_service: svc.id,

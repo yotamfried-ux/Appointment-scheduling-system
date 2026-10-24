@@ -2,11 +2,12 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { cn } from "@/lib/utils";
 
-export type OwnerSection = "calendar" | "customers" | "reports";
-const ITEMS: { id: OwnerSection; href: string; key: "calendar" | "customers" | "reports" }[] = [
+export type OwnerSection = "calendar" | "customers" | "reports" | "settings";
+const ITEMS: { id: OwnerSection; href: string; key: "calendar" | "customers" | "reports" | "settings" }[] = [
   { id: "calendar", href: "/dashboard", key: "calendar" },
   { id: "customers", href: "/customers", key: "customers" },
   { id: "reports", href: "/reports", key: "reports" },
+  { id: "settings", href: "/settings/services", key: "settings" },
 ];
 
 /** Primary navigation of the signed-in area: the calendar, customers and reports. */
