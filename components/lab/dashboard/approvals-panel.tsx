@@ -2,6 +2,7 @@
 
 import { Check, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { formatDayLabel } from "@/lib/lab/booking-data";
 import { fmt, type DashboardAction, type LabAppointment } from "@/lib/lab/dashboard-data";
@@ -14,6 +15,10 @@ export function ApprovalsPanel({ appointments, onAction, busyIds }: { appointmen
   const pending = appointments.filter((a) => a.status === "pending");
   const requests = appointments.filter((a) => a.status === "cancellationRequested");
   const total = pending.length + requests.length;
+  // With many waiting requests the panel shows the first few; the rest is one click away, so it never pushes the day's schedule off the page.
+  const [all, setAll] = useState(false);
+  const LIMIT = 4;
+  const shownPending = all ? pending : pending.slice(0, Math.max(0, LIMIT - requests.length));
 
   return (
     <section aria-labelledby="approvals-title" className="rounded-lg border bg-card">
@@ -28,8 +33,8 @@ export function ApprovalsPanel({ appointments, onAction, busyIds }: { appointmen
         </div>
       ) : (
         <ul className="divide-y">
-          {pending.map((a) => (
-            <li key={a.id} className="grid min-w-0 gap-3 px-4 py-4" data-testid={`approval-${a.id}`}>
+          {shownPending.map((a) => (
+            <li key={a.id} className="grid min-w-0 gap-3 px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center xl:grid-cols-1" data-testid={`approval-${a.id}`}>
               <div>
                 <p className="font-medium [overflow-wrap:anywhere]">{a.customer}</p>
                 <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
@@ -67,6 +72,13 @@ export function ApprovalsPanel({ appointments, onAction, busyIds }: { appointmen
               </div>
             </li>
           ))}
+          {pending.length > shownPending.length || (all && pending.length > Math.max(0, LIMIT - requests.length)) ? (
+            <li className="px-4 py-2.5">
+              <Button type="button" variant="ghost" size="sm" className="w-full" aria-expanded={all} onClick={() => setAll((v) => !v)} data-testid="approvals-more">
+                {all ? t("showFewer") : t("showAll", { count: total })}
+              </Button>
+            </li>
+          ) : null}
         </ul>
       )}
     </section>
