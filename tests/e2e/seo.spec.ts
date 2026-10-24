@@ -27,7 +27,7 @@ test("public pages: one canonical address, a title, a description and Open Graph
     expect(await page.locator('meta[name="robots"][content*="noindex"]').count(), `${path} must be indexable`).toBe(0);
   }
   await page.goto("/");
-  expect(await page.locator('meta[property="og:title"]').getAttribute("content")).toContain("הלקוחות קובעים תור בעצמם");
+  expect(await page.locator('meta[property="og:title"]').getAttribute("content")).toBe("מערכת ניהול יומן ותורים"); // the tab and the share title say what the product is
   expect(await page.locator("h1").count(), "exactly one h1").toBe(1);
   expect(await page.locator("html").getAttribute("lang")).toBe("he");
 });
