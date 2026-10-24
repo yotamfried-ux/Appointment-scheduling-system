@@ -19,10 +19,7 @@
 **איפה:** Supabase → Authentication → Sign In / Providers → Password security (בחלק מהתצוגות: Attack Protection) → מפעילים "Prevent use of leaked passwords". דורש תוכנית Pro, והארגון כבר ב-Pro.
 
 ## 3. משימות מתוזמנות (תזכורות, תור המתנה, שליחת מיילים)
-**למה:** בלעדיהן תזכורות ומיילי אישור תור לא יישלחו בזמן.
-1. ב-Vercel: Project → Settings → Environment Variables → מוודאים שקיים משתנה `CRON_SECRET` בסביבת Production. אם אין, יוצרים ערך אקראי ארוך.
-2. ב-GitHub: המאגר → Settings → Secrets and variables → Actions → New repository secret → שם `CRON_SECRET` → **אותו ערך** כמו ב-Vercel.
-3. Actions → "jobs" → Run workflow לבדיקה. הצלחה: כל השלבים ירוקים. הערה: ב-Vercel Hobby אי אפשר להריץ cron בתדירות גבוהה, ולכן ה-workflow של GitHub הוא זה שמריץ אותן כל 5 דקות.
+**מצב (24.10.2026):** אין צורך בפעולה שלך. המשימות רצות ב-Vercel Cron לפי `vercel.json` (שליחה חוזרת של מיילים, תזכורות ותור המתנה פעם ביום בבוקר, ותחזוקה בלילה). המשתנה `CRON_SECRET` כבר קיים ב-Vercel (Production ו-Preview), ו-Vercel שולח אותו לבד בכל הרצה. אין סוד ב-GitHub ואין workflow בשם `jobs`. הערה: מייל אישור תור נשלח מיד בעת ההזמנה, והמשימה היומית משמשת לניסיון חוזר ולתזכורות. אם תרצה תזכורות בשעות שונות או תדירות גבוהה יותר, צריך תוכנית Vercel Pro או הרצה חיצונית.
 
 ## 4. מיגרציה 46 בפרודקשן
 **למה:** זהות הלקוח לפי אימייל (במקום טלפון) קיימת בקוד אבל לא במסד הנתונים של הפרודקשן. עד שתרוץ, הזמנה חדשה עם אימייל לא תעבוד נכון בפרודקשן. כתוב לי "תריץ מיגרציה 46" ואני מריץ, אחרי גיבוי.
