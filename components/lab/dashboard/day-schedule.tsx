@@ -29,14 +29,21 @@ export function DaySchedule({ appointments, windows, now, onAddInGap, renderActi
   ].sort((x, y) => x.start - y.start);
   const count = (p: string) => rows.filter((r) => r.kind === "appt" && part(r.start) === p).length;
 
-  let lastPart = "";
+  const seenParts = new Set<string>();
+  const firstOfPart = new Set<Row>();
+  for (const r of rows) {
+    const p = part(r.start);
+    if (!seenParts.has(p)) {
+      seenParts.add(p);
+      firstOfPart.add(r);
+    }
+  }
   return (
     <ol className="overflow-hidden rounded-xl border bg-card" data-testid="schedule">
       {rows.flatMap((r) => {
         const out: React.ReactNode[] = [];
         const p = part(r.start);
-        if (p !== lastPart) {
-          lastPart = p;
+        if (firstOfPart.has(r)) {
           out.push(
             <li key={`part-${p}`} aria-hidden className="flex items-baseline justify-between border-b bg-muted/50 px-4 py-2 text-xs font-semibold tracking-wide text-muted-foreground" data-testid={`part-${p}`}>
               <span>{t(`owner.today.part.${p}`)}</span>
