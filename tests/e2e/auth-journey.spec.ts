@@ -51,10 +51,10 @@ test.describe("owner authentication journey (scenarios ACC-01, ACC-02, ACC-04, S
     const email = unique();
     await page.goto("/auth/sign-up");
     await page.getByLabel("אימייל").fill(email);
-    await page.getByLabel("סיסמה", { exact: true }).fill("short1");
+    await page.getByLabel("סיסמה", { exact: true }).fill("sh1");
     await page.getByLabel("אימות סיסמה").fill("different");
     await page.getByRole("button", { name: "יצירת חשבון" }).click();
-    await expect(page.getByText("הסיסמה חייבת להכיל לפחות 12 תווים.")).toBeVisible();
+    await expect(page.getByText("הסיסמה חייבת להכיל לפחות 6 תווים.")).toBeVisible();
     await expect(page.getByText("הסיסמאות אינן זהות.")).toBeVisible();
     await expect(page.getByLabel("סיסמה", { exact: true })).toHaveAttribute("aria-invalid", "true");
     await expect(page).toHaveURL(/\/auth\/sign-up$/);
@@ -66,7 +66,7 @@ test.describe("owner authentication journey (scenarios ACC-01, ACC-02, ACC-04, S
   test("server enforces the password policy independently of the UI (weak_password)", async ({ request }) => {
     const res = await request.post(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/signup`, {
       headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!, "content-type": "application/json" },
-      data: { email: unique(), password: "short1" },
+      data: { email: unique(), password: "sh1" },
     });
     expect(res.status()).toBe(422);
     expect((await res.json()).error_code).toBe("weak_password");
