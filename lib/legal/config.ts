@@ -7,9 +7,9 @@ export const LEGAL = {
   accessibility: { version: "2026-10-12", effective: "12.10.2026", lastReview: "12.10.2026" },
   /** The operator behind the service. Business registration details are to be added once the business is registered (docs/legal/open-decisions.md). */
   operator: { name: "D2R" },
-  /** Set NEXT_PUBLIC_LEGAL_CONTACT / NEXT_PUBLIC_A11Y_CONTACT in the environment; falls back to official mailbox d2r.yotam@gmail.com (docs/legal/open-decisions.md G-02). */
-  contact: process.env.NEXT_PUBLIC_LEGAL_CONTACT || "d2r.yotam@gmail.com",
-  accessibilityContact: process.env.NEXT_PUBLIC_A11Y_CONTACT || "d2r.yotam@gmail.com",
+  /** Set NEXT_PUBLIC_LEGAL_CONTACT / NEXT_PUBLIC_A11Y_CONTACT in the environment; falls back to official mailbox yotam.fried@gmail.com (docs/legal/open-decisions.md G-02). */
+  contact: process.env.NEXT_PUBLIC_LEGAL_CONTACT || "yotam.fried@gmail.com",
+  accessibilityContact: process.env.NEXT_PUBLIC_A11Y_CONTACT || "yotam.fried@gmail.com",
 } as const;
 
 /** The documents an owner must have accepted at their current version. */

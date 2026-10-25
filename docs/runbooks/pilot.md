@@ -40,7 +40,7 @@ Check: she opens Settings, subscription: it must show an active plan, no trial c
 - Reminders run once a day on the current hosting plan (about 05:10 UTC), not "two hours before".
 - Customers' e-mails come from her business name at `@mail.d2ryf.com`; replies go nowhere, so her phone number should be filled in (it is printed in every e-mail).
 - Her customers' data is hers; the terms say the platform processes it on her behalf. Deleting the account removes everything after 14 days.
-- Support: `d2r.yotam@gmail.com`.
+- Support: `yotam.fried@gmail.com`.
 
 ## Watch during the first two weeks
 - the e-mail log: bounces or complaints in the Resend dashboard

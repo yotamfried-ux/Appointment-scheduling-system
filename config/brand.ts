@@ -2,5 +2,5 @@
 export const BRAND = {
   name: "ניהול יומן ותורים",
   tagline: "לבעלי עסקים ונותני שירות",
-  supportEmail: "support@example.com",
+  supportEmail: "yotam.fried@gmail.com",
 } as const;

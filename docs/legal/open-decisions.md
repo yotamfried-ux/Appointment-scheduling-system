@@ -13,7 +13,7 @@ Owner: the owner of D2R (the only person who runs the system). This file is the 
 | D-05 | Retention | Customer personal details removed **3 years after the customer's last activity** | built: migration `20261037000000_retention_3y.sql`, daily in `/api/jobs/maintenance`, pgTAP `190_retention`; privacy text updated |
 | D-06 | Sensitive fields | **Not collected** | built: all sensitive intake fields removed from every business kind (`modules/tenancy/business-kind.ts`), unit test fails if one returns; privacy and terms forbid sensitive data in notes |
 | D-07 | Server region | Fast for Israeli users | Vercel functions run in `fra1` (Frankfurt). Database in Frankfurt (`eu-central-1`, project `abhadytskhgwkrlmceew`) |
-| D-08 | Incident roles | One person (the owner) holds every role; everything must reach the D2R mailbox | `docs/runbooks/incident.md`; official mailbox is `d2r.yotam@gmail.com` (G-02) |
+| D-08 | Incident roles | One person (the owner) holds every role; everything must reach the mailbox | `docs/runbooks/incident.md`; official mailbox is `yotam.fried@gmail.com` (G-02) |
 | D-09 | Business roles | The owner does everything | no separate roles to name |
 | D-10 | Legal texts | Drafted fully by engineering using the Engineering-OS legal library, no lawyer retained | privacy (12 sections), terms (16 sections incl. processing terms for the business's customers' data), cookies, accessibility; versions `2026-10-21` (owners must re-accept). The "draft" banner was removed on 2026-10-21 on the owner's instruction (G-10; `legal-owner-approval.md`) |
 
@@ -26,7 +26,7 @@ OPEN = nothing done. PARTIAL = built or started, something remains. WAITING = on
 | ID | Status | Summary |
 |---|---|---|
 | G-01 | WAITING (owner) | Tax file and business registration details (to add to `lib/legal/config.ts` once registered) |
-| G-02 | DONE 2026-10-25 | `d2r.yotam@gmail.com` is configured in Vercel environment and hard-coded as fallback in `lib/legal/config.ts`; shows on operator and accessibility pages |
+| G-02 | DONE 2026-10-25 | `yotam.fried@gmail.com` is configured in Vercel environment and hard-coded as fallback in `lib/legal/config.ts`; shows on operator and accessibility pages |
 | G-03 | DONE 2026-10-24 | Leaked-password protection enabled in Supabase Auth and confirmed by the security advisor |
 | G-04 | DONE 2026-10-25 | Frankfurt production project (`abhadytskhgwkrlmceew`) is live and serving production; old Singapore test project confirmed deleted |
 | G-05 | WAITING (owner) | Accept vendor processing terms (Supabase, Vercel, Resend) in their respective dashboards and record dates |
