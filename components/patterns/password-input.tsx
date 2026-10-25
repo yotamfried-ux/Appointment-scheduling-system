@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
  * - Fixed physical padding (pr-11 pl-3.5) and physical icon placement (right-0) ensure text NEVER collides with the eye toggle button in either direction.
  * - When toggling visibility between password bullets and plain text, alignment, cursor position, and icon anchor remain 100% rock-solid.
  */
-export function PasswordInput({ className, onChange, onInput, style, ...props }: React.ComponentProps<typeof Input>) {
+export function PasswordInput({ className, onChange, style, ...props }: React.ComponentProps<typeof Input>) {
   const t = useTranslations("auth");
   const [visible, setVisible] = useState(false);
   const [isRTL, setIsRTL] = useState(false);
@@ -41,11 +41,6 @@ export function PasswordInput({ className, onChange, onInput, style, ...props }:
     onChange?.(e);
   };
 
-  const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
-    checkDirection((e.target as HTMLInputElement).value);
-    onInput?.(e);
-  };
-
   return (
     <div className="relative">
       <Input
@@ -53,7 +48,6 @@ export function PasswordInput({ className, onChange, onInput, style, ...props }:
         type={visible ? "text" : "password"}
         dir={isRTL ? "rtl" : "ltr"}
         onChange={handleChange}
-        onInput={handleInput}
         style={{
           direction: isRTL ? "rtl" : "ltr",
           textAlign: isRTL ? "right" : "left",
