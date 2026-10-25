@@ -21,6 +21,7 @@ import type * as C from "@/lib/api/contracts";
 import { formatDayLabel, LAB_TIMEZONE } from "@/lib/lab/booking-data";
 import { dashboardReducer, fmt, freeLabel, gapsIn, statsIn, teamOccupancyPct, type LabAppointment } from "@/lib/lab/dashboard-data";
 import { cn } from "@/lib/utils";
+import { formatPhone } from "@/lib/phone";
 import { addDaysIso } from "@/modules/availability/slots";
 
 type Agenda = z.infer<typeof C.OwnerAgendaResponse>;
@@ -602,7 +603,7 @@ export function OwnerAgenda() {
                       </div>
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-medium">{a.customer}</span>
-                        <bdi className="text-xs text-muted-foreground">{a.phone}</bdi>
+                        <bdi className="text-xs text-muted-foreground">{formatPhone(a.phone)}</bdi>
                       </div>
                       <div className="flex flex-wrap items-center gap-1 pt-1">
                         {rowActions(a)}

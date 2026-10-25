@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/toast";
 import { ApiClientError, ownerApi } from "@/lib/api/client";
 import { fmt } from "@/lib/lab/dashboard-data";
+import { formatPhone } from "@/lib/phone";
 
 export interface ManualService {
   id: string;
@@ -247,7 +248,7 @@ export function ManualDialog({
               <div className="flex items-center justify-between rounded-md border bg-card p-2.5 text-sm">
                 <div className="min-w-0">
                   <p className="font-semibold">{form.name}</p>
-                  <p className="text-xs text-muted-foreground font-mono" dir="ltr">{form.phone}</p>
+                  <p className="text-xs text-muted-foreground font-mono" dir="ltr">{formatPhone(form.phone)}</p>
                 </div>
                 <Button type="button" size="sm" variant="ghost" onClick={clearSelectedCustomer} className="h-8 gap-1 text-xs">
                   <X className="size-3.5" />
@@ -279,7 +280,7 @@ export function ManualDialog({
                         >
                           <div className="min-w-0">
                             <span className="font-semibold block truncate">{c.fullName}</span>
-                            <span className="text-muted-foreground block truncate" dir="ltr">{c.phone}</span>
+                            <span className="text-muted-foreground block truncate" dir="ltr">{formatPhone(c.phone)}</span>
                           </div>
                           {c.email ? (
                             <span className="text-[11px] text-muted-foreground truncate max-w-[140px]" dir="ltr">{c.email}</span>

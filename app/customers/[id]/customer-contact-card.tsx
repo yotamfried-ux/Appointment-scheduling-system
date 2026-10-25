@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/toast";
 import { ApiClientError, ownerApi } from "@/lib/api/client";
+import { formatPhone } from "@/lib/phone";
 import type { CustomerDuplicate } from "@/modules/customers/service";
 
 interface CustomerContactCardProps {
@@ -144,7 +145,7 @@ export function CustomerContactCard({ id, fullName, phone, email, duplicates = [
           <div className="flex items-center justify-between gap-2 rounded-md border bg-muted/20 p-3">
             <div className="min-w-0">
               <span className="text-xs text-muted-foreground block">מספר טלפון</span>
-              <span className="font-semibold tabular-nums" dir="ltr" data-testid="customer-phone">{phone}</span>
+              <span className="font-semibold tabular-nums" dir="ltr" data-testid="customer-phone">{formatPhone(phone)}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Button asChild size="sm" variant="ghost" className="h-8 px-2 text-xs" title="חיוג">

@@ -13,6 +13,7 @@ import { ownerPage } from "@/lib/auth/owner-page";
 import { myBilling } from "@/modules/billing/entitlements";
 import { listCustomers, SORTS, type CustomerSort } from "@/modules/customers/service";
 import { formatMoney } from "@/modules/reports/metrics";
+import { formatPhone } from "@/lib/phone";
 import { zonedParts } from "@/platform/clock";
 
 export const metadata = { title: "לקוחות", robots: { index: false, follow: false } };
@@ -89,7 +90,7 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
                 <Link href={`/customers/${c.id}`} className="grid gap-2 p-4 hover:bg-accent/50 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)] sm:items-center" data-testid="customer-row">
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{c.anonymized ? t("anonymizedName") : c.fullName}</p>
-                    <p className="text-sm text-muted-foreground">{c.anonymized ? "" : <bdi dir="ltr">{c.phone}</bdi>}</p>
+                    <p className="text-sm text-muted-foreground">{c.anonymized ? "" : <bdi dir="ltr">{formatPhone(c.phone)}</bdi>}</p>
                     <div className="mt-1 flex flex-wrap gap-1.5">
                       {c.upcoming > 0 ? <Badge variant="secondary">{t("upcoming", { count: c.upcoming })}</Badge> : null}
                       {c.noShows60d > 0 ? <Badge className="bg-destructive-soft text-destructive-soft-foreground">{t("noShows60", { count: c.noShows60d })}</Badge> : null}

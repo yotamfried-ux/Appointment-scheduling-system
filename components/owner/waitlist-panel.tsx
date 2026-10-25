@@ -11,6 +11,7 @@ import type * as C from "@/lib/api/contracts";
 import { formatDayLabel } from "@/lib/lab/booking-data";
 import { fmt } from "@/lib/lab/dashboard-data";
 import { cn } from "@/lib/utils";
+import { formatPhone } from "@/lib/phone";
 
 export type WaitlistEntry = z.infer<typeof C.OwnerWaitlistEntryDto>;
 
@@ -68,7 +69,7 @@ export function WaitlistPanel({ entries, settings, busy, allowed = true, onOffer
                 <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
                   {e.service} · {formatDayLabel(e.date, "short")} · {e.fromMinute === null || e.toMinute === null ? t("anyTime") : <bdi>{fmt(e.fromMinute)}–{fmt(e.toMinute)}</bdi>}
                 </p>
-                <p className="text-sm text-muted-foreground"><bdi>{e.phone}</bdi></p>
+                <p className="text-sm text-muted-foreground"><bdi>{formatPhone(e.phone)}</bdi></p>
               </div>
               {confirming === e.id ? (
                 <div role="group" aria-label={t("removeConfirm")} className="flex flex-wrap items-center gap-2">
