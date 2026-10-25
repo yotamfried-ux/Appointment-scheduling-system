@@ -71,7 +71,7 @@ ${o.rows.map(([l, v]) => `<tr><td style="padding:11px 0;border-bottom:1px solid 
 <p style="margin:0 0 20px;font-size:17px;line-height:1.65;color:#10201d">${esc(o.lead)}</p>
 ${rows}${button}${note}
 </td></tr>
-<tr><td style="padding:14px 4px 0;font-family:${FONT};font-size:12px;line-height:1.6;color:#5b6b66;text-align:right">ההודעה נשלחה אוטומטית דרך "תורים". אין צורך להשיב לה.</td></tr>
+<tr><td style="padding:14px 4px 0;font-family:${FONT};font-size:12px;line-height:1.6;color:#5b6b66;text-align:right">ההודעה נשלחה אוטומטית דרך מערכת ניהול היומן. אין צורך להשיב לה.</td></tr>
 </table></td></tr></table>
 </body></html>`;
 }
