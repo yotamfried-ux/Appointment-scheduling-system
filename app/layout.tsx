@@ -19,7 +19,7 @@ const defaultUrl = process.env.NEXT_PUBLIC_SITE_URL
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
   title: { default: "ניהול יומן ותורים · לבעלי עסקים ונותני שירות", template: "%s · ניהול יומן ותורים" },
-  description: "מערכת קביעת תורים מדויקת, שקטה וללא עמלות נסתרות. דף הזמנות פרטי, סנכרון לוחות שנה והודעות ישירות ללקוחות.",
+  description: "מערכת קביעת תורים מדויקת, שקטה ופשוטה לשימוש. דף הזמנות פרטי, סנכרון לוחות שנה והודעות ישירות ללקוחות.",
   applicationName: BRAND.name,
   openGraph: {
     siteName: BRAND.name,
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "ניהול יומן ותורים · לבעלי עסקים ונותני שירות",
-    description: "מערכת קביעת תורים מדויקת, שקטה וללא עמלות נסתרות.",
+    description: "מערכת קביעת תורים מדויקת, שקטה ופשוטה לשימוש.",
   },
 };
 
@@ -49,7 +49,7 @@ const jsonLd = {
     price: "0",
     priceCurrency: "ILS",
   },
-  description: "מערכת קביעת תורים מדויקת, שקטה וללא עמלות נסתרות. דף הזמנות פרטי, סנכרון לוחות שנה והודעות ישירות ללקוחות.",
+  description: "מערכת קביעת תורים מדויקת, שקטה ופשוטה לשימוש. דף הזמנות פרטי, סנכרון לוחות שנה והודעות ישירות ללקוחות.",
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

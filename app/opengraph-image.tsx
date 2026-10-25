@@ -10,7 +10,7 @@ export default async function Image() {
     brandInitial: "D",
     brandName: "ניהול יומן ותורים",
     brandSub: "לבעלי עסקים ונותני שירות עצמאיים",
-    heading: "מערכת קביעת תורים מדויקת, שקטה וללא עמלות נסתרות.",
+    heading: "מערכת קביעת תורים מדויקת, שקטה ופשוטה לשימוש.",
     sub: "דף הזמנות פרטי, סנכרון לוחות שנה והודעות ישירות ללקוחות.",
     domain: "turim.d2ryf.com",
     footerRight: "ניהול יומן ותורים",
