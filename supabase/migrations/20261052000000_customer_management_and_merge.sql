@@ -44,7 +44,8 @@ begin
   return jsonb_build_object('ok', true, 'id', c.id);
 end $$;
 
-revoke all on function private.update_customer_details_impl(uuid, text, text, text) from public, anon, authenticated;
+revoke all on function private.update_customer_details_impl(uuid, text, text, text) from public, anon;
+grant execute on function private.update_customer_details_impl(uuid, text, text, text) to authenticated;
 
 create or replace function public.update_customer_details(p_customer uuid, p_full_name text, p_phone text, p_email text)
 returns jsonb language sql security invoker set search_path = '' as $$
@@ -114,7 +115,8 @@ begin
   return jsonb_build_object('ok', true, 'targetId', t.id, 'appointmentsMoved', v_appts);
 end $$;
 
-revoke all on function private.merge_customers_impl(uuid, uuid) from public, anon, authenticated;
+revoke all on function private.merge_customers_impl(uuid, uuid) from public, anon;
+grant execute on function private.merge_customers_impl(uuid, uuid) to authenticated;
 
 create or replace function public.merge_customers(p_source_id uuid, p_target_id uuid)
 returns jsonb language sql security invoker set search_path = '' as $$
@@ -214,8 +216,11 @@ begin
   return private.create_manual_appointment_team(p_business, p_service, p_starts_at, p_full_name, p_phone, p_note, p_out_of_availability, p_resource, null::text, null::uuid);
 end $$;
 
-revoke all on function private.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid, text, uuid) from public, anon, authenticated;
-revoke all on function private.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid) from public, anon, authenticated;
+revoke all on function private.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid, text, uuid) from public, anon;
+grant execute on function private.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid, text, uuid) to authenticated;
+
+revoke all on function private.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid) from public, anon;
+grant execute on function private.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid) to authenticated;
 
 drop function if exists public.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid, text, uuid);
 
