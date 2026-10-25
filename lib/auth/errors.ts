@@ -8,6 +8,7 @@ const KNOWN = new Set([
   "over_email_send_rate_limit",
   "same_password",
   "otp_expired",
+  "user_already_exists",
 ]);
 
 export function authErrorKey(error: unknown): string {
@@ -28,5 +29,6 @@ export function authErrorKey(error: unknown): string {
   return "generic";
 }
 
-/** Sign-up for an address that already has an account: the answer must look like any other sign-up, or the form tells a stranger who is registered. */
-export const isExistingAccount = (error: unknown): boolean => !!error && typeof error === "object" && (error as { code?: unknown }).code === "user_already_exists";
+/** Sign-up for an address that already has an account: helper to check code. */
+export const isExistingAccount = (error: unknown): boolean =>
+  !!error && typeof error === "object" && (error as { code?: unknown }).code === "user_already_exists";

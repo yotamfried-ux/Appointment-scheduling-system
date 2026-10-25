@@ -21,7 +21,7 @@ export function SignUpForm() {
   const tv = useTranslations("auth.validation");
   const tl = useTranslations("legal");
   const router = useRouter();
-  const [serverError, setServerError] = useState<string | null>(null);
+  const [serverErrorKey, setServerErrorKey] = useState<string | null>(null);
   const schema = useMemo(() => signUpSchema((k) => tv(k)), [tv]);
   type Values = z.infer<typeof schema>;
   const {
@@ -31,13 +31,13 @@ export function SignUpForm() {
   } = useForm<Values>({ resolver: zodResolver(schema), defaultValues: { email: "", password: "", repeatPassword: "" } });
 
   const onSubmit = handleSubmit(async ({ email, password }) => {
-    setServerError(null);
+    setServerErrorKey(null);
     try {
       const r = await signUpAction({ email, password });
-      if (!r.ok) return setServerError(t(`errors.${r.errorKey}`));
+      if (!r.ok) return setServerErrorKey(r.errorKey);
       router.push("/auth/sign-up-success");
     } catch (e) {
-      setServerError(t(`errors.${authErrorKey(e)}`));
+      setServerErrorKey(authErrorKey(e));
     }
   });
 
@@ -55,7 +55,23 @@ export function SignUpForm() {
       }
     >
       <form method="post" onSubmit={onSubmit} noValidate className="grid gap-5">
-        <FormError message={serverError} />
+        {serverErrorKey === "user_already_exists" ? (
+          <div role="alert" data-testid="form-error" className="rounded-md border border-destructive/30 bg-destructive-soft p-3 text-sm text-destructive-soft-foreground">
+            <p className="font-semibold">{t("errors.user_already_exists")}</p>
+            <p className="mt-1 text-xs opacity-90">החשבון קיים ומאומת במערכת. אפשר להתחבר ישירות או לאפס סיסמה:</p>
+            <div className="mt-2.5 flex items-center gap-3 text-xs font-semibold">
+              <Link href="/auth/login" className="text-primary underline underline-offset-4 hover:opacity-80">
+                {t("signUp.loginLink")} ←
+              </Link>
+              <span className="text-muted-foreground/60">|</span>
+              <Link href="/auth/forgot-password" className="text-primary underline underline-offset-4 hover:opacity-80">
+                {t("forgotPassword")}
+              </Link>
+            </div>
+          </div>
+        ) : serverErrorKey ? (
+          <FormError message={t(`errors.${serverErrorKey}`)} />
+        ) : null}
         <FormField label={t("email")} error={errors.email?.message}>
           {(a) => <Input {...a} type="email" autoComplete="email" inputMode="email" placeholder={t("emailPlaceholder")} {...register("email")} />}
         </FormField>

@@ -51,12 +51,19 @@ export async function loginAction(input: { email: unknown; password: unknown }):
 export async function signUpAction(input: { email: unknown; password: unknown }): Promise<AuthResult> {
   const email = str(input.email), password = str(input.password, 128);
   if (!email || !password) return { ok: false, errorKey: "generic" };
-  const { error } = await (await createClient()).auth.signUp({
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: { emailRedirectTo: `${await origin()}/auth/confirm?next=/dashboard` },
   });
-  if (error && !isExistingAccount(error)) return fail(error); // an existing address gets the same "check your e-mail" page (no account enumeration)
+  if (error) {
+    if (isExistingAccount(error)) return { ok: false, errorKey: "user_already_exists" };
+    return fail(error);
+  }
+  if (data?.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+    return { ok: false, errorKey: "user_already_exists" };
+  }
   await setPendingSignupCookie({ email, password });
   return { ok: true };
 }
