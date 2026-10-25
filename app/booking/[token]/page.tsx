@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { confirmAttendanceWithToken, viewAppointment } from "@/modules/booking/public/service";
@@ -32,6 +33,9 @@ export default async function ManagePage({
     <main id="main" className="mx-auto flex min-h-svh max-w-md flex-col items-center justify-center gap-2 px-4 text-center" data-testid="manage-invalid">
       <h1 className="text-2xl font-bold">{t("notFound")}</h1>
       <p className="text-muted-foreground">{t("notFoundHint")}</p>
+      <Link href="/" className="mt-4 inline-flex min-h-11 items-center justify-center rounded-md border border-input bg-background px-5 text-sm font-semibold shadow-sm hover:bg-accent">
+        {t("backHome")}
+      </Link>
     </main>
   );
 }
