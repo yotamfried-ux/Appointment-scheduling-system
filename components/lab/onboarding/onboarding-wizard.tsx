@@ -76,7 +76,19 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
           hours: s.hours,
         });
         if (!r.ok) {
-          setSaveError(r.code === "BUSINESS_LIMIT" ? t("submit.errors.limit") : r.code === "NOT_AUTHENTICATED" ? t("submit.errors.session") : r.code === "VALIDATION" || r.code === "SLUG_INVALID" ? t("submit.errors.validation") : r.code === "SLUG_TAKEN" ? t("submit.errors.slug") : t("submit.errors.generic"));
+          setSaveError(
+            r.code === "BUSINESS_LIMIT"
+              ? t("submit.errors.limit")
+              : r.code === "BUSINESS_NAME_TAKEN"
+                ? t("submit.errors.nameTaken")
+                : r.code === "NOT_AUTHENTICATED"
+                  ? t("submit.errors.session")
+                  : r.code === "VALIDATION" || r.code === "SLUG_INVALID"
+                    ? t("submit.errors.validation")
+                    : r.code === "SLUG_TAKEN"
+                      ? t("submit.errors.slug")
+                      : t("submit.errors.generic")
+          );
           return;
         }
         setSavedSlug(r.slug);
@@ -131,8 +143,10 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
             <ul className="divide-y rounded-lg border bg-card">
               {["n1", "n2", "n3"].map((k, i) => (
                 <li key={k} className="flex items-center gap-3 px-4 py-3.5">
-                  <span className={cn("flex size-6 shrink-0 items-center justify-center rounded-full border text-xs font-semibold", i === 0 ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground")}>{i + 1}</span>
-                  <span className={i === 0 ? "font-medium" : "text-muted-foreground"}>{t(`done.${k}`)}</span>
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-primary/20 bg-primary/10 text-xs font-bold text-primary">
+                    {i + 1}
+                  </span>
+                  <span className="text-sm font-medium text-foreground">{t(`done.${k}`)}</span>
                 </li>
               ))}
             </ul>
@@ -254,13 +268,34 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
       </main>
 
       <div className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-xl items-center gap-3 px-4 py-3">
-          {s.step !== "business" ? (
-            <Button type="button" variant="outline" size="lg" onClick={() => dispatch({ type: "back" })} aria-label={t("actions.back")}><ArrowRight aria-hidden /><span className="hidden sm:inline">{t("actions.back")}</span></Button>
+        <div className="mx-auto max-w-xl px-4 py-3">
+          {saveError ? (
+            <p role="alert" data-testid="save-error" className="mb-2 text-center text-sm font-medium text-destructive">
+              {saveError}
+            </p>
           ) : null}
-          <div className="grid min-w-0 flex-1 gap-2">
-            {saveError ? <p role="alert" data-testid="save-error" className="text-sm font-medium text-destructive">{saveError}</p> : null}
-            <Button type="button" size="lg" className="w-full" disabled={saving} onClick={next} data-testid="continue">
+          <div className="flex items-center gap-3">
+            {s.step !== "business" ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="h-11 shrink-0"
+                onClick={() => dispatch({ type: "back" })}
+                aria-label={t("actions.back")}
+              >
+                <ArrowRight aria-hidden />
+                <span className="hidden sm:inline">{t("actions.back")}</span>
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              size="lg"
+              className="h-11 min-w-0 flex-1"
+              disabled={saving}
+              onClick={next}
+              data-testid="continue"
+            >
               {saving ? t("submit.saving") : s.step === "hours" ? t("actions.finish") : t("actions.continue")}
             </Button>
           </div>

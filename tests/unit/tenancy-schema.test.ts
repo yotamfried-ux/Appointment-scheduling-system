@@ -71,6 +71,8 @@ describe("mapRpcError", () => {
   it.each([
     [{ code: "P0001", message: "slug_taken" }, "SLUG_TAKEN"],
     [{ code: "23505", message: "duplicate key" }, "SLUG_TAKEN"],
+    [{ code: "P0001", message: "business_name_taken" }, "BUSINESS_NAME_TAKEN"],
+    [{ code: "23505", message: 'duplicate key value violates unique constraint "businesses_owner_name_key"' }, "BUSINESS_NAME_TAKEN"],
     [{ code: "23514", message: 'violates check constraint "businesses_slug_not_reserved"' }, "SLUG_INVALID"],
     [{ code: "23514", message: 'violates check constraint "businesses_name_check"' }, "VALIDATION"],
     [{ code: "P0001", message: "business_limit" }, "BUSINESS_LIMIT"],

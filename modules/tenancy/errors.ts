@@ -5,6 +5,7 @@ export type TenancyErrorCode =
   | "FORBIDDEN"
   | "SLUG_TAKEN"
   | "SLUG_INVALID"
+  | "BUSINESS_NAME_TAKEN"
   | "BUSINESS_LIMIT"
   | "RATE_LIMITED"
   | "EMAIL_NOT_VERIFIED"
@@ -18,6 +19,7 @@ export function mapRpcError(err: { code?: string | null; message?: string | null
   const msg = err?.message ?? "";
   if (code === "28000" || msg.includes("not_authenticated")) return "NOT_AUTHENTICATED";
   if (code === "42501") return "FORBIDDEN";
+  if (msg.includes("business_name_taken") || msg.includes("businesses_owner_name_key")) return "BUSINESS_NAME_TAKEN";
   if (msg.includes("slug_taken") || code === "23505") return "SLUG_TAKEN";
   if (msg.includes("business_limit")) return "BUSINESS_LIMIT";
   if (msg.includes("rate_limited")) return "RATE_LIMITED";
