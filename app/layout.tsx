@@ -7,6 +7,7 @@ import { clientNamespacesFor, pickNamespaces } from "@/i18n/client-messages";
 import { ThemeProvider } from "next-themes";
 import { ConsentBanner } from "@/components/legal/consent-banner";
 import { Toaster } from "@/components/ui/toast";
+import { BRAND } from "@/config/brand";
 import "./globals.css";
 
 const defaultUrl = process.env.NEXT_PUBLIC_SITE_URL
@@ -17,15 +18,38 @@ const defaultUrl = process.env.NEXT_PUBLIC_SITE_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  title: { default: "מערכת ניהול יומן ותורים", template: "%s · מערכת ניהול יומן ותורים" },
-  description: "מערכת קביעת תורים לעסקים קטנים",
-  applicationName: "תורים",
-  openGraph: { siteName: "תורים", locale: "he_IL", type: "website" },
+  title: { default: "ניהול יומן ותורים · לבעלי עסקים ונותני שירות", template: "%s · ניהול יומן ותורים" },
+  description: "מערכת קביעת תורים מדויקת, שקטה וללא עמלות נסתרות. דף הזמנות פרטי, סנכרון לוחות שנה והודעות ישירות ללקוחות.",
+  applicationName: BRAND.name,
+  openGraph: {
+    siteName: BRAND.name,
+    locale: "he_IL",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ניהול יומן ותורים · לבעלי עסקים ונותני שירות",
+    description: "מערכת קביעת תורים מדויקת, שקטה וללא עמלות נסתרות.",
+  },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: BRAND.name,
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "ILS",
+  },
+  description: "מערכת קביעת תורים מדויקת, שקטה וללא עמלות נסתרות. דף הזמנות פרטי, סנכרון לוחות שנה והודעות ישירות ללקוחות.",
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -40,6 +64,11 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="he" dir="rtl" suppressHydrationWarning>
       <body className="font-sans antialiased">
+        <script
+          type="application/ld+json"
+          nonce={nonce}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <a
           href="#main"
           className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"

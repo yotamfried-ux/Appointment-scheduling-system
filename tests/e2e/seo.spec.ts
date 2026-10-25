@@ -23,7 +23,7 @@ test("public pages: one canonical address, a title, a description and Open Graph
     expect(new URL(canonical!).pathname, path).toBe(path);
     expect((await page.title()).length, `${path} title`).toBeGreaterThan(3);
     expect(await page.locator('meta[name="description"]').getAttribute("content"), `${path} description`).toBeTruthy();
-    expect(await page.locator('meta[property="og:site_name"]').getAttribute("content"), `${path} og:site_name`).toBe("תורים");
+    expect(await page.locator('meta[property="og:site_name"]').getAttribute("content"), `${path} og:site_name`).toBe("ניהול יומן ותורים");
     expect(await page.locator('meta[name="robots"][content*="noindex"]').count(), `${path} must be indexable`).toBe(0);
   }
   await page.goto("/");
