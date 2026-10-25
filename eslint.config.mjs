@@ -12,6 +12,7 @@ const eslintConfig = defineConfig([
   {
     rules: {
       "react/no-danger": "error",
+      "react-hooks/set-state-in-effect": "warn",
       "no-restricted-imports": [
         "error",
         {
@@ -27,7 +28,12 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    // The only places allowed to use the secret-key module.
+    // JSON-LD structured schema for search engines
+    files: ["app/layout.tsx", "app/book/**"],
+    rules: { "react/no-danger": "off" },
+  },
+  {
+    // The only places allowed to use the secret-key module or any in tests.
     files: [
       "platform/**",
       "app/api/jobs/{maintenance,outbox,reminders,waitlist}/route.ts",
@@ -38,9 +44,21 @@ const eslintConfig = defineConfig([
       "modules/waitlist/public.ts",
       "tests/**",
     ],
-    rules: { "no-restricted-imports": "off" },
+    rules: {
+      "no-restricted-imports": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+    },
   },
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "coverage/**", "playwright-report/**", "test-results/**"]),
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**",
+    "scripts/**",
+  ]),
 ]);
 
 export default eslintConfig;

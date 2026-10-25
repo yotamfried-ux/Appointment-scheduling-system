@@ -13,6 +13,7 @@ export interface AdminDashboardClientProps {
   businesses: AdminBusiness[];
   errors: AdminSystemError[];
   operatorEmail: string;
+  deploymentCommit?: string;
 }
 
 export type QualificationStatus = "PASS" | "FAIL" | "BLOCKED" | "NOT_TESTED";
@@ -35,7 +36,7 @@ export interface StoredCriterionState {
   notes?: string;
 }
 
-const CURRENT_COMMIT = "aef73aa";
+const CURRENT_COMMIT = "cd648d1";
 
 const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
   // 1. אבטחה והרשאות
@@ -45,7 +46,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "גישה ללא התחברות לדשבורד הניהול נחסמת בשרת",
     method: "automated",
     testRef: "app/admin/page.tsx",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Server Action / Page checkSession redirecting unauthenticated requests to /auth/login?next=/admin",
   },
   {
@@ -54,7 +55,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "חשבון רגיל אינו יכול לגשת לנתוני עסק אחר, גם באמצעות שינוי מזהים בבקשה",
     method: "automated",
     testRef: "tests/e2e/permission-matrix.spec.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "PostgreSQL RLS with FORCE ROW LEVEL SECURITY and tenant isolation on all tables",
   },
   {
@@ -63,7 +64,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "הרשאת מנהל נקבעת לפי מזהה משתמש מאומת והרשאה שרתית, ולא לפי כתובת אימייל בלבד",
     method: "automated",
     testRef: "supabase/migrations/20261054000000_platform_admin_and_analytics.sql",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "private.is_platform_admin() checks public.platform_admins table via auth.uid() UUID",
   },
   {
@@ -72,7 +73,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "RLS, בדיקות CSRF, Rate Limiting וסריקת סודות עוברות",
     method: "automated",
     testRef: "private.lint_violations()",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "0 lint violations verified across all schema definitions and security definer functions",
   },
   {
@@ -92,7 +93,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "50 בקשות מקבילות לאותו סלוט יוצרות תור אחד בלבד",
     method: "automated",
     testRef: "tests/unit/availability-slots.test.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "PostgreSQL transaction isolation with FOR UPDATE SKIP LOCKED on slot reservation",
   },
   {
@@ -101,7 +102,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "שליחה חוזרת עם אותו Idempotency Key אינה יוצרת תור נוסף",
     method: "automated",
     testRef: "tests/unit/availability-engine.test.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Unique index on (business_id, idempotency_key) prevents duplicate appointments",
   },
   {
@@ -110,7 +111,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "מעברי שעון קיץ/חורף וגבולות שעות נבדקים",
     method: "automated",
     testRef: "tests/unit/availability-slots.test.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Fast-check property tests verify slot uniqueness across timezone transitions in Asia/Jerusalem",
   },
   {
@@ -119,7 +120,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "ביטול, שינוי מועד ורשימת המתנה שומרים על עקביות הנתונים",
     method: "automated",
     testRef: "tests/unit/notifications.test.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Atomic state transitions via private.transition_appointment_impl and waitlist offers",
   },
   {
@@ -128,7 +129,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "כשל באמצע פעולה אינו משאיר מצב חלקי או שגוי",
     method: "automated",
     testRef: "tests/unit/db-failure.test.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "All multi-table writes wrapped in single DB transactions with automatic rollback on error",
   },
 
@@ -139,7 +140,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "הרשמת עסק יוצרת אירוע התראה אחד",
     method: "automated",
     testRef: "modules/notifications/service.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Unique conflict target (business_id, digest_date, type) ensures exactly one admin alert queued",
   },
   {
@@ -148,7 +149,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "ההתראה נשלחת לכתובת שהוגדרה, בלי לחשוף סודות",
     method: "automated",
     testRef: "tests/unit/platform-admin-analytics.test.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Recipient yotam.fried@gmail.com verified; customer PII and API keys excluded from body",
   },
   {
@@ -157,7 +158,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "כשל ב־Resend גורר Retry ולא אובדן אירוע",
     method: "automated",
     testRef: "modules/notifications/service.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "TransientEmailError triggers status='retry' with exponential backoff delay up to 7 attempts",
   },
   {
@@ -166,7 +167,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "הרצה חוזרת אינה יוצרת הודעות כפולות",
     method: "automated",
     testRef: "modules/notifications/service.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Idempotency key notif-{id} passed to Resend adapter on every send attempt",
   },
   {
@@ -175,7 +176,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "תזכורות וביטולים נשלחים בזמן הנכון ונרשמים ביומן פעילות",
     method: "automated",
     testRef: "tests/unit/notifications.test.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "runReminders cron job tests verify queuing and status logging in public.notification_log",
   },
 
@@ -186,7 +187,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "משתני הסביבה והגדרות Auth נבדקים בלי להציג ערכים סודיים",
     method: "automated",
     testRef: "tests/unit/check-env.test.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "checkEnv validator fails closed if required keys missing, masking secret values",
   },
   {
@@ -195,7 +196,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "מיגרציות עוברות על סביבת בדיקה נקייה",
     method: "automated",
     testRef: "supabase/migrations/20261054000000_platform_admin_and_analytics.sql",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Applied cleanly to remote Supabase project with zero lint violations",
   },
   {
@@ -213,7 +214,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "קיימים ניטור, התראות, Health Checks ונוהל Rollback",
     method: "automated",
     testRef: "tests/unit/job-health.test.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Vercel deployment monitoring, job health checks and Git rollback procedures active",
   },
   {
@@ -222,7 +223,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "כל תרחישי הליבה עוברים ב־Preview עם שירותים אמיתיים",
     method: "manual",
     testRef: "tests/cloud/smoke.spec.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Smoke tests executed against live Supabase and Vercel preview endpoints",
   },
 
@@ -233,7 +234,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "בעל עסק חדש מסיים אונבורדינג ללא התערבות מפתח",
     method: "automated",
     testRef: "tests/e2e/lab-onboarding.spec.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "3-step self-service onboarding flow verified with automated browser test",
   },
   {
@@ -242,7 +243,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "לקוח משלים הזמנה במובייל בגדלי מסך נפוצים",
     method: "automated",
     testRef: "tests/e2e/lab-booking.spec.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Mobile viewport booking flow verified (375px and 390px screens)",
   },
   {
@@ -251,7 +252,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "בדיקות axe ומקלדת אינן מגלות חסמי נגישות קריטיים",
     method: "automated",
     testRef: "tests/e2e/owner-visual.spec.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Axe accessibility audit run with 0 critical WCAG 2.1 AA violations",
   },
   {
@@ -260,7 +261,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "קיימות פעולות ייצוא ומחיקת מידע מאומתות",
     method: "automated",
     testRef: "app/api/admin/export/route.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "CSV export endpoint with UTF-8 BOM streaming, user deletion cascaded via foreign keys",
   },
   {
@@ -269,7 +270,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "נבדקו חובות גילוי, הסכמה, שמירה ומזעור נתונים לפי הדין החל",
     method: "automated",
     testRef: "tests/unit/consent.test.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Legal gate consent verification and data minimization verified in consent test suite",
   },
 
@@ -280,7 +281,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "כל אירוע ליבה נרשם פעם אחת עם מזהה ייחודי וזמן שרת",
     method: "automated",
     testRef: "modules/analytics/types.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Triggers on appointments, services, businesses record unique event with server timestamp",
   },
   {
@@ -289,7 +290,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "מספרי הדשבורד תואמים שאילתות ישירות למסד הנתונים",
     method: "automated",
     testRef: "tests/unit/platform-admin-analytics.test.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "private.admin_dashboard_metrics RPC aggregates matched directly with SQL counts",
   },
   {
@@ -298,7 +299,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "משפך הרשמה ואונבורדינג מחושב נכון, כולל סינון תאריכים",
     method: "automated",
     testRef: "modules/admin/service.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "4-stage funnel calculates exact percentages: Registered -> Service -> Published -> First Booking",
   },
   {
@@ -307,7 +308,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "משתמש ללא הרשאת מנהל אינו מקבל נתוני אנליטיקה מה־API",
     method: "automated",
     testRef: "tests/unit/platform-admin-analytics.test.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "RPC and API endpoints return 403 Forbidden for non-admin accounts",
   },
   {
@@ -316,7 +317,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "נתונים אישיים אינם נשלחים לשירותי אנליטיקה חיצוניים ללא צורך ובסיס מתאים",
     method: "automated",
     testRef: "modules/analytics/service.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Sanitizer strips email, phone, name from event payloads prior to persistence",
   },
 
@@ -327,7 +328,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "CI מלא ירוק על הקומיט המיועד לשחרור",
     method: "automated",
     testRef: "Vercel / GitHub Actions",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Commit aef73aa passed all 654 unit tests, typecheck, and Vercel production build is READY",
   },
   {
@@ -336,7 +337,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "בדיקות E2E ותרחישי P0 עוברות עם ראיות",
     method: "automated",
     testRef: "tests/e2e/*.spec.ts",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "All primary booking and authorization journeys verified across test matrix",
   },
   {
@@ -354,7 +355,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "אין תקלות P0 פתוחות וכל סיכון שיורי מתועד",
     method: "manual",
     testRef: "docs/ops/known-risks.md",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Zero P0 blockers open, error log reviewed and verified clean",
   },
   {
@@ -363,7 +364,7 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
     label: "דוח Qualification כולל PASS/FAIL/BLOCKED, קישורי ראיות ואישור מפעיל",
     method: "manual",
     testRef: "Release Gate Report",
-    defaultStatus: "PASS",
+    defaultStatus: "NOT_TESTED",
     evidence: "Formal qualification matrix generated with explicit status for each criterion",
   },
 ];
@@ -373,7 +374,9 @@ export function AdminDashboardClient({
   businesses,
   errors,
   operatorEmail,
+  deploymentCommit,
 }: AdminDashboardClientProps) {
+  const activeCommit = deploymentCommit || CURRENT_COMMIT;
   const [activeTab, setActiveTab] = useState<"overview" | "directory" | "errors" | "checklist">("overview");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft">("all");
@@ -384,27 +387,46 @@ export function AdminDashboardClient({
   const [itemsState, setItemsState] = useState<Record<string, StoredCriterionState>>({});
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("tori_admin_qualification_matrix");
-      if (saved) {
-        setItemsState(JSON.parse(saved));
-      } else {
-        // Initialize with default verified statuses
-        const initial: Record<string, StoredCriterionState> = {};
-        for (const c of CRITERIA_DEFINITIONS) {
-          initial[c.id] = {
-            status: c.defaultStatus,
-            testedAt: new Date().toISOString(),
-            commit: CURRENT_COMMIT,
-            notes: c.evidence,
-          };
+    const timer = setTimeout(() => {
+      try {
+        const saved = localStorage.getItem("tori_admin_qualification_matrix_v2");
+        if (saved) {
+          setItemsState(JSON.parse(saved));
+        } else {
+          // Initialize strictly with default NOT_TESTED statuses
+          const initial: Record<string, StoredCriterionState> = {};
+          for (const c of CRITERIA_DEFINITIONS) {
+            initial[c.id] = {
+              status: "NOT_TESTED",
+              commit: activeCommit,
+              notes: "",
+            };
+          }
+          setItemsState(initial);
         }
-        setItemsState(initial);
+      } catch {
+        // fallback
       }
-    } catch {
-      // fallback
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [activeCommit]);
+
+  const resetChecklist = () => {
+    const initial: Record<string, StoredCriterionState> = {};
+    for (const c of CRITERIA_DEFINITIONS) {
+      initial[c.id] = {
+        status: "NOT_TESTED",
+        commit: activeCommit,
+        notes: "",
+      };
     }
-  }, []);
+    setItemsState(initial);
+    try {
+      localStorage.setItem("tori_admin_qualification_matrix_v2", JSON.stringify(initial));
+    } catch {
+      // ignore
+    }
+  };
 
   const updateItemStatus = (id: string, status: QualificationStatus) => {
     setItemsState((prev) => {
@@ -414,12 +436,12 @@ export function AdminDashboardClient({
         [id]: {
           ...current,
           status,
-          testedAt: new Date().toISOString(),
-          commit: CURRENT_COMMIT,
+          testedAt: status === "NOT_TESTED" ? undefined : new Date().toISOString(),
+          commit: activeCommit,
         },
       };
       try {
-        localStorage.setItem("tori_admin_qualification_matrix", JSON.stringify(next));
+        localStorage.setItem("tori_admin_qualification_matrix_v2", JSON.stringify(next));
       } catch {
         // ignore
       }
@@ -435,10 +457,11 @@ export function AdminDashboardClient({
         [id]: {
           ...current,
           notes,
+          commit: activeCommit,
         },
       };
       try {
-        localStorage.setItem("tori_admin_qualification_matrix", JSON.stringify(next));
+        localStorage.setItem("tori_admin_qualification_matrix_v2", JSON.stringify(next));
       } catch {
         // ignore
       }
@@ -490,7 +513,7 @@ export function AdminDashboardClient({
       "# דוח Qualification לבקרת שחרור לייצור - ניהול יומן ותורים",
       "",
       `**תאריך דוח:** ${new Date().toLocaleDateString("he-IL")}`,
-      `**קומיט:** \`${CURRENT_COMMIT}\``,
+      `**קומיט:** \`${activeCommit}\``,
       `**מפעיל פלטפורמה:** ${operatorEmail}`,
       "",
       "### סיכום סטטוס קריטריונים:",
@@ -511,10 +534,10 @@ export function AdminDashboardClient({
       lines.push("|:---:|:---|:---:|:---|:---|:---:|");
       const items = CRITERIA_DEFINITIONS.filter((c) => c.category === cat);
       for (const item of items) {
-        const state = itemsState[item.id] || { status: item.defaultStatus, notes: item.evidence, commit: CURRENT_COMMIT };
+        const state = itemsState[item.id] || { status: item.defaultStatus, notes: item.evidence, commit: activeCommit };
         const statusBadge = state.status === "PASS" ? "✅ PASS" : state.status === "FAIL" ? "❌ FAIL" : state.status === "BLOCKED" ? "⚠️ BLOCKED" : "⏳ NOT TESTED";
         const methodBadge = item.method === "automated" ? "אוטומטי" : "ידני";
-        lines.push(`| ${statusBadge} | ${item.label} | ${methodBadge} | \`${item.testRef}\` | ${state.notes || item.evidence} | \`${state.commit || CURRENT_COMMIT}\` |`);
+        lines.push(`| ${statusBadge} | ${item.label} | ${methodBadge} | \`${item.testRef}\` | ${state.notes || item.evidence} | \`${state.commit || activeCommit}\` |`);
       }
       lines.push("");
     }
@@ -905,7 +928,7 @@ export function AdminDashboardClient({
                 <div className="flex items-center gap-2">
                   <CardTitle>מטריצת Qualification לבקרת שחרור לייצור</CardTitle>
                   <Badge variant="outline" className="font-mono text-xs">
-                    Commit {CURRENT_COMMIT}
+                    Commit {activeCommit}
                   </Badge>
                 </div>
                 <CardDescription>
@@ -913,6 +936,9 @@ export function AdminDashboardClient({
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={resetChecklist}>
+                  איפוס הכל ל־NOT_TESTED
+                </Button>
                 <Button variant="default" size="sm" onClick={handleCopyChecklist}>
                   {copiedChecklist ? "הועתק ללוח!" : "העתק דוח Markdown ל־GitHub"}
                 </Button>
@@ -1025,7 +1051,7 @@ export function AdminDashboardClient({
                   </CardHeader>
                   <CardContent className="divide-y p-0">
                     {visibleItems.map((item) => {
-                      const state = itemsState[item.id] || { status: item.defaultStatus, notes: item.evidence, commit: CURRENT_COMMIT };
+                      const state = itemsState[item.id] || { status: item.defaultStatus, notes: item.evidence, commit: activeCommit };
                       const currentStatus = state.status;
 
                       return (
@@ -1090,7 +1116,7 @@ export function AdminDashboardClient({
                             <div className="flex items-center justify-between">
                               <span className="font-semibold text-foreground">ראיית אימות / סטטוס נוכחי:</span>
                               <span className="font-mono text-[11px]">
-                                נבדק ב־{state.testedAt ? new Date(state.testedAt).toLocaleDateString("he-IL") : "טרם"} · קומיט {state.commit || CURRENT_COMMIT}
+                                נבדק ב־{state.testedAt ? new Date(state.testedAt).toLocaleDateString("he-IL") : "טרם"} · קומיט {state.commit || activeCommit}
                               </span>
                             </div>
                             <input

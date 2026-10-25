@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { render, type NotifContext } from "@/modules/notifications/templates";
-import { staleReason } from "@/modules/notifications/plan";
 import { platformAdminEmail } from "@/modules/notifications/config";
 import { PermanentEmailError, TransientEmailError, type EmailPort } from "@/modules/notifications/ports";
 

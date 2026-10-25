@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loginSchema, MIN_PASSWORD_LENGTH, signUpSchema, updatePasswordSchema } from "@/lib/auth/schemas";
+import { MIN_PASSWORD_LENGTH, signUpSchema, updatePasswordSchema } from "@/lib/auth/schemas";
 
 const t = (key: string) => key;
 

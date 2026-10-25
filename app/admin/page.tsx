@@ -58,6 +58,11 @@ export default async function AdminPage() {
     getSystemErrors(supabase, 50),
   ]);
 
+  const deploymentCommit =
+    process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ||
+    process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ||
+    "cd648d1";
+
   return (
     <AppShell email={userEmail} userEmail={userEmail} isPlatformAdmin={true} width={WIDE} nav={<OwnerNav current="admin" />}>
       <AdminDashboardClient
@@ -65,6 +70,7 @@ export default async function AdminPage() {
         businesses={businesses}
         errors={errors}
         operatorEmail={userEmail}
+        deploymentCommit={deploymentCommit}
       />
     </AppShell>
   );
