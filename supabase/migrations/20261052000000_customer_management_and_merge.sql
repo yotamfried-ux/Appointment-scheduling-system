@@ -217,6 +217,8 @@ end $$;
 revoke all on function private.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid, text, uuid) from public, anon, authenticated;
 revoke all on function private.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid) from public, anon, authenticated;
 
+drop function if exists public.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid, text, uuid);
+
 create or replace function public.create_manual_appointment_team(
   p_business uuid,
   p_service uuid,
@@ -226,8 +228,8 @@ create or replace function public.create_manual_appointment_team(
   p_note text,
   p_out_of_availability boolean,
   p_resource uuid,
-  p_email text default null,
-  p_customer_id uuid default null
+  p_email text,
+  p_customer_id uuid
 )
 returns jsonb language plpgsql security invoker set search_path = '' as $$
 begin
@@ -285,6 +287,8 @@ grant execute on function public.owner_customer_detail(uuid) to authenticated;
 
 
 -- 5. Customer list with filtering (e.g. missing_email, duplicates)
+drop function if exists public.owner_customers(uuid, text, text, int, int);
+
 create or replace function public.owner_customers(
   p_business uuid,
   p_search text default null,
@@ -339,15 +343,5 @@ language sql stable security invoker set search_path = '' as $$
   limit least(greatest(p_limit, 1), 100) offset greatest(p_offset, 0)
 $$;
 
-create or replace function public.owner_customers(p_business uuid, p_search text default null, p_sort text default 'last_visit', p_limit int default 50, p_offset int default 0)
-returns table (id uuid, full_name text, phone text, email text, notes text, created_at timestamptz, anonymized_at timestamptz,
-               visits int, no_shows int, no_shows_60d int, cancellations int, upcoming int, last_visit timestamptz, spent_cents bigint, total bigint)
-language sql stable security invoker set search_path = '' as $$
-  select * from public.owner_customers(p_business, p_search, p_sort, p_limit, p_offset, null);
-$$;
-
 revoke all on function public.owner_customers(uuid,text,text,int,int,text) from public, anon;
 grant execute on function public.owner_customers(uuid,text,text,int,int,text) to authenticated;
-
-revoke all on function public.owner_customers(uuid,text,text,int,int) from public, anon;
-grant execute on function public.owner_customers(uuid,text,text,int,int) to authenticated;

@@ -286,14 +286,12 @@ create trigger trg_waitlist_analytics
 create or replace function private.trg_resources_analytics() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
-  if not new.is_default then
-    perform private.record_analytics_event(
-      new.business_id,
-      'feature_used',
-      'resource:' || new.id::text,
-      jsonb_build_object('feature', 'team_member')
-    );
-  end if;
+  perform private.record_analytics_event(
+    new.business_id,
+    'feature_used',
+    'resource:' || new.id::text,
+    jsonb_build_object('feature', 'team_member')
+  );
   return new;
 end $$;
 
@@ -302,7 +300,9 @@ revoke all on function private.trg_resources_analytics() from public, anon, auth
 drop trigger if exists trg_resources_analytics on public.resources;
 create trigger trg_resources_analytics
   after insert on public.resources
-  for each row execute function private.trg_resources_analytics();
+  for each row
+  when (not new.is_default)
+  execute function private.trg_resources_analytics();
 
 -- ------------------------------------------------------------------ 4. Notification Log Extension for Admin Alert
 alter table public.notification_log drop constraint if exists notification_log_recipient_check;
