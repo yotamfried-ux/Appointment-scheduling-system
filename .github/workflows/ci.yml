@@ -71,23 +71,28 @@ jobs:
         run: npx supabase start -x studio,imgproxy,logflare,vector,edge-runtime,storage-api,realtime,postgres-meta,supavisor,mailpit,gotrue,postgrest
       - name: pgTAP tests
         run: |
-          set -o pipefail
-          npx supabase test db 2>&1 | tee pgtap.log
-      - if: always()
-        name: Write pgTAP output to Step Summary
+          npx supabase test db 2>&1 | tee pgtap.log || true
+      - name: Annotate pgTAP results
         run: |
           if [ -f pgtap.log ]; then
             echo "### pgTAP Output" >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
             cat pgtap.log >> "$GITHUB_STEP_SUMMARY"
             echo '```' >> "$GITHUB_STEP_SUMMARY"
+            failed=0
+            while IFS= read -r line; do
+              if echo "$line" | grep -qiE "(not ok|fail|failed|error|violation)"; then
+                echo "::error title=pgTAP::$line"
+                failed=1
+              elif echo "$line" | grep -qiE "(test results|passed|ok [0-9]+)"; then
+                echo "::notice title=pgTAP::$line"
+              fi
+            done < pgtap.log
+            if [ "$failed" -eq 1 ]; then
+              echo "::error::pgTAP test failures detected"
+              exit 1
+            fi
           fi
-      - if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: pgtap-log
-          path: pgtap.log
-          retention-days: 7
       - name: Schema lint must be clean
         run: |
           out=$(docker exec supabase_db_appointment-scheduling-system psql -U postgres -At -c "select rule||' '||object_name from private.lint_violations()")
