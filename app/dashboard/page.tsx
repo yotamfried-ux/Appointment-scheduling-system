@@ -23,7 +23,7 @@ export default async function DashboardPage() {
   const ts = await getTranslations("settings.nav");
   const supabase = await createClient();
   // First wave: the session/MFA/terms gate and the reads that do not depend on it run together.
-  const [, businesses, owner, host] = await Promise.all([requireUser(), listMyBusinesses(supabase), ownerContext().catch(() => null), siteHost()]);
+  const [{ claims }, businesses, owner, host] = await Promise.all([requireUser(), listMyBusinesses(supabase), ownerContext().catch(() => null), siteHost()]);
   if (businesses.length === 0 || !owner) redirect("/onboarding");
   const ctx = owner;
   const b = businesses[0];
@@ -40,7 +40,13 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <AppShell email={b.name} width={WIDE} nav={<OwnerNav current="calendar" />}>
+    <AppShell
+      email={b.name}
+      userEmail={claims.email as string}
+      isPlatformAdmin={claims.email === "yotam.fried@gmail.com"}
+      width={WIDE}
+      nav={<OwnerNav current="calendar" />}
+    >
       <DeletionBanner scheduledFor={deletion?.scheduledFor ?? null} timezone={ctx.business.timezone} />
       <BillingBanner billing={billing} timezone={ctx.business.timezone} />
       <PageHeader title={t("welcome", { name: `\u2068${b.name}\u2069` })} />

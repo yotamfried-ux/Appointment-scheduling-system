@@ -10,8 +10,25 @@ export const WIDE = "max-w-[88rem]";
 const PLATFORM_ADMIN_EMAIL = "yotam.fried@gmail.com";
 
 /** Signed-in chrome shared by owner pages (same header geometry as onboarding): logo at the start, account actions at the end. */
-export function AppShell({ email, children, width = "max-w-2xl", nav }: { email?: string; children: React.ReactNode; width?: string; nav?: React.ReactNode }) {
-  const isPlatformAdmin = email?.trim().toLowerCase() === PLATFORM_ADMIN_EMAIL;
+export function AppShell({
+  email,
+  userEmail,
+  isPlatformAdmin,
+  children,
+  width = "max-w-2xl",
+  nav,
+}: {
+  email?: string;
+  userEmail?: string;
+  isPlatformAdmin?: boolean;
+  children: React.ReactNode;
+  width?: string;
+  nav?: React.ReactNode;
+}) {
+  const isAdmin =
+    isPlatformAdmin ||
+    userEmail?.trim().toLowerCase() === PLATFORM_ADMIN_EMAIL ||
+    email?.trim().toLowerCase() === PLATFORM_ADMIN_EMAIL;
 
   return (
     <div className="min-h-svh">
@@ -21,12 +38,13 @@ export function AppShell({ email, children, width = "max-w-2xl", nav }: { email?
             <Link href="/dashboard" className="shrink-0 rounded-md" aria-label={BRAND.name}>
               <Logo />
             </Link>
-            {isPlatformAdmin ? (
+            {isAdmin ? (
               <Link
                 href="/admin"
-                className="hidden items-center rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20 sm:inline-flex"
+                className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
                 data-testid="nav-platform-admin"
               >
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
                 לוח מנהל פלטפורמה
               </Link>
             ) : null}

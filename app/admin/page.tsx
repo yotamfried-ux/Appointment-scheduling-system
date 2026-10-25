@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { checkSession } from "@/lib/auth/live-session";
 import { isPlatformAdmin, getDashboardMetrics, listBusinesses, getSystemErrors } from "@/modules/admin/service";
 import { AppShell, WIDE } from "@/components/app-shell";
+import { OwnerNav } from "@/components/owner/owner-nav";
 import { AdminDashboardClient } from "./admin-dashboard-client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,7 @@ export default async function AdminPage() {
   ]);
 
   return (
-    <AppShell email={userEmail} width={WIDE}>
+    <AppShell email={userEmail} userEmail={userEmail} isPlatformAdmin={true} width={WIDE} nav={<OwnerNav current="admin" />}>
       <AdminDashboardClient
         metrics={metrics}
         businesses={businesses}
