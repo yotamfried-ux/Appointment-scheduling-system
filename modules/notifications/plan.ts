@@ -88,5 +88,7 @@ export function staleReason(type: NotificationType, status: string, startsAtIso:
       return ok(status === "pending" && new Date(startsAtIso) > now);
     case "waitlist_offer_expired":
       return ok(status === "expired");
+    case "admin_business_registered":
+      return null;
   }
 }

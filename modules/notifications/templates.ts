@@ -21,17 +21,20 @@ export type NotificationType =
   | "owner_trial_last_day"
   | "owner_payment_failed"
   | "waitlist_offer"
-  | "waitlist_offer_expired";
+  | "waitlist_offer_expired"
+  | "admin_business_registered";
 
 export interface NotifContext {
   type: NotificationType;
-  recipient: "customer" | "owner";
+  recipient: "customer" | "owner" | "admin";
   /** Set for booking messages; null for waitlist messages. */
   appointment: { id: string; status: string; startsAt: string; endsAt: string; reference: string; serviceName: string; /** Only in a business with two or more people. */ personName?: string | null } | null;
   /** Set for the owner's daily digest only. */
   /** Set for the owner's subscription notices only. */
   billing?: { status: string; trialEndsAt: string | null; graceUntil: string | null } | null;
   digest?: { date: string; cancelledYesterday: number; unmarked: number; tomorrow: number } | null;
+  /** Set for platform admin alerts on business registration. */
+  registration?: { businessId: string; name: string; slug: string; kind: BusinessKindId; createdAt: string; ownerEmail?: string | null } | null;
   /** Set for waitlist messages; null for booking messages. */
   offer: { id: string; status: string; slotStartsAt: string; expiresAt: string; serviceName: string; entryId: string; personName?: string | null } | null;
   business: { name: string; slug: string; kind: BusinessKindId; timezone: string; phone: string | null };
@@ -103,6 +106,7 @@ const SUBJECT: Record<NotificationType, (b: string) => string> = {
   owner_payment_failed: () => "התשלום על המנוי לא עבר",
   waitlist_offer: (b) => `התפנה תור בשבילך · ${b}`,
   waitlist_offer_expired: (b) => `ההצעה לתור פגה · ${b}`,
+  admin_business_registered: (b) => `עסק חדש נרשם למערכת · ${b}`,
 };
 
 const LEAD: Record<NotificationType, (name: string) => string> = {
@@ -124,6 +128,7 @@ const LEAD: Record<NotificationType, (name: string) => string> = {
   booking_moved_by_business: () => "העסק העביר את התור שלך למועד אחר (המועד החדש למטה). אם המועד לא מתאים, אפשר לבטל בקישור בלי שום תנאי.",
   waitlist_offer: () => "התפנה תור בזמן שביקשת. התור שמור לך לזמן קצר, ואחר כך עובר לממתין הבא.",
   waitlist_offer_expired: () => "ההצעה לא נענתה בזמן והתור עבר לממתין הבא. נשארת ברשימת ההמתנה ונשלח הצעה נוספת כשיתפנה תור אחר.",
+  admin_business_registered: () => "עסק חדש השלים הרשמה בהצלחה במערכת ניהול יומן ותורים. פרטי העסק מופיעים למטה:",
 };
 
 function renderDigest(ctx: NotifContext, opts: { appUrl: string }): Rendered {
@@ -161,7 +166,52 @@ function renderBilling(ctx: NotifContext, opts: { appUrl: string }, now: Date): 
   return { subject, html, text };
 }
 
+function renderRegistration(ctx: NotifContext, opts: { appUrl: string }): Rendered {
+  const reg = ctx.registration ?? {
+    businessId: ctx.business.slug,
+    name: ctx.business.name,
+    slug: ctx.business.slug,
+    kind: ctx.business.kind,
+    createdAt: new Date().toISOString(),
+    ownerEmail: ctx.owner?.email ?? null,
+  };
+  const biz = clean(reg.name || ctx.business.name);
+  const rows: [string, string][] = [
+    ["שם העסק", biz],
+    ["מזהה עסק", reg.businessId],
+    ["סוג פעילות", BUSINESS_KINDS[reg.kind]?.label ?? reg.kind],
+    ["כתובת דף (slug)", reg.slug],
+    ["תאריך הרשמה", whenLabel(reg.createdAt, ctx.business.timezone || "Asia/Jerusalem")],
+  ];
+  if (reg.ownerEmail) {
+    rows.push(["אימייל מנהל העסק", reg.ownerEmail]);
+  }
+  const subject = clean(SUBJECT.admin_business_registered(biz));
+  const lead = LEAD.admin_business_registered("");
+  const link = `${opts.appUrl}/admin`;
+  const html = shell({
+    subject,
+    preheader: lead,
+    title: "ניהול יומן ותורים - התראת מנהל מערכת",
+    lead,
+    rows,
+    button: { href: link, label: "פתיחת לוח הניהול" },
+    note: "הודעה אוטומטית למנהל הפלטפורמה בעקבות רישום עסק חדש.",
+  });
+  const text = [
+    "ניהול יומן ותורים - התראת מנהל מערכת",
+    "",
+    lead,
+    "",
+    ...rows.map(([l, v]) => `${l}: ${v}`),
+    "",
+    `לוח ניהול: ${link}`,
+  ].join("\n");
+  return { subject, html, text };
+}
+
 export function render(ctx: NotifContext, opts: { appUrl: string; manageToken?: string }, now: Date = new Date()): Rendered {
+  if (ctx.type === "admin_business_registered" || ctx.registration) return renderRegistration(ctx, opts);
   if (ctx.digest) return renderDigest(ctx, opts);
   if (ctx.billing) return renderBilling(ctx, opts, now);
   const k = BUSINESS_KINDS[ctx.business.kind];

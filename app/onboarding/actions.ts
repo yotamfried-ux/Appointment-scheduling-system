@@ -6,6 +6,7 @@ import { CreateBusinessInput } from "@/modules/tenancy/schema";
 import type { TenancyErrorCode } from "@/modules/tenancy/errors";
 import { checkSession } from "@/lib/auth/live-session";
 import { legalAccepted } from "@/lib/legal/gate";
+import { kickOutbox } from "@/modules/notifications/service";
 
 export type CreateBusinessResult = { ok: true; slug: string; published: boolean } | { ok: false; code: TenancyErrorCode };
 
@@ -24,5 +25,6 @@ export async function createBusinessAction(raw: unknown): Promise<CreateBusiness
   if (!r.ok) return { ok: false, code: r.code };
   // The link goes live right away. If publishing is refused (e-mail not verified, needs review) the business stays a draft and the dashboard offers the button.
   const published = await publishBusiness(supabase, r.value.id);
+  await kickOutbox();
   return { ok: true, slug: r.value.slug, published: published.ok };
 }

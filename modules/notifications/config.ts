@@ -39,3 +39,8 @@ export function addressHash(address: string): string {
 
 /** Preview bodies are stored only for the fake provider (dev/CI), never for real mail. */
 export const storesPreview = (p: EmailPort) => p.name === "fake";
+
+/** Designated recipient for platform administrator alerts (e.g. new business registration). */
+export function platformAdminEmail(): string {
+  return process.env.PLATFORM_ADMIN_EMAIL ?? "yotam.fried@gmail.com";
+}

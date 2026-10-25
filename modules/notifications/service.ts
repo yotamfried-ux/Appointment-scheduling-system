@@ -1,7 +1,7 @@
 import "server-only";
 import { systemDb } from "@/platform/system-db";
 import { signToken } from "@/modules/booking/token";
-import { addressHash, appUrl, emailProvider, storesPreview } from "@/modules/notifications/config";
+import { addressHash, appUrl, emailProvider, platformAdminEmail, storesPreview } from "@/modules/notifications/config";
 import { plan, staleReason, type OutboxEvent } from "@/modules/notifications/plan";
 import { PermanentEmailError, TransientEmailError, type EmailPort } from "@/modules/notifications/ports";
 import { render, type NotifContext } from "@/modules/notifications/templates";
@@ -31,14 +31,21 @@ async function rpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
 
 /** Phase 1: turn domain events into notification rows. Idempotent per (appointment, type), so a crash between steps only repeats work. */
 async function fanOut(limit: number, s: RunSummary) {
-  const events = await rpc<{ id: string; type: string; payload: Record<string, unknown> }[]>("outbox_claim", { p_limit: limit });
+  const events = await rpc<{ id: string; business_id?: string; type: string; payload: Record<string, unknown> }[]>("outbox_claim", { p_limit: limit });
   for (const e of events) {
     try {
-      const appointmentId = typeof e.payload.appointmentId === "string" ? e.payload.appointmentId : null;
+      const appointmentId = typeof e.payload?.appointmentId === "string" ? e.payload.appointmentId : null;
       if (appointmentId) {
         const status = e.type === "AppointmentCreated" ? await rpc<string | null>("appointment_status", { p_id: appointmentId }) : null;
         for (const n of plan(e as OutboxEvent, status)) {
           const id = await rpc<string | null>("notif_enqueue", { p_appointment: appointmentId, p_type: n.type, p_recipient: n.recipient });
+          if (id) s.enqueued++;
+        }
+      }
+      if (e.type === "BusinessCreated" || e.type === "BusinessRegistered") {
+        const businessId = e.business_id || (typeof e.payload?.businessId === "string" ? (e.payload.businessId as string) : null);
+        if (businessId) {
+          const id = await rpc<string | null>("notif_enqueue_business_registered", { p_business: businessId });
           if (id) s.enqueued++;
         }
       }
@@ -71,13 +78,22 @@ async function sendOne(row: Claimed, provider: EmailPort, s: RunSummary, now: Da
     return finish(row.id, "skipped", { skip: "missing" });
   }
   // NTF-03: the world may have changed since this was queued.
-  const subject = ctx.digest ? { status: "digest", startsAt: now.toISOString() } : ctx.billing ? { status: ctx.billing.status, startsAt: now.toISOString() } : ctx.offer ? { status: ctx.offer.status, startsAt: ctx.offer.slotStartsAt } : { status: ctx.appointment!.status, startsAt: ctx.appointment!.startsAt };
-  const stale = staleReason(ctx.type, subject.status, subject.startsAt, now);
+  const isRegistration = ctx.type === "admin_business_registered" || ctx.recipient === "admin";
+  const subject = ctx.digest
+    ? { status: "digest", startsAt: now.toISOString() }
+    : ctx.billing
+      ? { status: ctx.billing.status, startsAt: now.toISOString() }
+      : ctx.offer
+        ? { status: ctx.offer.status, startsAt: ctx.offer.slotStartsAt }
+        : isRegistration
+          ? { status: "registered", startsAt: now.toISOString() }
+          : { status: ctx.appointment!.status, startsAt: ctx.appointment!.startsAt };
+  const stale = isRegistration ? null : staleReason(ctx.type, subject.status, subject.startsAt, now);
   if (stale) {
     s.skipped++;
     return finish(row.id, "skipped", { skip: stale });
   }
-  const to = ctx.recipient === "owner" ? ctx.owner.email : ctx.customer.email;
+  const to = isRegistration ? platformAdminEmail() : ctx.recipient === "owner" ? ctx.owner.email : ctx.customer.email;
   if (!to) {
     s.skipped++;
     return finish(row.id, "skipped", { skip: "no_email" }); // NTF-06
@@ -89,14 +105,15 @@ async function sendOne(row: Claimed, provider: EmailPort, s: RunSummary, now: Da
   }
   const ttl = Math.max(3600, Math.floor((new Date(subject.startsAt).getTime() - now.getTime()) / 1000) + 7 * 86_400);
   const manageToken =
-    ctx.recipient !== "customer" || ctx.digest || ctx.billing
+    ctx.recipient !== "customer" || ctx.digest || ctx.billing || isRegistration
       ? undefined
       : ctx.offer
         ? signToken({ appointmentId: ctx.offer.entryId, scope: "wl_view", ttlSeconds: ttl })
         : signToken({ appointmentId: ctx.appointment!.id, scope: "view", ttlSeconds: ttl });
   const message = render(ctx, { appUrl: appUrl(), manageToken }, now);
   try {
-    const sent = await provider.send({ to, fromName: ctx.recipient === "customer" ? ctx.business.name : undefined, subject: message.subject, html: message.html, text: message.text, idempotencyKey: `notif-${row.id}`, attempt: row.attempts });
+    const fromName = isRegistration ? "ניהול יומן ותורים" : ctx.recipient === "customer" ? ctx.business.name : undefined;
+    const sent = await provider.send({ to, fromName, subject: message.subject, html: message.html, text: message.text, idempotencyKey: `notif-${row.id}`, attempt: row.attempts });
     s.sent++;
     await finish(row.id, "sent", { provider: provider.name, messageId: sent.id, hash, preview: storesPreview(provider) ? { to: ctx.recipient, subject: message.subject, text: message.text } : undefined });
   } catch (err) {
