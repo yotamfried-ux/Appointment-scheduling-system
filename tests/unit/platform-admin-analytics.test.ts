@@ -171,6 +171,20 @@ describe("Platform Admin Service & RPC Mapping", () => {
         { period: "12/10", count: 2 },
         { period: "19/10", count: 3 },
       ],
+      financial: {
+        mrrNis: 1490,
+        arrNis: 17880,
+        activeSubscribers: 10,
+        trialingSubscribers: 5,
+        pastDueSubscribers: 1,
+        totalGmvNis: 45200,
+        periodGmvNis: 12400,
+        averageBookingValueNis: 95.5,
+        plans: [
+          { planId: "pro", planName: "מקצועי", priceNis: 149, subscribers: 8, revenueNis: 1192 },
+          { planId: "starter", planName: "בסיס", priceNis: 79, subscribers: 2, revenueNis: 158 },
+        ],
+      },
     };
 
     const client = {
@@ -184,6 +198,30 @@ describe("Platform Admin Service & RPC Mapping", () => {
     expect(result.totalBusinesses).toBe(5);
     expect(result.funnel.firstBookingPercentage).toBe(60);
     expect(result.registrationsOverTime).toHaveLength(2);
+    expect(result.financial?.mrrNis).toBe(1490);
+    expect(result.financial?.arrNis).toBe(17880);
+    expect(result.financial?.totalGmvNis).toBe(45200);
+    expect(result.financial?.plans).toHaveLength(2);
+    expect(result.financial?.plans[0].planId).toBe("pro");
+  });
+
+  it("strictly refuses non-admin users in isPlatformAdmin", async () => {
+    const unprivilegedClient = {
+      rpc: (fn: string) => {
+        expect(fn).toBe("is_platform_admin");
+        return Promise.resolve({ data: false, error: null });
+      },
+    } as any;
+
+    const isAdmin = await isPlatformAdmin(unprivilegedClient);
+    expect(isAdmin).toBe(false);
+
+    const erroringClient = {
+      rpc: () => Promise.resolve({ data: null, error: { message: "forbidden", code: "42501" } }),
+    } as any;
+
+    const isAdminError = await isPlatformAdmin(erroringClient);
+    expect(isAdminError).toBe(false);
   });
 
   it("maps business list and aggregates without exposing customer data", async () => {

@@ -377,7 +377,7 @@ export function AdminDashboardClient({
   deploymentCommit,
 }: AdminDashboardClientProps) {
   const activeCommit = deploymentCommit || CURRENT_COMMIT;
-  const [activeTab, setActiveTab] = useState<"overview" | "directory" | "errors" | "checklist">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "financial" | "directory" | "errors" | "checklist">("overview");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft">("all");
   const [checklistFilter, setChecklistFilter] = useState<"ALL" | QualificationStatus>("ALL");
@@ -589,6 +589,14 @@ export function AdminDashboardClient({
             סקירת פעילות ומדדים
           </button>
           <button
+            onClick={() => setActiveTab("financial")}
+            className={`border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+              activeTab === "financial" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            נתונים כספיים ורווחים
+          </button>
+          <button
             onClick={() => setActiveTab("directory")}
             className={`border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
               activeTab === "directory" ? "border-primary text-primary" : "border-transparent text-muted-foreground hover:text-foreground"
@@ -669,6 +677,70 @@ export function AdminDashboardClient({
               </CardContent>
             </Card>
           </div>
+
+          {/* Financial Snapshot */}
+          {metrics.financial && (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 sm:p-5">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-emerald-500/20 pb-4 mb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-base text-foreground">סקירת רווחים והכנסות מערכת</span>
+                    <Badge variant="outline" className="border-emerald-500/40 text-emerald-700 text-xs">
+                      SaaS & GMV
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    הכנסות שוטפות מדמי מנוי חודשיים ומחזור תורים פעילים במערכת
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setActiveTab("financial")} className="border-emerald-500/40 hover:bg-emerald-500/10">
+                  צפה בפירוט פיננסי מלא ←
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div>
+                  <div className="text-xs text-muted-foreground">הכנסה חודשית (MRR)</div>
+                  <div className="text-2xl font-bold text-emerald-700">
+                    ₪{metrics.financial.mrrNis.toLocaleString()}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    ARR: ₪{metrics.financial.arrNis.toLocaleString()}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-muted-foreground">מחזור עסקאות (GMV)</div>
+                  <div className="text-2xl font-bold text-sky-700">
+                    ₪{metrics.financial.totalGmvNis.toLocaleString()}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    30 יום: ₪{metrics.financial.periodGmvNis.toLocaleString()}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-muted-foreground">שווי תור ממוצע</div>
+                  <div className="text-2xl font-bold text-purple-700">
+                    ₪{metrics.financial.averageBookingValueNis}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    לפי תורים שהושלמו
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-xs text-muted-foreground">מנויים בניסיון (14 יום)</div>
+                  <div className="text-2xl font-bold text-amber-700">
+                    {metrics.financial.trialingSubscribers}
+                  </div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    {metrics.financial.activeSubscribers} מנויים פעילים בתשלום
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Registrations Chart + Funnel */}
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -755,6 +827,136 @@ export function AdminDashboardClient({
               </CardContent>
             </Card>
           </div>
+        </div>
+      )}
+
+      {/* TAB: FINANCIAL & REVENUE */}
+      {activeTab === "financial" && (
+        <div className="space-y-6">
+          <Card>
+            <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <CardTitle>נתונים כספיים ורווחי פלטפורמה</CardTitle>
+                  <Badge variant="outline" className="border-emerald-500/40 bg-emerald-500/10 text-emerald-700 font-semibold text-xs">
+                    מוגבל למנהל בלבד (SQL 42501 Gate)
+                  </Badge>
+                </div>
+                <CardDescription>
+                  ניתוח הכנסות SaaS מדמי מנוי, קצב שנתי (ARR), מחזור עסקאות (GMV) ופוטנציאל המרה מעסקים ב־Trial.
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Financial KPIs */}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
+                  <div className="text-xs font-semibold text-emerald-700">הכנסה חודשית קבועה (MRR)</div>
+                  <div className="mt-1 text-3xl font-bold text-emerald-800">
+                    ₪{(metrics.financial?.mrrNis ?? 0).toLocaleString()}
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    קצב שנתי ARR: <span className="font-semibold text-foreground">₪{(metrics.financial?.arrNis ?? 0).toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 p-4">
+                  <div className="text-xs font-semibold text-sky-700">מחזור תורים כולל (GMV)</div>
+                  <div className="mt-1 text-3xl font-bold text-sky-800">
+                    ₪{(metrics.financial?.totalGmvNis ?? 0).toLocaleString()}
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    ב־30 ימים אחרונים: <span className="font-semibold text-foreground">₪{(metrics.financial?.periodGmvNis ?? 0).toLocaleString()}</span>
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-purple-500/30 bg-purple-500/10 p-4">
+                  <div className="text-xs font-semibold text-purple-700">שווי תור ממוצע</div>
+                  <div className="mt-1 text-3xl font-bold text-purple-800">
+                    ₪{metrics.financial?.averageBookingValueNis ?? 0}
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    מתוך <span className="font-semibold text-foreground">{metrics.bookingsInPeriod}</span> תורים בתקופה
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+                  <div className="text-xs font-semibold text-amber-700">מנויים פעילים וניסיון</div>
+                  <div className="mt-1 text-3xl font-bold text-amber-800">
+                    {metrics.financial?.activeSubscribers ?? 0}
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">{metrics.financial?.trialingSubscribers ?? 0}</span> עסקים ב־14 ימי ניסיון
+                  </div>
+                </div>
+              </div>
+
+              {/* Plans breakdown table */}
+              <div className="rounded-lg border p-4">
+                <h3 className="text-base font-bold text-foreground">התפלגות מנויים לפי תוכנית SaaS</h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  מנויי הפלטפורמה מחושבים אוטומטית מטבלת public.subscriptions ו־public.plans.
+                </p>
+                <div className="mt-4 overflow-x-auto">
+                  <table className="w-full text-right text-sm">
+                    <thead>
+                      <tr className="border-b text-xs text-muted-foreground">
+                        <th className="py-2.5 font-semibold">תוכנית מנוי</th>
+                        <th className="py-2.5 font-semibold">מחיר חודשי</th>
+                        <th className="py-2.5 font-semibold">מנויים פעילים</th>
+                        <th className="py-2.5 font-semibold">סך הכנסה חודשית (MRR)</th>
+                        <th className="py-2.5 font-semibold">סטטוס</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y text-xs">
+                      {(metrics.financial?.plans ?? []).map((p) => (
+                        <tr key={p.planId} className="hover:bg-muted/10">
+                          <td className="py-3 font-semibold text-foreground">{p.planName} ({p.planId})</td>
+                          <td className="py-3 font-mono">₪{p.priceNis} / חודש</td>
+                          <td className="py-3 font-semibold">{p.subscribers}</td>
+                          <td className="py-3 font-semibold text-emerald-600">₪{p.revenueNis.toLocaleString()}</td>
+                          <td className="py-3">
+                            <Badge variant="outline" className="border-emerald-500/30 text-emerald-600 text-[11px]">
+                              פעיל
+                            </Badge>
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="bg-muted/20 font-medium">
+                        <td className="py-3 font-semibold text-foreground">עסקים בתקופת ניסיון (Trial)</td>
+                        <td className="py-3 font-mono text-muted-foreground">חינם (14 יום)</td>
+                        <td className="py-3 font-semibold">{metrics.financial?.trialingSubscribers ?? 0}</td>
+                        <td className="py-3 text-muted-foreground font-mono">
+                          פוטנציאל: +₪{((metrics.financial?.trialingSubscribers ?? 0) * 149).toLocaleString()}
+                        </td>
+                        <td className="py-3">
+                          <Badge variant="outline" className="border-amber-500/30 text-amber-600 text-[11px]">
+                            בהרצה
+                          </Badge>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Security info card */}
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 text-xs text-muted-foreground space-y-2">
+                <div className="flex items-center gap-2 font-semibold text-foreground">
+                  <svg className="h-4 w-4 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <span>בקרת אבטחה והגנת מידע על נתונים פיננסיים:</span>
+                </div>
+                <p>
+                  1. <strong>בידוד מוחלט ברמת מסד הנתונים:</strong> פונקציית <code>private.admin_dashboard_metrics</code> מוגנת ב־<code>security definer</code> ומאמתת את מזהה ה־UUID של חשבון <code>yotam.fried@gmail.com</code> (עם בדיקת 2FA ומזהה אדמין מאומת). כל קריאה של משתמש אחר נחסמת אוטומטית ברמת ה־Engine עם שגיאת SQL <code>42501 (forbidden)</code>.
+                </p>
+                <p>
+                  2. <strong>בידוד ממשק משתמש (UI Isolation):</strong> ניווט המנהל אינו מוזרק ואינו נשלח ללקוחות או בעלי עסקים רגילים; כל דף ניהול נבדק בשרת (Server Component Guard).
+                </p>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       )}
 

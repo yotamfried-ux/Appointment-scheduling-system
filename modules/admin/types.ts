@@ -1,3 +1,21 @@
+export interface FinancialMetrics {
+  mrrNis: number;
+  arrNis: number;
+  activeSubscribers: number;
+  trialingSubscribers: number;
+  pastDueSubscribers: number;
+  totalGmvNis: number;
+  periodGmvNis: number;
+  averageBookingValueNis: number;
+  plans: {
+    planId: string;
+    planName: string;
+    priceNis: number;
+    subscribers: number;
+    revenueNis: number;
+  }[];
+}
+
 export interface DashboardMetrics {
   totalBusinesses: number;
   newBusinesses: number;
@@ -19,6 +37,7 @@ export interface DashboardMetrics {
     period: string;
     count: number;
   }[];
+  financial?: FinancialMetrics;
 }
 
 export interface AdminBusiness {
