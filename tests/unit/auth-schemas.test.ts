@@ -23,6 +23,18 @@ describe("auth schemas & password requirements", () => {
       }
     });
 
+    it("rejects password containing Hebrew characters with dedicated message", () => {
+      const res = schema.safeParse({
+        email: "user@example.com",
+        password: "יותם1235",
+        repeatPassword: "יותם1235",
+      });
+      expect(res.success).toBe(false);
+      if (!res.success) {
+        expect(res.error.issues.some((i) => i.message === "passwordNoHebrew")).toBe(true);
+      }
+    });
+
     it("rejects password with letters only (no numbers)", () => {
       const res = schema.safeParse({
         email: "user@example.com",
@@ -72,10 +84,11 @@ describe("auth schemas & password requirements", () => {
   describe("updatePasswordSchema", () => {
     const schema = updatePasswordSchema(t);
 
-    it("enforces 6 characters and letter + number combination", () => {
+    it("enforces 6 characters, rejects Hebrew, and requires letter + number combination", () => {
       expect(schema.safeParse({ password: "12345" }).success).toBe(false);
       expect(schema.safeParse({ password: "abcdef" }).success).toBe(false);
       expect(schema.safeParse({ password: "123456" }).success).toBe(false);
+      expect(schema.safeParse({ password: "יותם1235" }).success).toBe(false);
       expect(schema.safeParse({ password: "pass12" }).success).toBe(true);
     });
   });

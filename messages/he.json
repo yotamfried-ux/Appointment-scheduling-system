@@ -27,7 +27,7 @@
     "password": "סיסמה",
     "newPassword": "סיסמה חדשה",
     "repeatPassword": "אימות סיסמה",
-    "passwordHint": "לפחות 6 תווים, בשילוב אותיות ומספרים.",
+    "passwordHint": "לפחות 6 תווים, בשילוב אותיות באנגלית ומספרים.",
     "showPassword": "הצגת הסיסמה",
     "hidePassword": "הסתרת הסיסמה",
     "forgotPassword": "שכחתי סיסמה",
@@ -102,7 +102,8 @@
       "emailInvalid": "כתובת האימייל אינה תקינה.",
       "passwordRequired": "יש להזין סיסמה.",
       "passwordShort": "הסיסמה חייבת להכיל לפחות 6 תווים.",
-      "passwordComplexity": "הסיסמה חייבת לכלול שילוב של אותיות ומספרים.",
+      "passwordComplexity": "הסיסמה חייבת לכלול שילוב של אותיות באנגלית ומספרים.",
+      "passwordNoHebrew": "הסיסמה אינה יכולה להכיל אותיות בעברית. יש להשתמש באותיות באנגלית (a-z) ומספרים.",
       "passwordMismatch": "הסיסמאות אינן זהות."
     },
     "mfa": {
