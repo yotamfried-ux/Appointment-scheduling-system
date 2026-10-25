@@ -224,11 +224,7 @@
     direction: ltr;
     text-align: start;
   }
-  /* Disable Microsoft Edge / Chromium default password reveal and clear buttons to prevent duplicate eye icons */
-  input[type="password"]::-ms-reveal,
-  input[type="password"]::-ms-clear {
-    display: none;
-  }
+
   input[type="email"]::placeholder, input[type="tel"]::placeholder {
     direction: rtl;
     text-align: start;
@@ -282,3 +278,26 @@
   from { opacity: 0; transform: scaleY(0.6); }
   to { opacity: 1; transform: scaleY(1); }
 }
+
+/* ------------------------------------------------------------------ */
+/* Browser vendor control suppression (unlayered for max specificity)  */
+/* Prevents duplicate Edge/Chromium native eye/clear icons in inputs. */
+/* ------------------------------------------------------------------ */
+input::-ms-reveal,
+input[type="password"]::-ms-reveal {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
+input::-ms-clear,
+input[type="password"]::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+

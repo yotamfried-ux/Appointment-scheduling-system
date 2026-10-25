@@ -43,6 +43,18 @@ export function PasswordInput({ className, onChange, style, ...props }: React.Co
 
   return (
     <div className="relative">
+      <style>{`
+        input[type="password"]::-ms-reveal,
+        input[type="password"]::-ms-clear,
+        input::-ms-reveal,
+        input::-ms-clear {
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
+          pointer-events: none !important;
+          visibility: hidden !important;
+        }
+      `}</style>
       <Input
         {...props}
         type={visible ? "text" : "password"}
