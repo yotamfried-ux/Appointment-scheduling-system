@@ -172,14 +172,28 @@ describe("Platform Admin Service & RPC Mapping", () => {
         { period: "19/10", count: 3 },
       ],
       financial: {
+        contractualMrrNis: 1490,
+        collectedRevenueNis: 0,
         mrrNis: 1490,
         arrNis: 17880,
         activeSubscribers: 10,
         trialingSubscribers: 5,
+        trialPotentialMrrNis: 745,
         pastDueSubscribers: 1,
-        totalGmvNis: 45200,
-        periodGmvNis: 12400,
-        averageBookingValueNis: 95.5,
+        confirmedBookingValueNis: 34050,
+        confirmedBookingsCount: 388,
+        avgConfirmedBookingValueNis: 87.8,
+        completedServicesValueNis: 25150,
+        completedBookingsCount: 282,
+        avgCompletedServiceValueNis: 89.2,
+        totalAppointmentsCount: 481,
+        totalBookingValueNis: 42620,
+        avgTotalBookingValueNis: 88.6,
+        periodConfirmedBookingValueNis: 34050,
+        periodConfirmedBookingsCount: 388,
+        totalGmvNis: 42620,
+        periodGmvNis: 34050,
+        averageBookingValueNis: 87.8,
         plans: [
           { planId: "pro", planName: "מקצועי", priceNis: 149, subscribers: 8, revenueNis: 1192 },
           { planId: "starter", planName: "בסיס", priceNis: 79, subscribers: 2, revenueNis: 158 },
@@ -198,9 +212,14 @@ describe("Platform Admin Service & RPC Mapping", () => {
     expect(result.totalBusinesses).toBe(5);
     expect(result.funnel.firstBookingPercentage).toBe(60);
     expect(result.registrationsOverTime).toHaveLength(2);
-    expect(result.financial?.mrrNis).toBe(1490);
-    expect(result.financial?.arrNis).toBe(17880);
-    expect(result.financial?.totalGmvNis).toBe(45200);
+    expect(result.financial?.contractualMrrNis).toBe(1490);
+    expect(result.financial?.trialPotentialMrrNis).toBe(745);
+    expect(result.financial?.confirmedBookingValueNis).toBe(34050);
+    expect(result.financial?.avgConfirmedBookingValueNis).toBe(87.8);
+    expect(result.financial?.completedServicesValueNis).toBe(25150);
+    expect(result.financial?.avgCompletedServiceValueNis).toBe(89.2);
+    expect(result.financial?.totalBookingValueNis).toBe(42620);
+    expect(result.financial?.avgTotalBookingValueNis).toBe(88.6);
     expect(result.financial?.plans).toHaveLength(2);
     expect(result.financial?.plans[0].planId).toBe("pro");
   });

@@ -1,12 +1,35 @@
 export interface FinancialMetrics {
-  mrrNis: number;
+  // SaaS Platform Revenue
+  contractualMrrNis: number;
+  collectedRevenueNis: number;
   arrNis: number;
   activeSubscribers: number;
   trialingSubscribers: number;
+  trialPotentialMrrNis: number;
   pastDueSubscribers: number;
+
+  // Booking Values Across Explicit Cohorts
+  confirmedBookingValueNis: number;
+  confirmedBookingsCount: number;
+  avgConfirmedBookingValueNis: number;
+
+  completedServicesValueNis: number;
+  completedBookingsCount: number;
+  avgCompletedServiceValueNis: number;
+
+  totalAppointmentsCount: number;
+  totalBookingValueNis: number;
+  avgTotalBookingValueNis: number;
+
+  periodConfirmedBookingValueNis: number;
+  periodConfirmedBookingsCount: number;
+
+  // Backwards compatibility aliases
+  mrrNis: number;
   totalGmvNis: number;
   periodGmvNis: number;
   averageBookingValueNis: number;
+
   plans: {
     planId: string;
     planName: string;

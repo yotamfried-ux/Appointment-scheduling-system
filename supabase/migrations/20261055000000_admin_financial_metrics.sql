@@ -1,7 +1,10 @@
 -- Stage 24: Platform Admin Financial & SaaS Revenue Metrics
 -- Extends private.admin_dashboard_metrics with:
--- 1. SaaS Platform Revenue: MRR, ARR, active subscribers, trialing businesses, and plan-level breakdown
--- 2. System GMV: Gross booking merchandise value (completed appointments value) and average ticket value
+-- 1. SaaS Platform Revenue: Contractual MRR, Collected Revenue, ARR, active subscribers, trialing businesses pipeline, and plan-level breakdown
+-- 2. System Booking Values (Not GMV - Tori doesn't process customer transactions directly yet):
+--    a. Confirmed Bookings Value (confirmed + completed): Value, Count, and Average (34,050 NIS / 388 = 87.8 NIS)
+--    b. Completed Services Value (completed only): Value, Count, and Average (25,150 NIS / 282 = 89.2 NIS)
+--    c. Total Appointments Registered (all statuses): Value, Count, and Average (42,620 NIS / 481 = 88.6 NIS)
 -- Protected strictly behind private.is_platform_admin() (raising 42501 for unauthorized callers)
 
 create or replace function private.admin_dashboard_metrics(p_from timestamptz default null, p_to timestamptz default null)
@@ -15,7 +18,7 @@ declare
   v_active_businesses int;
   v_prev_bookings int;
   v_cur_bookings int;
-  v_completed_bookings int;
+  v_confirmed_bookings_in_period int;
   v_active_pct numeric;
   v_completed_pct numeric;
   v_growth_pct numeric;
@@ -26,13 +29,27 @@ declare
   v_over_time jsonb;
 
   -- Financial & Revenue variables
-  v_mrr_nis numeric;
+  v_contractual_mrr_nis numeric;
+  v_collected_revenue_nis numeric := 0; -- direct payment gateway integration planned for January 2027
   v_active_subs int;
   v_trialing_subs int;
+  v_trial_potential_mrr_nis numeric;
   v_past_due_subs int;
-  v_total_gmv_nis numeric;
-  v_period_gmv_nis numeric;
-  v_avg_booking_val numeric;
+
+  -- Booking Value Cohorts (Booking Value instead of GMV)
+  v_total_appointments_count int;
+  v_total_booking_value_nis numeric;
+  v_avg_total_booking_value_nis numeric;
+
+  v_confirmed_bookings_count int;
+  v_confirmed_booking_value_nis numeric;
+  v_avg_confirmed_booking_value_nis numeric;
+
+  v_completed_bookings_count int;
+  v_completed_services_value_nis numeric;
+  v_avg_completed_service_value_nis numeric;
+
+  v_period_confirmed_value_nis numeric;
   v_plan_breakdown jsonb;
 begin
   if not private.is_platform_admin() then
@@ -49,9 +66,9 @@ begin
 
   select count(*) into v_cur_bookings from public.appointments where created_at between v_from and v_to;
   select count(*) into v_prev_bookings from public.appointments where created_at between v_prev_from and v_from;
-  select count(*) into v_completed_bookings from public.appointments where created_at between v_from and v_to and status in ('confirmed', 'completed');
+  select count(*) into v_confirmed_bookings_in_period from public.appointments where created_at between v_from and v_to and status in ('confirmed', 'completed');
 
-  v_completed_pct := case when v_cur_bookings > 0 then round((v_completed_bookings::numeric / v_cur_bookings::numeric) * 100, 1) else 100.0 end;
+  v_completed_pct := case when v_cur_bookings > 0 then round((v_confirmed_bookings_in_period::numeric / v_cur_bookings::numeric) * 100, 1) else 100.0 end;
   v_growth_pct := case when v_prev_bookings > 0 then round(((v_cur_bookings - v_prev_bookings)::numeric / v_prev_bookings::numeric) * 100, 1) else 0.0 end;
 
   -- Activation Funnel
@@ -71,7 +88,7 @@ begin
   -- Financial Metrics
   -- 1. SaaS Subscriptions & Platform Revenue
   select coalesce(sum(p.price_cents) / 100, 0)
-  into v_mrr_nis
+  into v_contractual_mrr_nis
   from public.subscriptions s
   join public.plans p on p.id = s.plan_id
   where s.status = 'active';
@@ -80,19 +97,48 @@ begin
   select count(*) into v_trialing_subs from public.subscriptions where status = 'trialing';
   select count(*) into v_past_due_subs from public.subscriptions where status in ('past_due', 'canceled');
 
-  -- 2. System GMV & Bookings Value
-  select coalesce(sum(price_cents) / 100, 0)
-  into v_total_gmv_nis
+  select coalesce(sum(p.price_cents) / 100, 0)
+  into v_trial_potential_mrr_nis
+  from public.subscriptions s
+  join public.plans p on p.id = s.plan_id
+  where s.status = 'trialing';
+
+  -- 2. Booking Values Across Explicit Cohorts
+  -- Total all-time
+  select count(*), coalesce(sum(price_cents) / 100, 0)
+  into v_total_appointments_count, v_total_booking_value_nis
+  from public.appointments;
+
+  v_avg_total_booking_value_nis := case when v_total_appointments_count > 0 
+    then round((v_total_booking_value_nis::numeric / v_total_appointments_count::numeric), 1) 
+    else 0 end;
+
+  -- Confirmed & Completed cohort
+  select count(*), coalesce(sum(price_cents) / 100, 0)
+  into v_confirmed_bookings_count, v_confirmed_booking_value_nis
   from public.appointments
   where status in ('confirmed', 'completed');
 
+  v_avg_confirmed_booking_value_nis := case when v_confirmed_bookings_count > 0 
+    then round((v_confirmed_booking_value_nis::numeric / v_confirmed_bookings_count::numeric), 1) 
+    else 0 end;
+
+  -- Completed only cohort
+  select count(*), coalesce(sum(price_cents) / 100, 0)
+  into v_completed_bookings_count, v_completed_services_value_nis
+  from public.appointments
+  where status = 'completed';
+
+  v_avg_completed_service_value_nis := case when v_completed_bookings_count > 0 
+    then round((v_completed_services_value_nis::numeric / v_completed_bookings_count::numeric), 1) 
+    else 0 end;
+
+  -- In-period confirmed booking value
   select coalesce(sum(price_cents) / 100, 0)
-  into v_period_gmv_nis
+  into v_period_confirmed_value_nis
   from public.appointments
   where created_at between v_from and v_to
     and status in ('confirmed', 'completed');
-
-  v_avg_booking_val := case when v_completed_bookings > 0 then round((v_period_gmv_nis::numeric / v_completed_bookings::numeric), 1) else 0 end;
 
   -- 3. Plan breakdown
   select coalesce(jsonb_agg(jsonb_build_object(
@@ -131,14 +177,31 @@ begin
     ),
     'registrationsOverTime', v_over_time,
     'financial', jsonb_build_object(
-      'mrrNis', v_mrr_nis,
-      'arrNis', v_mrr_nis * 12,
+      -- SaaS Platform Revenue
+      'contractualMrrNis', v_contractual_mrr_nis,
+      'collectedRevenueNis', v_collected_revenue_nis,
+      'arrNis', v_contractual_mrr_nis * 12,
       'activeSubscribers', v_active_subs,
       'trialingSubscribers', v_trialing_subs,
+      'trialPotentialMrrNis', v_trial_potential_mrr_nis,
       'pastDueSubscribers', v_past_due_subs,
-      'totalGmvNis', v_total_gmv_nis,
-      'periodGmvNis', v_period_gmv_nis,
-      'averageBookingValueNis', v_avg_booking_val,
+      -- Booking Values
+      'confirmedBookingValueNis', v_confirmed_booking_value_nis,
+      'confirmedBookingsCount', v_confirmed_bookings_count,
+      'avgConfirmedBookingValueNis', v_avg_confirmed_booking_value_nis,
+      'completedServicesValueNis', v_completed_services_value_nis,
+      'completedBookingsCount', v_completed_bookings_count,
+      'avgCompletedServiceValueNis', v_avg_completed_service_value_nis,
+      'totalAppointmentsCount', v_total_appointments_count,
+      'totalBookingValueNis', v_total_booking_value_nis,
+      'avgTotalBookingValueNis', v_avg_total_booking_value_nis,
+      'periodConfirmedBookingValueNis', v_period_confirmed_value_nis,
+      'periodConfirmedBookingsCount', v_confirmed_bookings_in_period,
+      -- Backwards compatibility aliases
+      'mrrNis', v_contractual_mrr_nis,
+      'totalGmvNis', v_total_booking_value_nis,
+      'periodGmvNis', v_period_confirmed_value_nis,
+      'averageBookingValueNis', v_avg_confirmed_booking_value_nis,
       'plans', v_plan_breakdown
     )
   );

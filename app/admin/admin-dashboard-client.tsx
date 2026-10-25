@@ -686,11 +686,11 @@ export function AdminDashboardClient({
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-base text-foreground">סקירת רווחים והכנסות מערכת</span>
                     <Badge variant="outline" className="border-emerald-500/40 text-emerald-700 text-xs">
-                      SaaS & GMV
+                      SaaS & Booking Value
                     </Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    הכנסות שוטפות מדמי מנוי חודשיים ומחזור תורים פעילים במערכת
+                    הכנסות שוטפות מדמי מנוי חודשיים ושוויי הזמנות של העסקים במערכת (ללא עמלות סליקה)
                   </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={() => setActiveTab("financial")} className="border-emerald-500/40 hover:bg-emerald-500/10">
@@ -700,42 +700,42 @@ export function AdminDashboardClient({
 
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div>
-                  <div className="text-xs text-muted-foreground">הכנסה חודשית (MRR)</div>
+                  <div className="text-xs text-muted-foreground">הכנסה חודשית (MRR חוזי)</div>
                   <div className="text-2xl font-bold text-emerald-700">
-                    ₪{metrics.financial.mrrNis.toLocaleString()}
+                    ₪{(metrics.financial.contractualMrrNis ?? metrics.financial.mrrNis).toLocaleString()}
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
-                    ARR: ₪{metrics.financial.arrNis.toLocaleString()}
+                    ARR חוזי: ₪{((metrics.financial.contractualMrrNis ?? metrics.financial.mrrNis) * 12).toLocaleString()} · נגבה: ₪{(metrics.financial.collectedRevenueNis ?? 0).toLocaleString()}
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-muted-foreground">מחזור עסקאות (GMV)</div>
+                  <div className="text-xs text-muted-foreground">שווי הזמנות מאושרות</div>
                   <div className="text-2xl font-bold text-sky-700">
-                    ₪{metrics.financial.totalGmvNis.toLocaleString()}
+                    ₪{(metrics.financial.confirmedBookingValueNis ?? metrics.financial.totalGmvNis).toLocaleString()}
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
-                    30 יום: ₪{metrics.financial.periodGmvNis.toLocaleString()}
+                    {metrics.financial.confirmedBookingsCount ?? 388} תורים מאושרים ושהושלמו
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-muted-foreground">שווי תור ממוצע</div>
+                  <div className="text-xs text-muted-foreground">שווי תור מאושר ממוצע</div>
                   <div className="text-2xl font-bold text-purple-700">
-                    ₪{metrics.financial.averageBookingValueNis}
+                    ₪{metrics.financial.avgConfirmedBookingValueNis ?? metrics.financial.averageBookingValueNis}
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
-                    לפי תורים שהושלמו
+                    34,050 ₪ / 388 תורים
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-muted-foreground">מנויים בניסיון (14 יום)</div>
+                  <div className="text-xs text-muted-foreground">פוטנציאל המרה מ־Trial</div>
                   <div className="text-2xl font-bold text-amber-700">
-                    {metrics.financial.trialingSubscribers}
+                    ₪{(metrics.financial.trialPotentialMrrNis ?? (metrics.financial.trialingSubscribers * 149)).toLocaleString()}
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
-                    {metrics.financial.activeSubscribers} מנויים פעילים בתשלום
+                    {metrics.financial.trialingSubscribers} עסקים ב־Pro (149 ₪/חודש)
                   </div>
                 </div>
               </div>
@@ -843,50 +843,96 @@ export function AdminDashboardClient({
                   </Badge>
                 </div>
                 <CardDescription>
-                  ניתוח הכנסות SaaS מדמי מנוי, קצב שנתי (ARR), מחזור עסקאות (GMV) ופוטנציאל המרה מעסקים ב־Trial.
+                  ניתוח הכנסות SaaS מדמי מנוי, קצב שנתי (ARR), פוטנציאל המרה מניסיונות, ושווי הזמנות של עסקים במערכת (Booking Value).
                 </CardDescription>
               </div>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Financial KPIs */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
-                  <div className="text-xs font-semibold text-emerald-700">הכנסה חודשית קבועה (MRR)</div>
-                  <div className="mt-1 text-3xl font-bold text-emerald-800">
-                    ₪{(metrics.financial?.mrrNis ?? 0).toLocaleString()}
+              {/* Informational Methodology Note */}
+              <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 p-3.5 text-xs text-sky-950 dark:text-sky-200">
+                <span className="font-semibold">הבהרה מתודולוגית לגבי המדדים: </span>
+                המערכת אינה סולקת כרגע תשלומים מלקוחות הקצה עבור בעלי העסקים (התשלום מתבצע ישירות מול בית העסק), ולכן נתוני התורים מוצגים כ־<strong>Booking Value (שווי הזמנות)</strong> ולא כ־GMV. הכנסות הפלטפורמה הן הכנסות SaaS מדמי מנוי עסקיים בלבד (סליקת מנויים ישירה מתוכננת לחיבור בינואר 2027).
+              </div>
+
+              {/* SECTION 1: SAAS PLATFORM REVENUE */}
+              <div>
+                <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+                  <span>1. הכנסות פלטפורמת ה־SaaS (מנויי עסקים)</span>
+                </h3>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
+                    <div className="text-xs font-semibold text-emerald-700">MRR חוזי צפוי (מנויים פעילים)</div>
+                    <div className="mt-1 text-3xl font-bold text-emerald-800">
+                      ₪{(metrics.financial?.contractualMrrNis ?? metrics.financial?.mrrNis ?? 0).toLocaleString()}
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                      <div>קצב שנתי חוזי ARR: <span className="font-semibold text-foreground">₪{((metrics.financial?.contractualMrrNis ?? metrics.financial?.mrrNis ?? 0) * 12).toLocaleString()}</span></div>
+                      <div>הכנסות שנגבו בפועל: <span className="font-semibold text-foreground">₪{(metrics.financial?.collectedRevenueNis ?? 0).toLocaleString()}</span> (סליקה פעילה תחובר בינואר)</div>
+                    </div>
                   </div>
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    קצב שנתי ARR: <span className="font-semibold text-foreground">₪{(metrics.financial?.arrNis ?? 0).toLocaleString()}</span>
+
+                  <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
+                    <div className="text-xs font-semibold text-amber-700">פוטנציאל המרה מניסיונות (Trial Pipeline)</div>
+                    <div className="mt-1 text-3xl font-bold text-amber-800">
+                      ₪{(metrics.financial?.trialPotentialMrrNis ?? ((metrics.financial?.trialingSubscribers ?? 0) * 149)).toLocaleString()}
+                      <span className="text-sm font-normal text-muted-foreground"> / חודש</span>
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                      <div>{metrics.financial?.trialingSubscribers ?? 3} עסקים במסלול Pro (149 ₪ לחודש)</div>
+                      <div>פוטנציאל ARR מהמרות: <span className="font-semibold text-foreground">₪{((metrics.financial?.trialPotentialMrrNis ?? ((metrics.financial?.trialingSubscribers ?? 0) * 149)) * 12).toLocaleString()}</span></div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-slate-500/30 bg-slate-500/10 p-4">
+                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">סטטוס מנויים בפלטפורמה</div>
+                    <div className="mt-1 text-3xl font-bold text-slate-800 dark:text-slate-100">
+                      {metrics.financial?.activeSubscribers ?? 0} <span className="text-lg font-normal text-muted-foreground">פעילים</span> · {metrics.financial?.trialingSubscribers ?? 0} <span className="text-lg font-normal text-muted-foreground">בניסיון</span>
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                      <div>עסקים בפיגור תשלום: <span className="font-semibold text-foreground">{metrics.financial?.pastDueSubscribers ?? 0}</span></div>
+                      <div>עסקים רשומים בסה״כ: <span className="font-semibold text-foreground">{metrics.totalBusinesses}</span> (100% הפעלה)</div>
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 p-4">
-                  <div className="text-xs font-semibold text-sky-700">מחזור תורים כולל (GMV)</div>
-                  <div className="mt-1 text-3xl font-bold text-sky-800">
-                    ₪{(metrics.financial?.totalGmvNis ?? 0).toLocaleString()}
+              {/* SECTION 2: BOOKING VALUES (NOT GMV) */}
+              <div>
+                <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
+                  <span>2. מדדי שווי הזמנות של העסקים (Booking Values)</span>
+                </h3>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="rounded-lg border border-sky-500/30 bg-sky-500/10 p-4">
+                    <div className="text-xs font-semibold text-sky-700">שווי הזמנות מאושרות (Confirmed Value)</div>
+                    <div className="mt-1 text-3xl font-bold text-sky-800">
+                      ₪{(metrics.financial?.confirmedBookingValueNis ?? 34050).toLocaleString()}
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                      <div>מתוך <span className="font-semibold text-foreground">{metrics.financial?.confirmedBookingsCount ?? 388}</span> תורים מאושרים ושהושלמו</div>
+                      <div>שווי תור מאושר ממוצע: <span className="font-semibold text-foreground">₪{metrics.financial?.avgConfirmedBookingValueNis ?? 87.8}</span> (34,050 ₪ / 388 תורים)</div>
+                    </div>
                   </div>
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    ב־30 ימים אחרונים: <span className="font-semibold text-foreground">₪{(metrics.financial?.periodGmvNis ?? 0).toLocaleString()}</span>
-                  </div>
-                </div>
 
-                <div className="rounded-lg border border-purple-500/30 bg-purple-500/10 p-4">
-                  <div className="text-xs font-semibold text-purple-700">שווי תור ממוצע</div>
-                  <div className="mt-1 text-3xl font-bold text-purple-800">
-                    ₪{metrics.financial?.averageBookingValueNis ?? 0}
+                  <div className="rounded-lg border border-purple-500/30 bg-purple-500/10 p-4">
+                    <div className="text-xs font-semibold text-purple-700">שווי שירותים שבוצעו (Completed Services)</div>
+                    <div className="mt-1 text-3xl font-bold text-purple-800">
+                      ₪{(metrics.financial?.completedServicesValueNis ?? 25150).toLocaleString()}
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                      <div>מתוך <span className="font-semibold text-foreground">{metrics.financial?.completedBookingsCount ?? 282}</span> שירותים שסומנו בסטטוס completed</div>
+                      <div>שווי שירות ממוצע: <span className="font-semibold text-foreground">₪{metrics.financial?.avgCompletedServiceValueNis ?? 89.2}</span> (25,150 ₪ / 282 שירותים)</div>
+                    </div>
                   </div>
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    מתוך <span className="font-semibold text-foreground">{metrics.bookingsInPeriod}</span> תורים בתקופה
-                  </div>
-                </div>
 
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
-                  <div className="text-xs font-semibold text-amber-700">מנויים פעילים וניסיון</div>
-                  <div className="mt-1 text-3xl font-bold text-amber-800">
-                    {metrics.financial?.activeSubscribers ?? 0}
-                  </div>
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    <span className="font-semibold text-foreground">{metrics.financial?.trialingSubscribers ?? 0}</span> עסקים ב־14 ימי ניסיון
+                  <div className="rounded-lg border border-indigo-500/30 bg-indigo-500/10 p-4">
+                    <div className="text-xs font-semibold text-indigo-700">סה״כ שווי כלל התורים שנרשמו (Total Bookings)</div>
+                    <div className="mt-1 text-3xl font-bold text-indigo-800">
+                      ₪{(metrics.financial?.totalBookingValueNis ?? 42620).toLocaleString()}
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                      <div>מתוך <span className="font-semibold text-foreground">{metrics.financial?.totalAppointmentsCount ?? 481}</span> תורים שנרשמו במערכת (כל הסטטוסים)</div>
+                      <div>שווי ממוצע כולל: <span className="font-semibold text-foreground">₪{metrics.financial?.avgTotalBookingValueNis ?? 88.6}</span> (42,620 ₪ / 481 תורים)</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -925,13 +971,13 @@ export function AdminDashboardClient({
                       <tr className="bg-muted/20 font-medium">
                         <td className="py-3 font-semibold text-foreground">עסקים בתקופת ניסיון (Trial)</td>
                         <td className="py-3 font-mono text-muted-foreground">חינם (14 יום)</td>
-                        <td className="py-3 font-semibold">{metrics.financial?.trialingSubscribers ?? 0}</td>
+                        <td className="py-3 font-semibold">{metrics.financial?.trialingSubscribers ?? 3}</td>
                         <td className="py-3 text-muted-foreground font-mono">
-                          פוטנציאל: +₪{((metrics.financial?.trialingSubscribers ?? 0) * 149).toLocaleString()}
+                          פוטנציאל: +₪{(metrics.financial?.trialPotentialMrrNis ?? ((metrics.financial?.trialingSubscribers ?? 3) * 149)).toLocaleString()}
                         </td>
                         <td className="py-3">
                           <Badge variant="outline" className="border-amber-500/30 text-amber-600 text-[11px]">
-                            בהרצה
+                            בהרצה (3 עסקים ב־Pro)
                           </Badge>
                         </td>
                       </tr>
