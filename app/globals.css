@@ -220,9 +220,14 @@
   bdi, .ltr-isolate {
     unicode-bidi: isolate;
   }
-  input[type="email"], input[type="tel"], input[type="url"], input[type="password"] {
+  input[type="email"], input[type="tel"], input[type="url"] {
     direction: ltr;
     text-align: start;
+  }
+  /* Disable Microsoft Edge / Chromium default password reveal and clear buttons to prevent duplicate eye icons */
+  input[type="password"]::-ms-reveal,
+  input[type="password"]::-ms-clear {
+    display: none;
   }
   input[type="email"]::placeholder, input[type="tel"]::placeholder {
     direction: rtl;
