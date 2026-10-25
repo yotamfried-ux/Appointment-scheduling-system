@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { authErrorKey, isExistingAccount } from "@/lib/auth/errors";
+import { clearPendingSignupCookie, getPendingSignupCookie, setPendingSignupCookie } from "@/lib/auth/pending-signup";
 import { createClient } from "@/lib/supabase/server";
 import { ipFromHeaders } from "@/lib/client-ip";
 import { mailboxKey } from "@/lib/mailbox";
@@ -11,6 +12,7 @@ import { enforce } from "@/modules/booking/public/rate-limit";
 // page (XSS, extensions) can never read the tokens. Server Actions also get Next.js' Origin/Host CSRF check (SEC-05).
 export type AuthResult = { ok: true } | { ok: false; errorKey: string };
 export type LoginResult = { ok: true; mfaRequired: boolean } | { ok: false; errorKey: string };
+export type VerificationCheckResult = { verified: boolean; redirect?: string };
 
 async function origin(): Promise<string> {
   // The configured address first: a forged Host / X-Forwarded-Host must never decide where the e-mail links point.
@@ -55,7 +57,31 @@ export async function signUpAction(input: { email: unknown; password: unknown })
     options: { emailRedirectTo: `${await origin()}/auth/confirm?next=/dashboard` },
   });
   if (error && !isExistingAccount(error)) return fail(error); // an existing address gets the same "check your e-mail" page (no account enumeration)
+  await setPendingSignupCookie({ email, password });
   return { ok: true };
+}
+
+/** Check if the pending registration email has been verified on another device (e.g. phone), and automatically sign in */
+export async function checkSignupVerificationAction(): Promise<VerificationCheckResult> {
+  const pending = await getPendingSignupCookie();
+  if (!pending) return { verified: false };
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: pending.email,
+    password: pending.password,
+  });
+
+  if (error) {
+    return { verified: false };
+  }
+
+  if (data?.session) {
+    await clearPendingSignupCookie();
+    return { verified: true, redirect: "/dashboard" };
+  }
+
+  return { verified: false };
 }
 
 /** The verification link expired or was used up: send a new one. The answer is the same whether or not the address has an account (no enumeration), and it is limited per address and per caller. */
