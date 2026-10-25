@@ -1,12 +1,17 @@
 {
   "base_sha": "0d9fc5dfcd827c7a20a5b0c15c984222a6ca3733",
-  "source_blob": "384c9a64904b9d54ae92f8f06d84ecbafd0443dc",
-  "patch_sha256": "9d051f840209bcc79aa5ddc19b37af30651a2ef49068b6168c99d66140de47e4",
-  "agent_id": "9YspRkadBacSOOIA",
-  "agent_preview_execution_id": "zTWAqUEpnJkb34Sh",
-  "agent_session_id": "aa0991f3-8d90-4428-984c-3e8a98c34bd0",
-  "source_run_id": "run-20261024-222329-430-3415",
-  "kind": "AGENT_STRUCTURAL_EDITS_COMPILED_BY_EXECUTOR",
-  "repair_applied": false,
-  "ci_executed": false
+  "patch_sha256": "5a5c2f37e3bc311276c2e484411b8f64d1bd7c5b25bc2a52118256fa9b11e9a9",
+  "motion_test_sha256": "fe8d414210e1b7aa2213d0d3efcc65cacd77f95bc4961418f0685d2e748a82ed",
+  "kind": "INVESTIGATION_FIX_REPLAY",
+  "previous_ci_run_id": 40125425862,
+  "scope": [
+    "package.json",
+    "tests/e2e/reduced-motion.spec.ts"
+  ],
+  "versions": {
+    "next": "16.4.1",
+    "eslint-config-next": "16.4.1",
+    "zod": "4.6.6",
+    "ajv.fast-uri": "3.1.9"
+  }
 }
