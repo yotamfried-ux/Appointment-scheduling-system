@@ -1,14 +1,30 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
-import { viewAppointment } from "@/modules/booking/public/service";
+import { confirmAttendanceWithToken, viewAppointment } from "@/modules/booking/public/service";
 
 // The customer's link. GET only redirects: a valid link continues to the business' booking page with the customer's own appointment shown above the form
 // (app/book/[slug]); an invalid one says so and shows nothing. Never cached; the pages say no-referrer so the link does not travel.
+// Passing ?confirm=1 (or ?action=attend) confirms attendance directly upon clicking the confirmation button in the email.
 export const dynamic = "force-dynamic";
 export const metadata = { title: "ניהול התור", robots: { index: false, follow: false }, referrer: "no-referrer" as const };
 
-export default async function ManagePage({ params }: { params: Promise<{ token: string }> }) {
+export default async function ManagePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams?: Promise<{ confirm?: string; action?: string }>;
+}) {
   const { token } = await params;
+  const sp = searchParams ? await searchParams : {};
+  const shouldConfirm = sp.confirm === "1" || sp.confirm === "true" || sp.action === "attend";
+
+  if (shouldConfirm) {
+    await confirmAttendanceWithToken(token);
+    const a = await viewAppointment(token);
+    if (a) redirect(`/book/${a.businessSlug}?m=${encodeURIComponent(token)}&attended=1`);
+  }
+
   const a = await viewAppointment(token);
   if (a) redirect(`/book/${a.businessSlug}?m=${encodeURIComponent(token)}`);
   const t = await getTranslations("manage");

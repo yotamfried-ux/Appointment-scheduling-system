@@ -1,3 +1,4 @@
+import { CheckCircle2 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { AttendButton } from "@/app/booking/[token]/attend-button";
 import { CancelButton } from "@/app/booking/[token]/cancel-button";
@@ -12,7 +13,7 @@ const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${St
  * The customer's own appointment, shown only to the holder of the link (the "view" token): on the business' booking page when it is opened with `?m=<token>`.
  * Cancel, reschedule and "I am coming" present that same token from the browser as POSTs; the page itself carries no other token (VULN-0022).
  */
-export async function ManagePanel({ token, a }: { token: string; a: AppointmentView }) {
+export async function ManagePanel({ token, a, attended }: { token: string; a: AppointmentView; attended?: boolean }) {
   const t = await getTranslations("manage");
   const start = zonedParts(new Date(a.startsAt), a.timezone);
   const active = a.status === "pending" || a.status === "confirmed";
@@ -28,6 +29,15 @@ export async function ManagePanel({ token, a }: { token: string; a: AppointmentV
   ];
   return (
     <section aria-labelledby="manage-title" className="mx-auto grid w-full max-w-lg gap-6 px-4 pt-6" data-testid="manage-panel">
+        {attended ? (
+          <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-50 p-4 text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100" data-testid="attend-success-banner">
+            <CheckCircle2 className="size-5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <div className="text-sm">
+              <p className="font-semibold">{t("attendConfirmed")}</p>
+              <p className="text-xs text-emerald-700/90 dark:text-emerald-300/90">הגעתכם לתור נרשמה במערכת. מחכים לראותכם!</p>
+            </div>
+          </div>
+        ) : null}
         <h2 id="manage-title" className="text-2xl font-bold tracking-tight">{t("title")}</h2>
         <dl className="divide-y rounded-xl border bg-card">
           {rows.map(({ label, value, id }) => (
@@ -38,7 +48,7 @@ export async function ManagePanel({ token, a }: { token: string; a: AppointmentV
           ))}
         </dl>
         {active && a.movedByBusinessAt ? <p className="rounded-lg border border-info/40 bg-info-soft p-3 text-sm font-medium text-info-soft-foreground" data-testid="manage-moved">{t("movedByBusiness")}</p> : null}
-        {a.canAttend ? <AttendButton token={token} /> : active && a.attendanceConfirmedAt ? <p className="rounded-lg border bg-card p-3 text-sm font-medium" data-testid="attend-confirmed">{t("attendConfirmed")}</p> : null}
+        {a.canAttend && !attended ? <AttendButton token={token} /> : active && a.attendanceConfirmedAt && !attended ? <p className="rounded-lg border bg-card p-3 text-sm font-medium" data-testid="attend-confirmed">{t("attendConfirmed")}</p> : null}
         {active ? (
           <div className="grid gap-1">
             <a href={`/booking/${token}/calendar`} download className="inline-flex min-h-11 w-full items-center justify-center rounded-md border px-4 text-sm font-semibold hover:bg-accent" data-testid="manage-add-to-calendar">{t("addToCalendar")}</a>

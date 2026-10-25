@@ -86,7 +86,19 @@ describe("templates (NTF-08, docs/05 §2)", () => {
     expect(r.html).toContain("מספרת הדר");
     expect(r.html).toContain("TR-ABC123");
     expect(r.text).toContain("מועד:");
-    expect(r.html).toContain("https://tori.example/booking/TOKEN.SIG");
+    expect(r.html).toContain("https://tori.example/booking/TOKEN.SIG?confirm=1");
+    expect(r.html).toContain("אישור הגעה לתור");
+    expect(r.html).toContain("https://tori.example/booking/TOKEN.SIG/reschedule");
+    expect(r.html).toContain("שינוי מועד התור");
+    expect(r.text).toContain("אישור הגעה לתור: https://tori.example/booking/TOKEN.SIG?confirm=1");
+    expect(r.text).toContain("שינוי מועד התור: https://tori.example/booking/TOKEN.SIG/reschedule");
+  });
+  it("inactive/cancelled customer booking points to new booking page and has no confirm/reschedule buttons", () => {
+    const r = render(ctx({ type: "booking_cancelled_by_business" }), opts);
+    expect(r.html).toContain("https://tori.example/book/hadar");
+    expect(r.html).toContain("לקביעת מועד חדש");
+    expect(r.html).not.toContain("אישור הגעה לתור");
+    expect(r.html).not.toContain("/reschedule");
   });
   it("RSC: a move plans one message for the customer and one for the owner, and goes stale if the appointment was cancelled meanwhile", () => {
     expect(plan({ type: "AppointmentRescheduled", payload: {} }, "confirmed").map((n) => `${n.recipient}:${n.type}`)).toEqual(["customer:booking_rescheduled", "owner:owner_customer_rescheduled"]);

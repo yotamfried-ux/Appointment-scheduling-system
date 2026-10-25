@@ -51,15 +51,18 @@ const clean = (s: string) => s.replace(/[\r\n]+/g, " ").trim(); // header inject
 const FONT = "'Segoe UI',Heebo,Arial,Helvetica,sans-serif";
 const BRAND = "#0b6b5d";
 
-/** One right-to-left e-mail layout for every message: business name on top, one card, one button, a quiet footer. Inline styles and tables only (mail clients ignore the rest). */
-function shell(o: { subject: string; preheader: string; title: string; lead: string; rows?: [string, string][]; button?: { href: string; label: string }; note?: string }): string {
+/** One right-to-left e-mail layout for every message: business name on top, one card, clear actions, a quiet footer. Inline styles and tables only (mail clients ignore the rest). */
+function shell(o: { subject: string; preheader: string; title: string; lead: string; rows?: [string, string][]; button?: { href: string; label: string }; secondaryButton?: { href: string; label: string }; note?: string }): string {
   const rows = o.rows?.length
     ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;margin:0 0 20px;border-top:1px solid #e3e9e6">
 ${o.rows.map(([l, v]) => `<tr><td style="padding:11px 0;border-bottom:1px solid #e3e9e6;font-size:14px;color:#5b6b66;width:34%">${esc(l)}</td><td style="padding:11px 0;border-bottom:1px solid #e3e9e6;font-size:15px;font-weight:600;color:#10201d"><bdi>${esc(v)}</bdi></td></tr>`).join("\n")}
 </table>`
     : "";
-  const button = o.button
-    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:4px 0 8px"><tr><td style="border-radius:10px;background:${BRAND}"><a href="${esc(o.button.href)}" style="display:inline-block;padding:14px 26px;font-family:${FONT};font-size:16px;font-weight:600;line-height:1;color:#ffffff;text-decoration:none;border-radius:10px">${esc(o.button.label)}</a></td></tr></table>`
+  const primaryBtn = o.button
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:4px 0 0"><tr><td style="border-radius:10px;background:${BRAND}"><a href="${esc(o.button.href)}" style="display:inline-block;padding:14px 28px;font-family:${FONT};font-size:16px;font-weight:600;line-height:1;color:#ffffff;text-decoration:none;border-radius:10px">${esc(o.button.label)}</a></td></tr></table>`
+    : "";
+  const secondaryBtn = o.secondaryButton
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:10px 0 4px"><tr><td style="border-radius:8px;border:1px solid #c8d3cf;background:#f4f6f5"><a href="${esc(o.secondaryButton.href)}" style="display:inline-block;padding:9px 18px;font-family:${FONT};font-size:13px;font-weight:600;line-height:1;color:${BRAND};text-decoration:none;border-radius:8px">${esc(o.secondaryButton.label)}</a></td></tr></table>`
     : "";
   const note = o.note ? `<p style="margin:16px 0 0;font-size:14px;line-height:1.6;color:#5b6b66">${o.note}</p>` : "";
   return `<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>${esc(o.subject)}</title></head>
@@ -70,7 +73,7 @@ ${o.rows.map(([l, v]) => `<tr><td style="padding:11px 0;border-bottom:1px solid 
 <tr><td style="padding:0 4px 14px;font-family:${FONT};font-size:18px;font-weight:700;color:${BRAND};text-align:right"><bdi>${esc(o.title)}</bdi></td></tr>
 <tr><td style="background:#ffffff;border:1px solid #dde4e1;border-radius:14px;padding:26px 24px;font-family:${FONT};text-align:right;direction:rtl">
 <p style="margin:0 0 20px;font-size:17px;line-height:1.65;color:#10201d">${esc(o.lead)}</p>
-${rows}${button}${note}
+${rows}${primaryBtn}${secondaryBtn}${note}
 </td></tr>
 <tr><td style="padding:14px 4px 0;font-family:${FONT};font-size:12px;line-height:1.6;color:#5b6b66;text-align:right">ההודעה נשלחה אוטומטית דרך מערכת ניהול היומן. אין צורך להשיב לה.</td></tr>
 </table></td></tr></table>
@@ -169,8 +172,40 @@ export function render(ctx: NotifContext, opts: { appUrl: string; manageToken?: 
   const serviceName = ctx.appointment?.serviceName ?? offer!.serviceName;
   const showService = !k.privacy.hideServiceNameInMessages;
   const owner = ctx.recipient === "owner";
-  const link = owner ? `${opts.appUrl}/dashboard` : opts.manageToken ? `${opts.appUrl}/${offer ? "waitlist" : "booking"}/${opts.manageToken}` : null;
-  const linkLabel = owner ? "פתיחת היומן" : ctx.type === "waitlist_offer" ? "לצפייה ולאישור התור" : offer ? "מצב ההמתנה שלי" : "צפייה בתור או ביטולו";
+  let button: { href: string; label: string } | undefined;
+  let secondaryButton: { href: string; label: string } | undefined;
+
+  if (owner) {
+    button = { href: `${opts.appUrl}/dashboard`, label: "פתיחת היומן" };
+  } else if (offer) {
+    if (opts.manageToken) {
+      button = {
+        href: `${opts.appUrl}/waitlist/${opts.manageToken}`,
+        label: ctx.type === "waitlist_offer" ? "לצפייה ולאישור התור" : "מצב ההמתנה שלי",
+      };
+    }
+  } else if (ctx.appointment) {
+    const isCancelledOrDeclined =
+      ctx.type === "booking_declined" ||
+      ctx.type === "booking_cancelled_by_business" ||
+      ctx.type === "booking_cancelled_by_customer";
+
+    if (isCancelledOrDeclined) {
+      button = {
+        href: `${opts.appUrl}/book/${ctx.business.slug}`,
+        label: "לקביעת מועד חדש",
+      };
+    } else if (opts.manageToken) {
+      button = {
+        href: `${opts.appUrl}/booking/${opts.manageToken}?confirm=1`,
+        label: "אישור הגעה לתור",
+      };
+      secondaryButton = {
+        href: `${opts.appUrl}/booking/${opts.manageToken}/reschedule`,
+        label: "שינוי מועד התור",
+      };
+    }
+  }
 
   const rows: [string, string][] = [["מועד", when]];
   if (showService) rows.push(["שירות", clean(serviceName)]);
@@ -189,10 +224,22 @@ export function render(ctx: NotifContext, opts: { appUrl: string; manageToken?: 
     title: biz,
     lead,
     rows,
-    ...(link ? { button: { href: link, label: linkLabel } } : {}),
+    button,
+    secondaryButton,
     ...(!owner && ctx.business.phone ? { note: `לשאלות: <a href="tel:${esc(ctx.business.phone)}" style="color:#0b6b5d;text-decoration:none;font-weight:600"><bdi>${esc(formatPhone(ctx.business.phone))}</bdi></a>` } : {}),
   });
+  const buttonLines: string[] = [];
+  if (button) buttonLines.push(`${button.label}: ${button.href}`);
+  if (secondaryButton) buttonLines.push(`${secondaryButton.label}: ${secondaryButton.href}`);
   const noteText = !owner && ctx.business.phone ? ["", `לשאלות: ${formatPhone(ctx.business.phone)}`] : [];
-  const text = [`${biz}`, "", lead, "", ...rows.map(([l, v]) => `${l}: ${v}`), ...(link ? ["", `${linkLabel}: ${link}`] : []), ...noteText].join("\n");
+  const text = [
+    `${biz}`,
+    "",
+    lead,
+    "",
+    ...rows.map(([l, v]) => `${l}: ${v}`),
+    ...(buttonLines.length ? ["", ...buttonLines] : []),
+    ...noteText,
+  ].join("\n");
   return { subject, html, text };
 }

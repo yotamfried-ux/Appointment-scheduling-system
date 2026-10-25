@@ -40,12 +40,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   };
 }
 
-export default async function BookPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ m?: string | string[] }> }) {
+export default async function BookPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ m?: string | string[]; attended?: string }> }) {
   const { slug } = await params;
-  const { m } = await searchParams;
+  const { m, attended } = await searchParams;
   const token = typeof m === "string" ? m : undefined;
   const r = await resolveCatalog(slug);
-  if (r.kind === "redirect") redirect(`/book/${r.slug}${token ? `?m=${encodeURIComponent(token)}` : ""}`);
+  if (r.kind === "redirect") redirect(`/book/${r.slug}${token ? `?m=${encodeURIComponent(token)}${attended ? `&attended=${attended}` : ""}` : ""}`);
   if (r.kind !== "ok") notFound();
 
   const h = await headers();
@@ -60,7 +60,7 @@ export default async function BookPage({ params, searchParams }: { params: Promi
 
   // The customer's link: their own appointment is shown above the form, and only if the link is valid and belongs to THIS business. Anything else shows the plain form (nothing is revealed).
   const mine = token ? await viewAppointment(token) : null;
-  const panel = mine && mine.businessSlug === r.catalog.business.slug && token ? <ManagePanel token={token} a={mine} /> : null;
+  const panel = mine && mine.businessSlug === r.catalog.business.slug && token ? <ManagePanel token={token} a={mine} attended={attended === "1"} /> : null;
   if (!r.catalog.business.acceptingBookings) {
     const t = await getTranslations("billing.closed");
     return (
