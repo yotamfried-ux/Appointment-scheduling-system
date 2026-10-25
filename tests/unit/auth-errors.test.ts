@@ -8,5 +8,7 @@ describe("sign-up does not reveal which addresses are registered", () => {
   it("does not swallow other errors", () => {
     for (const e of [{ code: "weak_password" }, { code: "over_email_send_rate_limit" }, new Error("fetch failed"), null, undefined, "user_already_exists"]) expect(isExistingAccount(e)).toBe(false);
     expect(authErrorKey({ code: "weak_password" })).toBe("weak_password");
+    expect(authErrorKey({ code: "weak_password", reasons: ["pwned"] })).toBe("password_pwned");
+    expect(authErrorKey({ code: "weak_password", weak_password: { reasons: ["pwned"] } })).toBe("password_pwned");
   });
 });

@@ -3,6 +3,7 @@ const KNOWN = new Set([
   "invalid_credentials",
   "email_not_confirmed",
   "weak_password",
+  "password_pwned",
   "over_request_rate_limit",
   "over_email_send_rate_limit",
   "same_password",
@@ -11,7 +12,14 @@ const KNOWN = new Set([
 
 export function authErrorKey(error: unknown): string {
   if (error && typeof error === "object") {
-    const e = error as { code?: unknown; message?: unknown; name?: unknown };
+    const e = error as { code?: unknown; message?: unknown; name?: unknown; reasons?: unknown[]; weak_password?: { reasons?: unknown[] } };
+    if (e.code === "weak_password") {
+      const reasons = e.reasons ?? e.weak_password?.reasons;
+      if (Array.isArray(reasons) && reasons.includes("pwned")) {
+        return "password_pwned";
+      }
+      return "weak_password";
+    }
     if (typeof e.code === "string" && KNOWN.has(e.code)) return e.code;
     if (e.name === "AuthRetryableFetchError" || (typeof e.message === "string" && /fetch failed|network/i.test(e.message))) {
       return "network";
