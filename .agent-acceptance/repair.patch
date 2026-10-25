@@ -40,14 +40,15 @@
  }
 --- a/tests/e2e/reduced-motion.spec.ts
 +++ b/tests/e2e/reduced-motion.spec.ts
-@@ -1,5 +1,5 @@
+@@ -1,5 +1,6 @@
  import { expect, test, type Page } from "@playwright/test";
 -import { loginAs, makeBusiness } from "./helpers/business";
++import { formatDayLabel } from "../../lib/lab/booking-data";
 +import { firstDayWithSlots, loginAs, makeBusiness, todayLocal } from "./helpers/business";
  
  // Motion library (MOTION-AND-INTERACTIONS): with the visitor's "reduce motion" setting nothing may animate for longer than an instant (no auto-playing movement),
  // and the same pages still work. Without the setting, the page may animate (the control proves the check can see animations).
-@@ -14,42 +14,74 @@
+@@ -14,42 +15,76 @@
      }).map((a) => String((a as CSSAnimation).animationName ?? (a as CSSTransition).transitionProperty ?? "?")),
    );
  
@@ -57,7 +58,8 @@
 +  const agenda = page.getByTestId("agenda");
 +  await agenda.waitFor();
 +  await page.getByTestId("day-input").fill(date);
-+  // This value comes from the loaded agenda, so it also waits for the selected date's response.
++  // The heading is rendered from loaded agenda.date, unlike the input's immediate DOM value.
++  await expect(agenda.getByTestId("agenda-title")).toHaveText(formatDayLabel(date));
 +  await expect(page.getByTestId("day-input")).toHaveValue(date);
 +  await expect(agenda.getByRole("img").filter({ has: page.locator(".ribbon-free") })).toBeVisible();
 +}
@@ -94,6 +96,7 @@
 +  const agenda = page.getByTestId("agenda");
 +  await agenda.waitFor();
 +  await page.getByTestId("day-input").fill(closedDate);
++  await expect(agenda.getByTestId("agenda-title")).toHaveText(formatDayLabel(closedDate));
 +  await expect(page.getByTestId("day-input")).toHaveValue(closedDate);
 +  await expect(agenda.getByTestId("closed-today")).toBeVisible();
 +  await expect(agenda.getByRole("img")).toHaveCount(0);
@@ -109,12 +112,12 @@
 +    const { date } = await firstDayWithSlots(request, b);
      await loginAs(page, b.ownerEmail);
 -    await page.addInitScript(() => {
-+    await page.addInitScript((targetDate: string) => {
++    await page.addInitScript((targetLabel: string) => {
        (window as unknown as { __seen: number }).__seen = 0;
        const tick = () => {
 -        const n = document.getAnimations().filter((a) => Number(a.effect?.getComputedTiming().activeDuration) > 100).length;
-+        const selectedDate = document.querySelector<HTMLInputElement>('[data-testid="day-input"]')?.value;
-+        const n = selectedDate === targetDate
++        const loadedDay = document.querySelector('[data-testid="agenda-title"]')?.textContent?.trim();
++        const n = loadedDay === targetLabel
 +          ? document.getAnimations().filter((a) => Number(a.effect?.getComputedTiming().activeDuration) > 100).length
 +          : 0;
          (window as unknown as { __seen: number }).__seen = Math.max((window as unknown as { __seen: number }).__seen, n);
@@ -126,10 +129,11 @@
 -    await page.getByTestId("agenda").waitFor();
 -    await page.waitForTimeout(900);
 -    expect(await page.evaluate(() => (window as unknown as { __seen: number }).__seen)).toBeGreaterThan(0);
-+    }, date);
++    }, formatDayLabel(date));
 +    await openWorkingAgenda(page, date);
 +    await expect.poll(() => page.evaluate(() => (window as unknown as { __seen: number }).__seen), {
 +      message: "the selected open day's real ribbon must animate without reduced motion",
 +    }).toBeGreaterThan(0);
    });
  });
+
