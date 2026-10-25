@@ -1,4 +1,5 @@
 import { BUSINESS_KINDS, type BusinessKindId } from "@/modules/tenancy/business-kind";
+import { formatPhone } from "@/lib/phone";
 
 // Message templates: plain functions with explicit escaping (no HTML injection from names), right-to-left, one design.
 // Privacy (docs/05 §2): the subject never names the service; the body names it only when the business kind allows.
@@ -189,8 +190,9 @@ export function render(ctx: NotifContext, opts: { appUrl: string; manageToken?: 
     lead,
     rows,
     ...(link ? { button: { href: link, label: linkLabel } } : {}),
-    ...(!owner && ctx.business.phone ? { note: `לשאלות: <bdi>${esc(ctx.business.phone)}</bdi>` } : {}),
+    ...(!owner && ctx.business.phone ? { note: `לשאלות: <a href="tel:${esc(ctx.business.phone)}" style="color:#0b6b5d;text-decoration:none;font-weight:600"><bdi>${esc(formatPhone(ctx.business.phone))}</bdi></a>` } : {}),
   });
-  const text = [`${biz}`, "", lead, "", ...rows.map(([l, v]) => `${l}: ${v}`), ...(link ? ["", `${linkLabel}: ${link}`] : [])].join("\n");
+  const noteText = !owner && ctx.business.phone ? ["", `לשאלות: ${formatPhone(ctx.business.phone)}`] : [];
+  const text = [`${biz}`, "", lead, "", ...rows.map(([l, v]) => `${l}: ${v}`), ...(link ? ["", `${linkLabel}: ${link}`] : []), ...noteText].join("\n");
   return { subject, html, text };
 }
