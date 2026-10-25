@@ -44,11 +44,14 @@ begin
   return jsonb_build_object('ok', true, 'id', c.id);
 end $$;
 
+revoke all on function private.update_customer_details_impl(uuid, text, text, text) from public, anon, authenticated;
+
 create or replace function public.update_customer_details(p_customer uuid, p_full_name text, p_phone text, p_email text)
 returns jsonb language sql security invoker set search_path = '' as $$
   select private.update_customer_details_impl(p_customer, p_full_name, p_phone, p_email);
 $$;
-revoke all on function private.update_customer_details_impl(uuid, text, text, text) from public, anon;
+
+revoke all on function public.update_customer_details(uuid, text, text, text) from public, anon;
 grant execute on function public.update_customer_details(uuid, text, text, text) to authenticated;
 
 
@@ -111,11 +114,14 @@ begin
   return jsonb_build_object('ok', true, 'targetId', t.id, 'appointmentsMoved', v_appts);
 end $$;
 
+revoke all on function private.merge_customers_impl(uuid, uuid) from public, anon, authenticated;
+
 create or replace function public.merge_customers(p_source_id uuid, p_target_id uuid)
 returns jsonb language sql security invoker set search_path = '' as $$
   select private.merge_customers_impl(p_source_id, p_target_id);
 $$;
-revoke all on function private.merge_customers_impl(uuid, uuid) from public, anon;
+
+revoke all on function public.merge_customers(uuid, uuid) from public, anon;
 grant execute on function public.merge_customers(uuid, uuid) to authenticated;
 
 
@@ -129,8 +135,8 @@ create or replace function private.create_manual_appointment_team(
   p_note text,
   p_out_of_availability boolean,
   p_resource uuid,
-  p_email text default null,
-  p_customer_id uuid default null
+  p_email text,
+  p_customer_id uuid
 )
 returns jsonb language plpgsql security definer set search_path = '' as $$
 declare
@@ -205,8 +211,11 @@ end $$;
 create or replace function private.create_manual_appointment_team(p_business uuid, p_service uuid, p_starts_at timestamptz, p_full_name text, p_phone text, p_note text, p_out_of_availability boolean, p_resource uuid)
 returns jsonb language plpgsql security definer set search_path = '' as $$
 begin
-  return private.create_manual_appointment_team(p_business, p_service, p_starts_at, p_full_name, p_phone, p_note, p_out_of_availability, p_resource, null, null);
+  return private.create_manual_appointment_team(p_business, p_service, p_starts_at, p_full_name, p_phone, p_note, p_out_of_availability, p_resource, null::text, null::uuid);
 end $$;
+
+revoke all on function private.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid, text, uuid) from public, anon, authenticated;
+revoke all on function private.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid) from public, anon, authenticated;
 
 create or replace function public.create_manual_appointment_team(
   p_business uuid,
@@ -237,10 +246,13 @@ create or replace function public.create_manual_appointment_team(
 )
 returns jsonb language plpgsql security invoker set search_path = '' as $$
 begin
-  return private.create_manual_appointment_team(p_business, p_service, p_starts_at, p_full_name, p_phone, p_note, p_out_of_availability, p_resource, null, null);
+  return private.create_manual_appointment_team(p_business, p_service, p_starts_at, p_full_name, p_phone, p_note, p_out_of_availability, p_resource, null::text, null::uuid);
 end $$;
 
+revoke all on function public.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid, text, uuid) from public, anon;
 grant execute on function public.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid, text, uuid) to authenticated;
+
+revoke all on function public.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid) from public, anon;
 grant execute on function public.create_manual_appointment_team(uuid, uuid, timestamptz, text, text, text, boolean, uuid) to authenticated;
 
 
@@ -267,6 +279,9 @@ create or replace function public.owner_customer_detail(p_customer uuid) returns
   )
   from public.customers c where c.id = p_customer
 $$;
+
+revoke all on function public.owner_customer_detail(uuid) from public, anon;
+grant execute on function public.owner_customer_detail(uuid) to authenticated;
 
 
 -- 5. Customer list with filtering (e.g. missing_email, duplicates)
@@ -331,5 +346,8 @@ language sql stable security invoker set search_path = '' as $$
   select * from public.owner_customers(p_business, p_search, p_sort, p_limit, p_offset, null);
 $$;
 
+revoke all on function public.owner_customers(uuid,text,text,int,int,text) from public, anon;
 grant execute on function public.owner_customers(uuid,text,text,int,int,text) to authenticated;
+
+revoke all on function public.owner_customers(uuid,text,text,int,int) from public, anon;
 grant execute on function public.owner_customers(uuid,text,text,int,int) to authenticated;
