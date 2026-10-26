@@ -15,11 +15,6 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { error } = await supabase.auth.verifyOtp({ type, token_hash });
     if (!error) {
-      // If the email was verified for signup and the target is default dashboard,
-      // redirect to /auth/verified so the user can choose to continue on this device or PC.
-      if (type === "email" && next === "/dashboard") {
-        redirect("/auth/verified");
-      }
       redirect(next);
     }
   }
@@ -29,9 +24,6 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      if (next === "/dashboard") {
-        redirect("/auth/verified");
-      }
       redirect(next);
     }
     redirect("/auth/login?verified=1");
