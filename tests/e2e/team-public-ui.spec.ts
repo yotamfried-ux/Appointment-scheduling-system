@@ -30,6 +30,7 @@ test("the page asks 'with whom?' only when there are two or more people; a named
   await page.getByTestId("continue").click();
   await page.getByRole("button", { name: /הזמן הפנוי הראשון/ }).click();
   await page.getByTestId("continue").click();
+  await page.locator('input[name="time"]').first().waitFor();
   await page.locator('input[name="time"]').first().check({ force: true });
   await page.getByTestId("continue").click();
   await page.getByLabel("שם מלא").fill("יעל כהן");

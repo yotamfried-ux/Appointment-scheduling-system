@@ -51,7 +51,7 @@ test.describe("business registration and admin notification outbox", () => {
 
     // 5. Verify email payload and safety
     expect(regNotif!.preview).toBeDefined();
-    expect(regNotif!.preview!.to).toBe("yotam.fried@gmail.com");
+    expect(regNotif!.preview!.to).toBe("admin");
     expect(regNotif!.preview!.subject).toContain("עסק חדש נרשם למערכת");
     expect(regNotif!.preview!.text).toContain(b.slug);
     expect(regNotif!.preview!.text).toContain("/admin");
