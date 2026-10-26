@@ -308,6 +308,12 @@ create trigger trg_resources_analytics
 alter table public.notification_log drop constraint if exists notification_log_recipient_check;
 alter table public.notification_log add constraint notification_log_recipient_check check (recipient in ('customer', 'owner', 'admin'));
 
+alter policy notification_select on public.notification_log
+  using (
+    (business_id in (select private.my_business_ids('staff')) and recipient <> 'admin')
+    or private.is_platform_admin()
+  );
+
 alter table public.notification_log drop constraint if exists notification_log_type_check;
 alter table public.notification_log add constraint notification_log_type_check check (type in (
   'booking_received','booking_confirmed','booking_declined','booking_cancelled_by_business','booking_cancelled_by_customer','reminder','owner_new_request','owner_customer_cancelled',

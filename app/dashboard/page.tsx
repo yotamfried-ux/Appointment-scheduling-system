@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { AppShell, WIDE } from "@/components/app-shell";
+import { PublishButton } from "@/app/dashboard/publish-button";
 import { OwnerAgenda } from "@/components/owner/agenda";
 import { BillingBanner } from "@/components/owner/billing-banner";
 import { DeletionBanner } from "@/components/owner/deletion-banner";
@@ -50,6 +51,7 @@ export default async function DashboardPage() {
       <DeletionBanner scheduledFor={deletion?.scheduledFor ?? null} timezone={ctx.business.timezone} />
       <BillingBanner billing={billing} timezone={ctx.business.timezone} />
       <PageHeader title={t("welcome", { name: `\u2068${b.name}\u2069` })} />
+      {b.published_at || deletion ? null : <PublishButton businessId={b.id} />}
       <OwnerAgenda />
       <dl className="divide-y rounded-lg border bg-card">
         <div className="flex flex-col gap-1 p-4 sm:flex-row sm:justify-between sm:gap-4">

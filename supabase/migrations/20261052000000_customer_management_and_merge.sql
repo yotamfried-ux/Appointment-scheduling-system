@@ -68,9 +68,6 @@ declare
   v_waitlist int;
 begin
   if (select auth.uid()) is null then raise exception 'not_authenticated' using errcode = '28000'; end if;
-  if p_source_id is null or p_target_id is null or p_source_id = p_target_id then
-    raise exception 'invalid_merge_targets' using errcode = '23514';
-  end if;
 
   select * into s from public.customers where id = p_source_id for update;
   select * into t from public.customers where id = p_target_id for update;
@@ -78,6 +75,10 @@ begin
   if not found or s.id is null or t.id is null then raise exception 'not_found' using errcode = 'P0001'; end if;
   if s.business_id <> t.business_id then raise exception 'business_mismatch' using errcode = 'P0001'; end if;
   if not private.is_member(t.business_id, 'staff') then raise exception 'forbidden' using errcode = '42501'; end if;
+
+  if p_source_id is null or p_target_id is null or p_source_id = p_target_id then
+    raise exception 'invalid_merge_targets' using errcode = '23514';
+  end if;
   if s.anonymized_at is not null or t.anonymized_at is not null then raise exception 'anonymized' using errcode = 'P0001'; end if;
 
   if t.notes is null then

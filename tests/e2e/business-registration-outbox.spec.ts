@@ -21,13 +21,13 @@ test.describe("business registration and admin notification outbox", () => {
     // 2. Verify analytics event was automatically recorded in public.analytics_events
     const { data: analyticsEvents, error: analyticsError } = await supabase
       .from("analytics_events")
-      .select("id, event_type, business_id, idempotency_key, payload, source")
+      .select("id, event_type, business_id, dedupe_key, payload, source")
       .eq("business_id", b.id)
       .eq("event_type", "business_registered");
 
     expect(analyticsError).toBeNull();
     expect(analyticsEvents).toHaveLength(1);
-    expect(analyticsEvents![0].idempotency_key).toBe(`biz:${b.id}`);
+    expect(analyticsEvents![0].dedupe_key).toBe(`biz:${b.id}`);
     expect(analyticsEvents![0].payload).toMatchObject({
       kind,
       slug: b.slug,

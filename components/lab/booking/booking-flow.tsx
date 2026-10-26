@@ -292,7 +292,8 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
 
       {/* Two-Column Concierge Card on desktop, single column on mobile */}
       <div className="grid flex-1 items-start gap-6 px-4 pt-6 sm:px-6 lg:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.9fr)]">
-        <main id="main" className="min-w-0">
+        <div className="min-w-0">
+          <main id="main" className="w-full">
           <h1 ref={headingRef} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
             {s.step === "service" ? vocab.pickService : t(`${s.step as "day"}.title`)}
           </h1>
@@ -492,6 +493,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
             </form>
           )}
         </main>
+        </div>
 
         {/* Live Summary Ticket (Direction B Concierge Card) */}
         <aside aria-label={t("summary.title")} className="hidden rounded-xl border bg-card p-5 lg:sticky lg:top-6 lg:block">

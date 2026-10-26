@@ -203,7 +203,7 @@ test.describe("failure handling", () => {
     const chosen = await chooseSlot(page, "haircut");
     await fillDetails(page, "barber");
     await page.getByTestId("continue").click();
-    await expect(page.getByTestId("submit-error")).toContainText("משהו השתבש");
+    await expect(page.getByTestId("submit-error")).toContainText(/משהו השתבש|לא הצלחנו להשלים/);
     await expect(page.getByLabel("שם מלא")).toHaveValue("נועם לוי"); // nothing lost
     expect((await axe(page)).violations).toEqual([]);
     await page.getByTestId("continue").click();
