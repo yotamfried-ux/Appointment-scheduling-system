@@ -10,6 +10,10 @@ function escapeCsvField(val: string | number | boolean | null | undefined): stri
 
 export async function GET(request: Request) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
   const isAdmin = await isPlatformAdmin(supabase);
   if (!isAdmin) {
     return new NextResponse("Forbidden: Platform administrator privilege required", { status: 403 });

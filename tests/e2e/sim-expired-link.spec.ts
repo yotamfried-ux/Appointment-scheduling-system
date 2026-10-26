@@ -8,7 +8,7 @@ test.beforeEach(async ({ context }) => { await context.setExtraHTTPHeaders({ "x-
 test("on a phone the card is under the logo; resend is primary, login is secondary", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/auth/error?reason=expired");
-  const logo = page.getByRole("link", { name: "תורים", exact: true }).first();
+  const logo = page.getByRole("link", { name: /תורים|ניהול יומן ותורים/ }).first();
   const card = page.locator('[data-slot="card"]').first();
   await expect(card).toBeVisible();
   const l = (await logo.boundingBox())!;

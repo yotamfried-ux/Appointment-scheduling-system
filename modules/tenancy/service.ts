@@ -16,8 +16,7 @@ export interface BusinessSummary {
 }
 
 export async function createBusiness(supabase: SupabaseClient, input: CreateBusinessInput): Promise<Result<BusinessSummary>> {
-  const candidates = input.slug ? [input.slug] : slugCandidates(input.name, Math.random);
-  for (const slug of candidates) {
+  for (const slug of slugCandidates(input.name, Math.random, input.slug)) {
     const { data, error } = await supabase.rpc("create_business", {
       p_name: input.name,
       p_kind: input.kind,

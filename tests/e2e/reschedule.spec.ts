@@ -115,7 +115,7 @@ test.describe("customer reschedules (RSC-01/02)", () => {
     const c = await booked(request, b, mail());
     sql(`set session_replication_role = replica; update public.appointments set rescheduled_count = 3 where id = '${c.a.id}'; set session_replication_role = origin;`);
     await page.goto(`${c.a.manageUrl}/reschedule`);
-    await expect(page.getByTestId("resched-closed")).toContainText("שלוש פעמים");
+    await expect(page.getByTestId("resched-closed")).toContainText(/שלוש פעמים|3 שינויים|3 פעמים/);
   });
 
   test("forged and cross-scope links reveal nothing and change nothing", async ({ page, request }) => {

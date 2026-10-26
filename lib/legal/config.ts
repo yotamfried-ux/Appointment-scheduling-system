@@ -9,7 +9,7 @@ export const LEGAL = {
   operator: { name: "D2R" },
   /** Set NEXT_PUBLIC_LEGAL_CONTACT / NEXT_PUBLIC_A11Y_CONTACT in the environment; falls back to official mailbox yotam.fried@gmail.com (docs/legal/open-decisions.md G-02). */
   contact: process.env.NEXT_PUBLIC_LEGAL_CONTACT || "yotam.fried@gmail.com",
-  accessibilityContact: process.env.NEXT_PUBLIC_A11Y_CONTACT || "yotam.fried@gmail.com",
+  accessibilityContact: process.env.NEXT_PUBLIC_A11Y_CONTACT || null,
 } as const;
 
 /** The documents an owner must have accepted at their current version. */

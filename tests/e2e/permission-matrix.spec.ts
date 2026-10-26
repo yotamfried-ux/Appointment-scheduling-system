@@ -73,6 +73,8 @@ const ROUTES: Route[] = [
   { file: "admin/billing/override/route.ts", method: "POST", url: () => "/api/admin/billing/override", body: (c) => ({ action: "set", businessId: c.a.id, key: "export", bool: true, reason: "בדיקת מטריצת הרשאות" }), admin: true, ok: [403], foreignSelf: [403] },
   { file: "admin/billing/subscription/route.ts", method: "POST", url: () => "/api/admin/billing/subscription", body: (c) => ({ businessId: c.a.id, planId: "pro", status: "active", reason: "בדיקת מטריצת הרשאות" }), admin: true, ok: [403], foreignSelf: [403] },
   { file: "admin/business/suspension/route.ts", method: "POST", url: () => "/api/admin/business/suspension", body: (c) => ({ businessId: c.a.id, suspended: true, reason: "בדיקת מטריצת הרשאות" }), admin: true, ok: [403], foreignSelf: [403] },
+  { file: "admin/export/route.ts", method: "GET", url: () => "/api/admin/export", admin: true, ok: [403], foreignSelf: [403] },
+  { file: "owner/customers/[id]/merge/route.ts", method: "POST", url: (c, w) => `/api/owner/customers/${idOf(c, w, "cust")}/merge`, body: (c) => ({ targetId: c.cust.target }), byId: true, ok: [422], targetKey: "cust" },
   { file: "admin/business/brand-review/route.ts", method: "POST", url: () => "/api/admin/business/brand-review", body: (c) => ({ businessId: c.a.id, reason: "בדיקת מטריצת הרשאות" }), admin: true, ok: [403], foreignSelf: [403] },
 ];
 

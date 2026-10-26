@@ -64,12 +64,10 @@ export default async function DashboardPage() {
             <Link href="/settings/booking" className="inline-flex min-h-9 items-center text-xs font-normal text-muted-foreground underline-offset-4 hover:text-foreground hover:underline" data-testid="change-link">{t("changeLink")}</Link>
           </dd>
         </div>
-        {deletion ? (
-          <div className="flex flex-col gap-1 p-4 sm:flex-row sm:justify-between sm:gap-4">
-            <dt className="text-muted-foreground">{t("status")}</dt>
-            <dd className="font-semibold" data-testid="biz-status">{t("closedForDeletion")}</dd>
-          </div>
-        ) : null}
+        <div className="flex flex-col gap-1 p-4 sm:flex-row sm:justify-between sm:gap-4">
+          <dt className="text-muted-foreground">{t("status")}</dt>
+          <dd className="font-semibold" data-testid="biz-status">{deletion ? t("closedForDeletion") : b.published_at ? t("published") : t("draft")}</dd>
+        </div>
       </dl>
       <section aria-label={t("settingsNav")} className="space-y-3 pt-2">
         <h2 className="text-base font-semibold text-foreground">{t("settingsNav")}</h2>

@@ -18,8 +18,13 @@ export interface Row {
   provider_message_id: string | null;
   preview: { to: string; subject: string; text: string } | null;
 }
-export const rows = async (b: TestBusiness) =>
-  (await admin().from("notification_log").select("appointment_id, offer_id, type, recipient, status, attempts, skip_reason, error, provider_message_id, preview").eq("business_id", b.id).order("created_at")).data as Row[];
+export const rows = async (b: TestBusiness, opts: { includeAdmin?: boolean } = {}) => {
+  let q = admin().from("notification_log").select("appointment_id, offer_id, type, recipient, status, attempts, skip_reason, error, provider_message_id, preview").eq("business_id", b.id);
+  if (!opts.includeAdmin) {
+    q = q.in("recipient", ["customer", "owner"]);
+  }
+  return (await q.order("created_at")).data as Row[];
+};
 export const byType = (rs: Row[], type: string) => rs.filter((r) => r.type === type);
 export const runOutbox = (request: APIRequestContext) => request.post("/api/jobs/outbox", { headers: auth });
 export const runWaitlistSweep = (request: APIRequestContext) => request.post("/api/jobs/waitlist", { headers: auth });

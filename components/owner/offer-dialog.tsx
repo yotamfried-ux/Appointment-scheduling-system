@@ -24,7 +24,7 @@ export function OfferDialog({
   onDone: () => void;
 }) {
   const t = useTranslations("owner.waitlist.offerDialog");
-  const [time, setTime] = useState(entry.fromMinute !== null ? fmt(entry.fromMinute) : windows[0] ? fmt(windows[0].from) : "");
+  const [time, setTime] = useState(entry.fromMinute !== null ? fmt(entry.fromMinute) : "");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 

@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowRight, CalendarPlus, Check, Timer } from "lucide-re
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import type { z } from "zod";
+import { TimeRibbon } from "@/components/brand/time-ribbon";
 import { openWindows } from "@/lib/ribbon";
 import { useHoldTimer } from "@/components/lab/booking/use-hold-timer";
 import { WeekPicker } from "@/components/lab/booking/week-picker";
@@ -260,6 +261,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
   }
 
   const submitting = submit.status === "submitting";
+  const timeBounds = slots.status === "ready" && slots.data.windows.length ? { from: slots.data.windows[0].from, to: slots.data.windows.at(-1)!.to } : null;
 
   return (
     <div className="mx-auto flex min-h-svh w-full max-w-4xl flex-col pb-32" data-kind={kind}>
@@ -376,6 +378,16 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
                       {t("time.openWindows", { windows: openWindows(slots.data.segments).join(" · ") })}
                     </p>
                   ) : null}
+                  {timeBounds ? (
+                    <TimeRibbon
+                      from={timeBounds.from}
+                      to={timeBounds.to}
+                      segments={slots.data.segments}
+                      tickEvery={(timeBounds.to - timeBounds.from) / 60 > 6 ? 3 : 1}
+                      label={t("time.ribbonLabel", { day: formatDayLabel(s.day, "short") })}
+                      legend
+                    />
+                  ) : null}
                   {slots.data.slots.length === 0 ? (
                     <div className="rounded-xl border border-dashed p-6 text-center">
                       <p className="text-sm text-muted-foreground">{t("time.none")}</p>
@@ -484,7 +496,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
         {/* Live Summary Ticket (Direction B Concierge Card) */}
         <aside aria-label={t("summary.title")} className="hidden rounded-xl border bg-card p-5 lg:sticky lg:top-6 lg:block">
           <p className="text-xs font-semibold tracking-wide text-muted-foreground">{t("summary.title")}</p>
-          <p className="mt-1 text-base font-bold">{business.name}</p>
+          <p className="mt-1 text-base font-bold [overflow-wrap:anywhere] break-words">{business.name}</p>
           {business.address ? <p className="text-xs text-muted-foreground">{business.address}</p> : null}
 
           <dl className="mt-4 divide-y border-t text-sm">

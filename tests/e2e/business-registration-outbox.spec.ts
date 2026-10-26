@@ -21,9 +21,9 @@ test.describe("business registration and admin notification outbox", () => {
     // 2. Verify analytics event was automatically recorded in public.analytics_events
     const { data: analyticsEvents, error: analyticsError } = await supabase
       .from("analytics_events")
-      .select("id, event_name, business_id, idempotency_key, payload, source")
+      .select("id, event_type, business_id, idempotency_key, payload, source")
       .eq("business_id", b.id)
-      .eq("event_name", "business_registered");
+      .eq("event_type", "business_registered");
 
     expect(analyticsError).toBeNull();
     expect(analyticsEvents).toHaveLength(1);
@@ -35,13 +35,13 @@ test.describe("business registration and admin notification outbox", () => {
 
     // 3. Process the outbox job to fan-out and send notifications
     await drain(request, async () => {
-      const rs = await rows(b);
+      const rs = await rows(b, { includeAdmin: true });
       const regNotif = rs.find((r) => r.type === "admin_business_registered");
       return regNotif !== undefined && regNotif.status === "sent";
     });
 
     // 4. Inspect notification log record
-    const rs = await rows(b);
+    const rs = await rows(b, { includeAdmin: true });
     const regNotif = rs.find((r) => r.type === "admin_business_registered");
     expect(regNotif).toBeDefined();
     expect(regNotif!.status).toBe("sent");
@@ -63,7 +63,7 @@ test.describe("business registration and admin notification outbox", () => {
     await runOutbox(request);
     await runOutbox(request);
 
-    const rsAfter = await rows(b);
+    const rsAfter = await rows(b, { includeAdmin: true });
     const regNotifsAfter = rsAfter.filter((r) => r.type === "admin_business_registered");
     expect(regNotifsAfter).toHaveLength(1);
     expect(regNotifsAfter[0].attempts).toBe(1);
