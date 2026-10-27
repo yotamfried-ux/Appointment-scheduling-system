@@ -95,8 +95,8 @@ describe("Analytics Service Privacy & Invariants", () => {
       from: (table: string) => {
         expect(table).toBe("analytics_events");
         return {
-          insert: (data: { business_id: string; event_type: string; payload: Record<string, unknown> }) => {
-            capturedPayload = data.payload;
+          insert: (data: { business_id: string; event_type: string; meta?: Record<string, unknown>; payload?: Record<string, unknown> }) => {
+            capturedPayload = data.meta ?? data.payload ?? null;
             return Promise.resolve({ error: null });
           },
         };

@@ -6,7 +6,7 @@ import type { AnalyticsEventType } from "./types";
  * Privacy invariant: Analytics events must never store personal data (PII) of end-customers.
  * Strip out common PII fields before sending to the database.
  */
-function sanitizePayload(payload: Record<string, unknown>): Record<string, unknown> {
+export function sanitizePayload(payload: Record<string, unknown>): Record<string, unknown> {
   const sanitized = { ...payload };
   const forbiddenKeys = ["email", "phone", "name", "fullName", "full_name", "customer_name", "customer_email", "customer_phone"];
   for (const key of forbiddenKeys) {
@@ -31,8 +31,7 @@ export async function recordAnalyticsEvent(
     const { error } = await supabase.from("analytics_events").insert({
       business_id: params.businessId,
       event_type: params.eventType,
-      event_target: params.eventTarget ?? null,
-      payload: cleanPayload,
+      meta: cleanPayload,
     });
     return !error;
   } catch {

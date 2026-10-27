@@ -24,13 +24,27 @@ export const OnboardingHoursInput = z
   .length(7)
   .refine((days) => days.some((d) => d.open) && days.filter((d) => d.open).every((d) => windowsValid(d.windows)), "invalid hours");
 
+export const RESERVED_SLUGS = [
+  "admin", "api", "login", "auth", "book", "app", "www", "dashboard", "settings",
+  "design", "static", "onboarding", "privacy", "terms", "support", "help",
+  "billing", "assets", "public", "_next"
+] as const;
+
 export const CreateBusinessInput = z
   .object({
     name: z.string().trim().min(2).max(80),
     ownerName: z.string().trim().min(2).max(80).optional(),
     kind: z.enum(KIND_IDS),
     // Optional link name chosen by the owner; the database still enforces uniqueness and format.
-    slug: z.string().trim().toLowerCase().min(3).max(40).regex(/^[a-z0-9]+(-[a-z0-9]+)*$/).optional(),
+    slug: z
+      .string()
+      .trim()
+      .toLowerCase()
+      .min(3)
+      .max(40)
+      .regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+      .refine((s) => !RESERVED_SLUGS.includes(s as typeof RESERVED_SLUGS[number]), "reserved slug")
+      .optional(),
     phone: z.string().transform((v, ctx) => {
       const n = normalizePhone(v);
       if (!n) ctx.addIssue({ code: "custom", message: "invalid phone" });

@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { isPlatformAdmin, listBusinesses } from "@/modules/admin/service";
-
-function escapeCsvField(val: string | number | boolean | null | undefined): string {
-  if (val === null || val === undefined) return '""';
-  const str = String(val).replace(/"/g, '""');
-  return `"${str}"`;
-}
+import { BOM, csvRow } from "@/modules/reports/csv";
 
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -52,24 +47,24 @@ export async function GET(request: Request) {
   ];
 
   const rows = businesses.map((b) => [
-    escapeCsvField(b.id),
-    escapeCsvField(b.name),
-    escapeCsvField(b.slug),
-    escapeCsvField(b.kind),
-    escapeCsvField(b.phone),
-    escapeCsvField(b.owner_email),
-    escapeCsvField(b.published_at ? "פורסם" : "טיוטה"),
-    escapeCsvField(b.created_at),
-    escapeCsvField(b.published_at),
-    escapeCsvField(b.total_appointments),
-    escapeCsvField(b.cancelled_appointments),
-    escapeCsvField(`${b.cancellation_rate}%`),
-    escapeCsvField(b.services_count),
-    escapeCsvField(b.staff_count),
-    escapeCsvField(b.waitlist_enabled ? "כן" : "לא"),
+    b.id,
+    b.name,
+    b.slug,
+    b.kind,
+    b.phone,
+    b.owner_email,
+    b.published_at ? "פורסם" : "טיוטה",
+    b.created_at,
+    b.published_at,
+    b.total_appointments,
+    b.cancelled_appointments,
+    `${b.cancellation_rate}%`,
+    b.services_count,
+    b.staff_count,
+    b.waitlist_enabled ? "כן" : "לא",
   ]);
 
-  const csvContent = "\uFEFF" + [headers.map((h) => `"${h}"`).join(","), ...rows.map((r) => r.join(","))].join("\r\n");
+  const csvContent = BOM + csvRow(headers) + rows.map(csvRow).join("");
 
   const nowStr = new Date().toISOString().slice(0, 10);
   return new NextResponse(csvContent, {
