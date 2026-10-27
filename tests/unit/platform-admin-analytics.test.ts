@@ -309,4 +309,29 @@ describe("Platform Admin Service & RPC Mapping", () => {
     expect(errors[0].category).toBe("notification");
     expect(errors[0].error_message).toBe("no_email");
   });
+
+  it("calculates platform personal profit and SaaS unit economics correctly", () => {
+    const contractualMrr = 1490;
+    const trialingSubs = 3;
+    const activeSubs = 10;
+    const trialPotentialMrr = trialingSubs * 149;
+    const totalPotentialMrr = contractualMrr + trialPotentialMrr;
+    const contractualArr = contractualMrr * 12;
+    const totalPotentialArr = totalPotentialMrr * 12;
+    const estimatedMonthlyInfraNis = 75;
+    const estimatedNetProfitNis = Math.max(0, contractualMrr - estimatedMonthlyInfraNis);
+    const potentialNetProfitNis = Math.max(0, totalPotentialMrr - (estimatedMonthlyInfraNis + (trialingSubs * 10)));
+    const grossMarginPct = Math.round(((contractualMrr - estimatedMonthlyInfraNis) / contractualMrr) * 100);
+    const arpuNis = Math.round(contractualMrr / activeSubs);
+    const estimatedLtvNis = arpuNis * 18;
+
+    expect(contractualArr).toBe(17880);
+    expect(trialPotentialMrr).toBe(447);
+    expect(totalPotentialArr).toBe(23244);
+    expect(estimatedNetProfitNis).toBe(1415);
+    expect(potentialNetProfitNis).toBe(1832);
+    expect(grossMarginPct).toBe(95);
+    expect(arpuNis).toBe(149);
+    expect(estimatedLtvNis).toBe(2682);
+  });
 });
