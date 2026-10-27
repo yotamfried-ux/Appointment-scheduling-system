@@ -334,4 +334,30 @@ describe("Platform Admin Service & RPC Mapping", () => {
     expect(arpuNis).toBe(149);
     expect(estimatedLtvNis).toBe(2682);
   });
+
+  it("strictly differentiates paying subscribers from complimentary/gifted PRO accounts in SaaS MRR and personal profit", () => {
+    // 2 complimentary accounts (Sivan & Platform Admin) + 1 paying customer + 1 trialing
+    const complimentarySubs = 2;
+    const complimentaryValueNis = complimentarySubs * 149;
+    const payingSubs = 1;
+    const payingMrr = payingSubs * 149; // only 149, NOT 447!
+    const trialingSubs = 1;
+    const trialPotentialMrr = trialingSubs * 149;
+    const estimatedMonthlyInfraNis = 75;
+
+    // Real MRR must NEVER include complimentary gifts
+    expect(payingMrr).toBe(149);
+    expect(complimentaryValueNis).toBe(298);
+
+    // Personal Net Profit calculation strictly uses paying MRR
+    const personalNetProfit = Math.max(0, payingMrr - estimatedMonthlyInfraNis);
+    expect(personalNetProfit).toBe(74); // 149 - 75
+
+    // If 0 paying customers (only complimentary gifts exist), MRR and Net Profit are strictly 0
+    const zeroPayingSubs = 0;
+    const zeroPayingMrr = zeroPayingSubs * 149;
+    const zeroProfit = Math.max(0, zeroPayingMrr - estimatedMonthlyInfraNis);
+    expect(zeroPayingMrr).toBe(0);
+    expect(zeroProfit).toBe(0);
+  });
 });

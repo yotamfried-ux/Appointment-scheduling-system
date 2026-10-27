@@ -1,9 +1,14 @@
 export interface FinancialMetrics {
   // SaaS Platform Revenue
   contractualMrrNis: number;
+  payingMrrNis?: number;
   collectedRevenueNis: number;
   arrNis: number;
   activeSubscribers: number;
+  payingSubscribers?: number;
+  complimentarySubscribers?: number;
+  complimentaryValueNis?: number;
+  totalActiveProSubscribers?: number;
   trialingSubscribers: number;
   trialPotentialMrrNis: number;
   pastDueSubscribers: number;
@@ -78,6 +83,8 @@ export interface AdminBusiness {
   services_count: number;
   staff_count: number;
   waitlist_enabled: boolean;
+  subscription_tier?: string;
+  subscription_type?: "paying" | "complimentary" | "trial" | "canceled" | "free";
 }
 
 export interface AdminSystemError {

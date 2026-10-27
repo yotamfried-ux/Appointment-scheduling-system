@@ -369,6 +369,38 @@ const CRITERIA_DEFINITIONS: CriterionDefinition[] = [
   },
 ];
 
+function getSubBadge(b: AdminBusiness): { type: "paying" | "complimentary" | "trial" | "free"; label: string; className: string } {
+  if (
+    b.subscription_type === "complimentary" ||
+    (b.owner_email && (b.owner_email.includes("suvankeinan") || b.owner_email.includes("yotam.fried")))
+  ) {
+    return {
+      type: "complimentary",
+      label: "הענקה אישית (PRO)",
+      className: "border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300 font-semibold",
+    };
+  }
+  if (b.subscription_type === "paying") {
+    return {
+      type: "paying",
+      label: "משלם (PRO)",
+      className: "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold",
+    };
+  }
+  if (b.subscription_type === "trial" || (!b.published_at && b.total_appointments === 0)) {
+    return {
+      type: "trial",
+      label: "ניסיון (Trial)",
+      className: "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+    };
+  }
+  return {
+    type: "free",
+    label: "בסיסי (Free)",
+    className: "text-muted-foreground",
+  };
+}
+
 export function AdminDashboardClient({
   metrics,
   businesses,
@@ -379,16 +411,23 @@ export function AdminDashboardClient({
   const activeCommit = deploymentCommit || CURRENT_COMMIT;
   const [activeTab, setActiveTab] = useState<"overview" | "financial" | "directory" | "errors" | "checklist">("overview");
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft" | "paying" | "complimentary" | "trial">("all");
   const [checklistFilter, setChecklistFilter] = useState<"ALL" | QualificationStatus>("ALL");
   const [copiedChecklist, setCopiedChecklist] = useState(false);
 
-  // Platform Owner Personal Economics & SaaS Metrics
+  // Platform Owner Personal Economics & SaaS Metrics - Differentiating Paying vs Complimentary
   const fin = metrics.financial;
-  const contractualMrr = fin?.contractualMrrNis ?? fin?.mrrNis ?? 0;
+  const complimentaryFromList = businesses.filter(b => b.owner_email && (b.owner_email.includes("suvankeinan") || b.owner_email.includes("yotam.fried"))).length;
+  const complimentarySubs = fin?.complimentarySubscribers ?? complimentaryFromList;
+  const complimentaryValueNis = fin?.complimentaryValueNis ?? (complimentarySubs * 149);
+
+  // Only real paying subscribers count towards MRR and paying active subs
+  const payingSubs = fin?.payingSubscribers ?? Math.max(0, (fin?.activeSubscribers ?? 0) - (fin?.complimentarySubscribers ?? complimentaryFromList));
+  const contractualMrr = fin?.payingMrrNis ?? (fin?.payingSubscribers !== undefined ? (fin.payingSubscribers * 149) : (payingSubs * 149));
   const collectedRevenue = fin?.collectedRevenueNis ?? 0;
   const trialingSubs = fin?.trialingSubscribers ?? 0;
-  const activeSubs = fin?.activeSubscribers ?? 0;
+  const activeSubs = payingSubs;
+  const totalActiveProSubs = payingSubs + complimentarySubs;
   const trialPotentialMrr = fin?.trialPotentialMrrNis ?? (trialingSubs * 149);
   const totalPotentialMrr = contractualMrr + trialPotentialMrr;
   const contractualArr = contractualMrr * 12;
@@ -396,8 +435,8 @@ export function AdminDashboardClient({
   const estimatedMonthlyInfraNis = 75; // baseline hosting/DB/email costs
   const estimatedNetProfitNis = Math.max(0, contractualMrr - estimatedMonthlyInfraNis);
   const potentialNetProfitNis = Math.max(0, totalPotentialMrr - (estimatedMonthlyInfraNis + (trialingSubs * 10)));
-  const grossMarginPct = contractualMrr > 0 ? Math.round(((contractualMrr - estimatedMonthlyInfraNis) / contractualMrr) * 100) : 90;
-  const arpuNis = activeSubs > 0 ? Math.round(contractualMrr / activeSubs) : 149;
+  const grossMarginPct = contractualMrr > 0 ? Math.round(((contractualMrr - estimatedMonthlyInfraNis) / contractualMrr) * 100) : 0;
+  const arpuNis = payingSubs > 0 ? Math.round(contractualMrr / payingSubs) : 149;
   const estimatedLtvNis = arpuNis * 18;
 
   // Persistent qualification state via localStorage
@@ -514,7 +553,10 @@ export function AdminDashboardClient({
       const matchStatus =
         statusFilter === "all" ||
         (statusFilter === "active" && b.published_at !== null) ||
-        (statusFilter === "draft" && b.published_at === null);
+        (statusFilter === "draft" && b.published_at === null) ||
+        (statusFilter === "paying" && getSubBadge(b).type === "paying") ||
+        (statusFilter === "complimentary" && getSubBadge(b).type === "complimentary") ||
+        (statusFilter === "trial" && getSubBadge(b).type === "trial");
 
       return matchSearch && matchStatus;
     });
@@ -717,22 +759,22 @@ export function AdminDashboardClient({
 
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <div>
-                  <div className="text-xs text-muted-foreground">הכנסה חודשית שוטפת (MRR)</div>
+                  <div className="text-xs text-muted-foreground">הכנסה חודשית שוטפת (MRR משלמים)</div>
                   <div className="text-2xl font-bold text-emerald-700">
                     ₪{contractualMrr.toLocaleString()}
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
-                    קצב שנתי ARR: ₪{contractualArr.toLocaleString()}
+                    {payingSubs} מנויים משלמים (קצב שנתי ARR: ₪{contractualArr.toLocaleString()})
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-xs text-muted-foreground">הכנסות שנגבו בפועל</div>
-                  <div className="text-2xl font-bold text-sky-700">
-                    ₪{collectedRevenue.toLocaleString()}
+                  <div className="text-xs text-muted-foreground">מנויי PRO בהענקה אישית</div>
+                  <div className="text-2xl font-bold text-purple-700">
+                    {complimentarySubs} חשבונות
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
-                    חיובי מנויים שנסלקו לחשבון
+                    מתנה ללא עלות (שווי הטבה: ₪{complimentaryValueNis.toLocaleString()})
                   </div>
                 </div>
 
@@ -747,12 +789,12 @@ export function AdminDashboardClient({
                 </div>
 
                 <div>
-                  <div className="text-xs text-muted-foreground">הכנסה ממוצעת לעסק (ARPU)</div>
-                  <div className="text-2xl font-bold text-purple-700">
-                    ₪{arpuNis}
+                  <div className="text-xs text-muted-foreground">רווח תפעולי נקי משוער</div>
+                  <div className="text-2xl font-bold text-sky-700">
+                    ₪{estimatedNetProfitNis.toLocaleString()}
                   </div>
                   <div className="text-[11px] text-muted-foreground mt-0.5">
-                    שולי רווח גולמי משוער: ~{grossMarginPct}%
+                    נטו למפעיל לאחר עלויות תשתית (~₪{estimatedMonthlyInfraNis}/חודש)
                   </div>
                 </div>
               </div>
@@ -868,23 +910,36 @@ export function AdminDashboardClient({
               {/* Informational Methodology Note */}
               <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-950 dark:text-emerald-200">
                 <span className="font-semibold">מודל הרווח האישי של הפלטפורמה: </span>
-                ההכנסות של Tori מבוססות על דמי מנוי SaaS חודשיים של בתי עסק (149 ₪ לחודש במסלול Pro). המערכת אינה גובה עמלות מתורי הלקוחות והכסף של הטיפולים שייך לבעלי העסקים בלבד. כל הנתונים בלוח זה מרכזים את ההכנסות והרווח האישי שלך כמפעיל הפלטפורמה.
+                ההכנסות של Tori מבוססות על דמי מנוי SaaS חודשיים של בתי עסק שמשלמים בפועל (149 ₪ לחודש במסלול Pro). מנויים שהוענקו בהטבה אישית ע״י מנהל המערכת (כגון סיוון קינן ומנהל המערכת) מבודדים לחלוטין ואינם מנפחים את ה־MRR או את הרווח האישי. המערכת אינה גובה עמלות מתורי הלקוחות והכסף של הטיפולים שייך לבעלי העסקים בלבד.
               </div>
 
               {/* SECTION 1: SAAS PLATFORM REVENUE */}
               <div>
                 <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-                  <span>1. הכנסות פלטפורמת ה־SaaS (מנויי עסקים)</span>
+                  <span>1. הכנסות פלטפורמת ה־SaaS (הפרדה מלאה: משלמים מול הענקות אישיות)</span>
                 </h3>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-4">
                   <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-4">
-                    <div className="text-xs font-semibold text-emerald-700">MRR חוזי צפוי (מנויים פעילים)</div>
+                    <div className="text-xs font-semibold text-emerald-700">MRR חוזי משלמים (Paying Only)</div>
                     <div className="mt-1 text-3xl font-bold text-emerald-800">
                       ₪{contractualMrr.toLocaleString()}
                     </div>
                     <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                      <div>מנויים שמשלמים בפועל: <span className="font-semibold text-foreground">{payingSubs} עסקים</span></div>
                       <div>קצב שנתי חוזי ARR: <span className="font-semibold text-foreground">₪{contractualArr.toLocaleString()}</span></div>
-                      <div>הכנסות שנגבו בפועל: <span className="font-semibold text-foreground">₪{collectedRevenue.toLocaleString()}</span> (סליקה פעילה תחובר בינואר)</div>
+                      <div>הכנסות שנגבו בפועל: <span className="font-semibold text-foreground">₪{collectedRevenue.toLocaleString()}</span></div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-purple-500/30 bg-purple-500/10 p-4">
+                    <div className="text-xs font-semibold text-purple-700">מנויי PRO בהענקה אישית (מתנה)</div>
+                    <div className="mt-1 text-3xl font-bold text-purple-800">
+                      {complimentarySubs} <span className="text-base font-normal text-muted-foreground">חשבונות</span>
+                    </div>
+                    <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                      <div>סיוון קינן ומנהל מערכת (חשבונות ללא הגבלה)</div>
+                      <div>שווי הטבה חודשית: <span className="font-semibold text-foreground">₪{complimentaryValueNis.toLocaleString()} / חודש</span></div>
+                      <div className="text-[11px] text-purple-700 dark:text-purple-300">0 ₪ גבייה (מבודד מ־MRR ומרווח אישי)</div>
                     </div>
                   </div>
 
@@ -896,18 +951,20 @@ export function AdminDashboardClient({
                     </div>
                     <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
                       <div>{trialingSubs} עסקים במסלול Pro (149 ₪ לחודש)</div>
-                      <div>פוטנציאל ARR מהמרות: <span className="font-semibold text-foreground">₪{(trialPotentialMrr * 12).toLocaleString()}</span> (סה״כ צפוי: ₪{totalPotentialArr.toLocaleString()})</div>
+                      <div>פוטנציאל ARR מהמרות: <span className="font-semibold text-foreground">₪{(trialPotentialMrr * 12).toLocaleString()}</span></div>
+                      <div>סה״כ ARR צפוי: <span className="font-semibold text-foreground">₪{totalPotentialArr.toLocaleString()}</span></div>
                     </div>
                   </div>
 
                   <div className="rounded-lg border border-slate-500/30 bg-slate-500/10 p-4">
-                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">סטטוס מנויים בפלטפורמה</div>
-                    <div className="mt-1 text-3xl font-bold text-slate-800 dark:text-slate-100">
-                      {activeSubs} <span className="text-lg font-normal text-muted-foreground">פעילים</span> · {trialingSubs} <span className="text-lg font-normal text-muted-foreground">בניסיון</span>
+                    <div className="text-xs font-semibold text-slate-700 dark:text-slate-300">פילוח מנויים כולל</div>
+                    <div className="mt-1 text-2xl font-bold text-slate-800 dark:text-slate-100">
+                      {payingSubs} <span className="text-sm font-normal text-muted-foreground">משלמים</span> · {complimentarySubs} <span className="text-sm font-normal text-muted-foreground">מתנה</span>
                     </div>
                     <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
-                      <div>עסקים בפיגור תשלום: <span className="font-semibold text-foreground">{fin?.pastDueSubscribers ?? 0}</span></div>
-                      <div>עסקים רשומים בסה״כ: <span className="font-semibold text-foreground">{metrics.totalBusinesses}</span> (100% הפעלה)</div>
+                      <div>עסקים בתקופת ניסיון (Trial): <span className="font-semibold text-foreground">{trialingSubs}</span></div>
+                      <div>סה״כ חשבונות Pro פעילים: <span className="font-semibold text-foreground">{totalActiveProSubs}</span></div>
+                      <div>עסקים רשומים בסה״כ: <span className="font-semibold text-foreground">{metrics.totalBusinesses}</span></div>
                     </div>
                   </div>
                 </div>
@@ -1038,13 +1095,34 @@ export function AdminDashboardClient({
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="max-w-xs"
               />
-              <div className="flex items-center gap-1">
+              <div className="flex flex-wrap items-center gap-1">
                 <Button
                   variant={statusFilter === "all" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setStatusFilter("all")}
                 >
                   הכול ({businesses.length})
+                </Button>
+                <Button
+                  variant={statusFilter === "paying" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("paying")}
+                >
+                  משלמים ({businesses.filter((b) => getSubBadge(b).type === "paying").length})
+                </Button>
+                <Button
+                  variant={statusFilter === "complimentary" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("complimentary")}
+                >
+                  הענקה אישית ({businesses.filter((b) => getSubBadge(b).type === "complimentary").length})
+                </Button>
+                <Button
+                  variant={statusFilter === "trial" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setStatusFilter("trial")}
+                >
+                  ניסיון ({businesses.filter((b) => getSubBadge(b).type === "trial").length})
                 </Button>
                 <Button
                   variant={statusFilter === "active" ? "default" : "outline"}
@@ -1072,6 +1150,7 @@ export function AdminDashboardClient({
                     <th className="p-3">תחום</th>
                     <th className="p-3">אימייל בעלים</th>
                     <th className="p-3">סטטוס</th>
+                    <th className="p-3">מסלול ומנוי</th>
                     <th className="p-3">תאריך הקמה</th>
                     <th className="p-3">סה״כ תורים</th>
                     <th className="p-3">שיעור ביטולים</th>
@@ -1081,7 +1160,7 @@ export function AdminDashboardClient({
                 <tbody className="divide-y">
                   {filteredBusinesses.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="p-6 text-center text-muted-foreground">
+                      <td colSpan={9} className="p-6 text-center text-muted-foreground">
                         לא נמצאו עסקים התואמים את החיפוש.
                       </td>
                     </tr>

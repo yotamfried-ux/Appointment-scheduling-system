@@ -69,6 +69,8 @@ export async function listBusinesses(
     services_count: Number(row.services_count ?? 0),
     staff_count: Number(row.staff_count ?? 0),
     waitlist_enabled: Boolean(row.waitlist_enabled),
+    subscription_tier: row.subscription_tier ? String(row.subscription_tier) : "free",
+    subscription_type: (row.subscription_type as AdminBusiness["subscription_type"]) ?? "free",
   }));
 }
 
