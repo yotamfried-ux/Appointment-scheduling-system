@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import Link from "next/link";
 import { useEffect, useReducer, useRef, useState } from "react";
 import { Logo } from "@/components/brand/logo";
+import { LogoutButton } from "@/components/logout-button";
 import { FormField } from "@/components/patterns/form-field";
 import { HoursEditor } from "@/components/patterns/hours-editor";
 import { Button } from "@/components/ui/button";
@@ -308,7 +309,19 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
 function Shell({ children, email }: { children: React.ReactNode; email?: string }) {
   return (
     <div className="min-h-svh">
-      <header className="border-b bg-card/60"><div className="mx-auto flex h-14 max-w-xl items-center justify-between px-4"><Logo />{email ? <bdi className="min-w-0 truncate text-sm text-muted-foreground" data-testid="whoami">{email}</bdi> : null}</div></header>
+      <header className="border-b bg-card/60">
+        <div className="mx-auto flex h-14 max-w-xl items-center justify-between px-4">
+          <Logo />
+          {email ? (
+            <div className="flex items-center gap-3">
+              <bdi className="min-w-0 truncate text-sm text-muted-foreground" data-testid="whoami">
+                {email}
+              </bdi>
+              <LogoutButton />
+            </div>
+          ) : null}
+        </div>
+      </header>
       {children}
     </div>
   );

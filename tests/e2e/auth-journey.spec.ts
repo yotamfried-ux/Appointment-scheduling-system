@@ -97,8 +97,9 @@ test.describe("owner authentication journey (scenarios ACC-01, ACC-02, ACC-04, S
     const email = unique();
     await signUpAndVerify(page, email);
     await page.goto("/");
+    await expect(page).toHaveURL(/\/onboarding/);
     await page.getByRole("button", { name: "יציאה" }).click();
-    await expect(page).toHaveURL(/\/auth\/login/);
+    await expect(page).toHaveURL(/\/$/);
     await page.goto("/dashboard");
     await expect(page).toHaveURL(/\/auth\/login/);
 

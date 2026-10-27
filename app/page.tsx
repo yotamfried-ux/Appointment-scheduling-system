@@ -1,6 +1,7 @@
 import { ArrowLeft, ChevronDown } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { Suspense } from "react";
 import { AuthButton } from "@/components/auth-button";
@@ -9,7 +10,12 @@ import { LegalFooter } from "@/components/legal/legal-footer";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { Button } from "@/components/ui/button";
 import { BRAND } from "@/config/brand";
+import { checkSession } from "@/lib/auth/live-session";
+import { legalGateActive, missingAcceptances } from "@/lib/legal/gate";
+import { createClient } from "@/lib/supabase/server";
+import { isPlatformAdmin } from "@/modules/admin/service";
 import { BUSINESS_KINDS, KIND_IDS } from "@/modules/tenancy/business-kind";
+import { listMyBusinesses } from "@/modules/tenancy/service";
 
 type Step = { title: string; body: string };
 type Item = { title: string; body: string };
@@ -31,6 +37,33 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Home() {
+  const supabase = await createClient();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const claims = claimsData?.claims;
+
+  if (claims) {
+    const gate = await checkSession(supabase, claims).catch(() => null);
+    if (gate?.live) {
+      if (!gate.secondFactor) {
+        redirect("/auth/mfa");
+      }
+      if ((await legalGateActive().catch(() => false)) && (await missingAcceptances(supabase).catch(() => [])).length > 0) {
+        redirect("/legal/accept");
+      }
+      const [businesses, isAdmin] = await Promise.all([
+        listMyBusinesses(supabase).catch(() => []),
+        isPlatformAdmin(supabase).catch(() => false),
+      ]);
+      if (businesses.length > 0) {
+        redirect("/dashboard");
+      } else if (isAdmin) {
+        redirect("/admin");
+      } else {
+        redirect("/onboarding");
+      }
+    }
+  }
+
   const t = await getTranslations("home");
   const steps = t.raw("how.steps") as Step[];
   const features = t.raw("features.items") as Item[];
