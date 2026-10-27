@@ -107,7 +107,7 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
 
   if (s.step === "done") {
     return (
-      <Shell email={s.business.name.trim() || email}>
+      <Shell email={email}>
         <main id="main" className="mx-auto w-full max-w-xl px-4 py-12 text-center sm:py-16">
           <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-primary text-primary-foreground motion-safe:animate-in motion-safe:zoom-in-50" aria-hidden><Check className="size-8" strokeWidth={3} /></div>
           <h1 ref={heading} tabIndex={-1} className="mt-5 text-3xl font-bold outline-none" data-testid="done-title">{t("done.title")}</h1>
@@ -159,7 +159,7 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
   }
 
   return (
-    <Shell email={s.business.name.trim() || email}>
+    <Shell email={email}>
       <div className="mx-auto w-full max-w-xl px-4 pt-6">
         <nav aria-label={t("stepper")}>
           <p className="mb-3 text-sm font-medium text-muted-foreground">{t("stepOf", { current: stepIndex + 1, total: VISIBLE.length })}</p>
@@ -310,11 +310,14 @@ function Shell({ children, email }: { children: React.ReactNode; email?: string 
   return (
     <div className="min-h-svh">
       <header className="border-b bg-card/60">
-        <div className="mx-auto flex h-14 max-w-xl items-center justify-between px-4">
+        <div className="mx-auto flex h-14 max-w-xl items-center justify-between gap-3 px-4">
           <Logo />
           {email ? (
-            <div className="flex items-center gap-3">
-              <bdi className="min-w-0 truncate text-sm text-muted-foreground" data-testid="whoami">
+            <div className="flex min-w-0 items-center gap-2">
+              <bdi
+                className="hidden min-w-0 max-w-[140px] truncate text-xs text-muted-foreground sm:inline-block sm:max-w-[200px]"
+                data-testid="whoami"
+              >
                 {email}
               </bdi>
               <LogoutButton />
