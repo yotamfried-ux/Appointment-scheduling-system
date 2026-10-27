@@ -263,6 +263,14 @@ describe("Tori Comprehensive Qualification — Security, CSV Injection & Privacy
       }
     });
 
+    it("neutralizes formula injection preceded by spaces or control characters (OWASP recommendation)", () => {
+      const payloads = ["   =cmd|' /C calc'!A0", "  +1234", "\t  @SUM(A1)", " \r\n -50"];
+      for (const p of payloads) {
+        const cell = csvCell(p);
+        expect(cell.startsWith('"\''), 'Payload ' + p + ' must be prefixed with apostrophe').toBe(true);
+      }
+    });
+
     it("does not corrupt benign numbers or standard text in CSV", () => {
       expect(csvCell(100)).toBe("100");
       expect(csvCell(0)).toBe("0");

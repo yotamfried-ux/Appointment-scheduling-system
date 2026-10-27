@@ -2,7 +2,7 @@
 export const BOM = "﻿";
 
 /** A cell that starts with = + - @ (or a tab / carriage return) would be run as a formula by spreadsheet programs: prefix an apostrophe (OWASP). */
-const FORMULA_START = /^[=+\-@\t\r]/;
+const FORMULA_START = /^[\s\x00-\x1f]*[=+\-@\t\r]/;
 
 export function csvCell(value: unknown): string {
   if (value === null || value === undefined) return '""';
