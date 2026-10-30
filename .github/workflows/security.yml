@@ -83,39 +83,12 @@ jobs:
       - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
         with:
           upload: "never"
-          output: ../results
-      - name: Verify CodeQL SARIF (fail on critical errors)
-        run: |
-          node -e '
-            const fs = require("fs");
-            const path = require("path");
-            const resultsDir = path.resolve("../results");
-            if (!fs.existsSync(resultsDir)) {
-              console.log("No results directory found");
-              process.exit(0);
-            }
-            const files = fs.readdirSync(resultsDir).filter(f => f.endsWith(".sarif"));
-            let errorCount = 0;
-            for (const file of files) {
-              const data = JSON.parse(fs.readFileSync(path.join(resultsDir, file), "utf8"));
-              for (const run of data.runs || []) {
-                for (const res of run.results || []) {
-                  if (res.level === "error") {
-                    console.error("CodeQL finding (error):", res.message && res.message.text);
-                    errorCount++;
-                  }
-                }
-              }
-            }
-            if (errorCount > 0) {
-              console.error("Found " + errorCount + " CodeQL error(s)");
-              process.exit(1);
-            }
-            console.log("CodeQL SARIF verification passed: 0 error-level findings.");
-          '
+          output: codeql-results
+      - name: Verify CodeQL SARIF report (strictly gate on errors)
+        run: node scripts/security/verify-codeql-sarif.mjs codeql-results
       - name: Upload CodeQL SARIF artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: codeql-sarif
-          path: ../results
+          path: codeql-results
           retention-days: 90
