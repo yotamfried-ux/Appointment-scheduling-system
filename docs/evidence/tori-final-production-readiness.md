@@ -8,7 +8,7 @@
 ## A. מקור האמת, גרסה והגבלות
 
 - **GitHub:** `yotamfried-ux/Appointment-scheduling-system`, ענף הייצור `main` ב-`584188cd3ba29abfb02b58314f69ca5572b180c3`. ברירת המחדל של המאגר היא דווקא `claude/optimistic-hypatia-wh3zo3`; `main` אינו protected.
-- **Vercel:** פרויקט `appointment-scheduling-system`, פריסה Production `dpl_2SnAMjdauRC6oS56cKzXAEtA1Bz3` במצב `READY` מאותו commit, עם alias `turim.d2ryf.com`; הדומיין מסומן `verified`.
+- **Vercel:** פרויקט `appointment-scheduling-system`, פריסה Production `dpl_2SnAMjdauRC6oS56cKzXAEtA1Bz3` במצב `READY` מאותו commit, עם alias `turim.d2ryf.com`; הדומיין מסומן `verified`. אימות ישיר באמצעות Vercel `get_project` + `get_git_deployment_context` הראה שצוות הפרויקט בתוכנית **Hobby**. [מגבלת Vercel רשמית](https://vercel.com/docs/cron-jobs/usage-and-pricing): cron פעם ביום; תדירות גבוהה יותר תכשיל deployment. זו **מגבלת תשתית**, לא מגבלה בלוגיקת המערכת.
 - **GitHub Actions:** [CI כושל #40528809596](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/40528809596) מול [Security ירוק #40528809270](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/40528809270). שני אלה על אותה גרסה.
 - **Supabase Production:** `abhadytskhgwkrlmceew` באזור `eu-central-1`. קריאות SQL לא שינו נתונים.
 - **Resend:** `mail.d2ryf.com` verified / sending enabled; webhook enabled ל-`https://turim.d2ryf.com/api/webhooks/resend` עם `email.delivered`, `email.bounced`, `email.complained`, `email.delivery_delayed`. נמצאו הודעות אימות, איפוס סיסמה ואישור תור בסטטוס `delivered` (וכן הודעת אימות אחת `bounced`). ראיה למסירת דואר בפועל, לא להצלחת כל מסלול E2E בגרסה הנוכחית.
@@ -28,7 +28,7 @@
 | SAST/SCA/Secrets/License/SBOM | **PASS** | חמש עבודות: CodeQL, OSV, Trivy, Gitleaks, Licences+SBOM עברו ב-Security #40528809270 |
 | RLS בבסיס החי | **PASS (הגדרה בלבד)** | 29 טבלאות public; **0** ללא RLS ו-**0** ללא FORCE RLS. לא מהווה בדיקת חדירה עצמאית לייצור |
 | Supabase Security Advisors | **PARTIAL** | 2 WARN על RPC definer ציבוריים, WARN על leaked-password protection כבוי; 7 INFO על טבלאות עם RLS וללא policy (לרוב deny-by-default, לא לחשוף אוטומטית) |
-| Cron / jobs | **FAIL** | `vercel.json` מתזמן outbox, reminders, waitlist **פעם ביום**. DB חי: לכל אחד **ריצה מוצלחת אחת** ב-24 שעות. הקוד מצפה 5/15 דקות |
+| Cron / jobs | **FAIL (תדירות; מגבלת Vercel Hobby)** | הצוות ב-Hobby (cron מרבי פעם ביום); `vercel.json` תואם למגבלה, ו-Supabase מאשר ריצה אחת ב-24h. `after(kickOutbox)` כבר מנסה לשלוח מייל אישור תור מיד; reminders, waitlist ו-retries צריכים תזמון חיצוני כל 5/15 דקות. |
 | Job health | **FAIL (נגזר מקוד ו-DB)** | `job-health.ts` מגדיר ספי stale: outbox 15 דק', reminders 45 דק', waitlist 15 דק'; בדגימת SQL של 08:49 UTC הגילאים היו ~202/~203/~153 דקות. לכן `assess()` היה מחזיר `ok=false`. HTTP עצמו לא נבדק |
 | Resend / Webhook | **PASS (תשתית)** | דומיין וה-webhook מאומתים; קיימות הודעות delivered במערכת הספק |
 | פרטי env ב-Vercel | **PARTIAL / RISK** | שמות secrets מוגדרים, אך חיבור Supabase ו-`SUPABASE_SECRET_KEY` משויכים **גם ל-Production וגם ל-Preview**; ראו P0-01 |
@@ -49,12 +49,29 @@
 
 **סגירה:** לפרוס פרויקט/DB Supabase נפרד לחלוטין ל-Preview (URL, publishable/secret key שונים); להסיר שיוך Production secrets מ-Preview; להחליף APP_URL/CRON_SECRET לפי סביבה, למנוע email אמיתי ללקוחות מתוך Preview, לוודא isolation בבדיקת קריאה/כתיבה מול fixtures לא רגישים ושהגדרות הגנת Preview תקינות. אם הופעלו keys ב-builds לא מהימנים, להעריך סיבוב סודות. **אין להעתיק נתוני לקוחות אמיתיים לסביבת Preview.**
 
-### P0-02 — לתקן תזמון משימות אמיתי ולוודא alert
-**ראיה:** [vercel.json](../../vercel.json) מכיל `0 5 * * *` (outbox), `10 5 * * *` (reminders), `20 5 * * *` (waitlist). SQL על `public.job_runs`: לכל אחד אחת ב-24 שעות ו-0 כישלונות ב-24 שעות, עם גילאי הצלחה 153–203 דקות בדגימת 2026-10-30 08:49 UTC. `modules/notifications/job-health.ts` דורש ~15/45/15 דקות. [PR #25](https://github.com/yotamfried-ux/Appointment-scheduling-system/pull/25) מציע GitHub Actions Scheduler אך Draft ולא מוזג; אין קובץ `.github/workflows/jobs.yml` ב-main.
+### P0-02 — הגבלת Vercel Hobby (מאומתת); התראות מיידיות קיימות, חסר מתזמן מחזורי
 
-**סיכון:** reminders והצעות waitlist באיחור, outbox retry איטי ו-health stale; `kickOutbox` יכול לקצר חלק מדואר מיידי אך אינו מתקן תזכורות/תורים שפג תוקפם.
+**סיבת השורש:** בדיקת `Vercel.get_project` הראתה שהפרויקט שייך לצוות `team_uUUpzY1J0BvqvtYwemoFoBdm`; בדיקת `Vercel.get_git_deployment_context` הראתה `plan: hobby` לאותו צוות. לפי [התיעוד הרשמי של Vercel](https://vercel.com/docs/cron-jobs/usage-and-pricing), ב-Hobby ניתן לקבוע Cron **פעם ביום בלבד**. הגדרה כל 5 או 15 דקות ב-`vercel.json` תגרום לכישלון ה-Deployment; ב-Pro ניתן לתזמן פעם בדקה. ב-Hobby גם שעה מדויקת אינה מובטחת (עד ±59 דקות). זוהי **מגבלה בתשתית**, לא באלגוריתם התורים. גם אם נשדרג, יש לעדכן בפועל את התדירות בקובץ ולפרוס מחדש.
 
-**סגירה:** לבחור scheduler אמין עם `outbox=5m`, `reminders=15m`, `waitlist=5m`, `maintenance=daily`; לשמור Bearer `CRON_SECRET` (בלי לחשוף ערך); לקנפג alarm כש-job לא הצליח בזמן; להוכיח 24–48 שעות ריצות מחזוריות ו`/api/jobs/health` 200. אם משתמשים ב-GitHub Actions יש להביא בחשבון ש-`schedule` best-effort, לוודא branch, secret, workflows והתרעות על דילוגים, ולבדוק התאמה לדרישות דיוק התזכורות.
+**ראיות קוד ונתונים:** [vercel.json](../../vercel.json) מתזמן `outbox` ב-05:00, `reminders` ב-05:10, `waitlist` ב-05:20, `maintenance` ב-03:20 — כל אחת **פעם ביום ב-UTC**. שאילתות קריאה ב-`public.job_runs` הראו ב-2026-10-30 **ריצה מוצלחת אחת לכל משימה ב-24h**, ללא failures. בגילאים של כ-202/203/153 דקות ללא הרצה חדשה ל-outbox/reminders/waitlist, הקוד ב-[job-health.ts](../../modules/notifications/job-health.ts) היה מסווג אותן כ-`stale` ביחס לספי 15/45/15 דקות. לכן נתיב הבריאות צפוי להחזיר 503; HTTP ישיר אליו לא נבדק בשל חסימת גישה (403).
+
+**אבל שליחת מייל אישור תור אינה ממתינה תמיד ל-Cron:** [app/api/public/[slug]/bookings/route.ts](../../app/api/public/%5Bslug%5D/bookings/route.ts) מבצע `if (!replay) after(kickOutbox)` מיד לאחר יצירת תור חדש, ו-[modules/notifications/service.ts](../../modules/notifications/service.ts) מגדיר ניסיון fan-out/שליחה מיידי (עד חמישה אירועים, חמישה sends, deadline של שמונה שניות). לכן אישור תור יכול להישלח מיד — הדבר **אינו מבטיח** שכל מייל מיידי נשלח (כשל ב-`after`, רשת, timeout, backlog). [Vercel מתעדת](https://vercel.com/docs/functions/functions-api-reference/vercel-functions-package) ש-`after()` רץ רק בעקבות בקשת HTTP ועד לתום פונקציית השרת. ללא cron אין טיפול מחזורי עצמאי בשגיאות או בהודעות מאוחרות.
+
+| משימה | הטריגר הנדרש | הסיבה |
+|---|---|---|
+| אישורי תור חדש | ניסיון מיידי ב-`after(kickOutbox)`, בנוסף ל-retry | לא לעכב אישור; מימוש כבר קיים במסלול יצירת תור ציבורי |
+| `outbox` | כל 5 דקות | חוזר לאחר כשל, backlog והודעות שנוצרו במקומות אחרים |
+| `reminders` | כל 15 דקות | יצירת תזכורות כשמועד התור מתקרב, גם בלי משתמש באתר |
+| `waitlist` | כל 5 דקות | פקיעת הצעות, שחרור והקצאת משבצת פנויה הבאה |
+| `maintenance` | פעם ביום | טיהור נתונים ותחזוקה; ה-Cron של Hobby יכול להישאר |
+
+**בדיקת החלופה שכבר קיימת:** [PR #25](https://github.com/yotamfried-ux/Appointment-scheduling-system/pull/25) הוא Draft וטרם מוזג; הוא מוסיף `.github/workflows/jobs.yml` עם `*/5 * * * *` וקריאות HTTP מוגנות ב-`CRON_SECRET`. אולם ה-Default Branch ב-GitHub הוא **`claude/optimistic-hypatia-wh3zo3`**, ולא `main`. לפי [GitHub schedule docs](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule), workflows מתוזמנים רצים **רק אם הם קיימים בענף ברירת המחדל**. לכן **מיזוג PR #25 ל-`main` בלבד לא יפעיל את ה-Cron** במצב הנוכחי. שנית, ה-workflow המוצע **מסיים בירוק גם כשחסר `CRON_SECRET`** (מדפיס warning וקורא רק `/api/ready`) — ירוק אינו מוכיח הרצת jobs. שלישית, GitHub מציינת שריצות schedule עלולות להתעכב או להישמט בזמני עומס; עבור תזכורות רגישות לזמן זהו פתרון best-effort בלבד.
+
+**המלצת פתרון ללא שדרוג Vercel:** להשתמש ב-scheduler חיצוני אמין, למשל על שרת Hetzner עם n8n Self-Hosted קיים, ולהפעיל **Schedule Trigger** עם קריאות HTTPS `POST` אל `/api/jobs/outbox` כל 5 דקות, `/api/jobs/reminders` כל 15 דקות, ו-`/api/jobs/waitlist` כל 5 דקות. להשתמש ב-`Authorization: Bearer <CRON_SECRET>` ממנהל סודות (לא בלוג/ב-URL), להגדיר retry/backoff, בדיקת heartbeat, התראה בעקבות missed run, ובדיקת חזרה לאחר restart. משימת `maintenance` יכולה להישאר פעם ביום ב-Vercel. מכיוון שהקוד משתמש ב-idempotency/claim locking, יש לתכנן תרחישי חפיפה עם ה-Cron היומי אך לא להניח בטיחות בלי בדיקות.
+
+**חלופות:** Pro + cron יותר תכוף ב-`vercel.json` (בתשלום); GitHub Actions רק אחרי תיקון Default Branch/סוד/התראות ושקלול השהיות אפשריות. אין צורך להפעיל פונקציה "בדרך עצמה" או שרת מתמשך בתוך Vercel; בקשות רקע בתדירות קבועה מחייבות טריגר אמין מבחוץ.
+
+**קריטריוני סגירה:** מתזמן קיים ופועל באמת; 24–48 שעות ריצות בקצב 5/15 דקות; `/api/jobs/health` מחזיר 200; הודעת אישור תור נשלחת מיד ותזכורת/הצעת waitlist נשלחות בטווח זמן מתאים; בדיקת נפילת scheduler או Resend מייצרת התרעה; כל זה אחרי אימות Preview מבודד ובאישור לפני Production.
 
 ### P0-03 — CI ירוק על **אותה** גרסת Production (E2E ו-DB)
 **ראיה:** [CI #40528809596](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/40528809596), commit 584188c:
@@ -114,7 +131,7 @@
 ## F. סדר ביצוע מומלץ לפי ROI וסיכון
 
 1. **קודם אבטחת נתונים:** לנתק Preview מסודות/DB של Production ולבנות סביבת DB מבודדת (P0-01).
-2. **לתקן scheduler ותצפית:** P0-02 + P0-07; הוכחת `job-health=200` ומוניטור שמתריע.
+2. **להגדיר מתזמן חיצוני אמין ולחבר ניטור:** P0-02 + P0-07; לשמר `after(kickOutbox)` להודעות מיידיות, לתזמן את משימות הרקע כל 5/15 דקות, ולהוכיח `job-health=200` והתראה על החמצת משימה; אין צורך לשדרג Vercel רק עבור Cron.
 3. **לתקן CI:** לפרק את כשלי E2E/DB, להוריד definer wrappers מאזור החשיפה ולדרוש CI ירוק (P0-03).
 4. **להסדיר migrations לפני כל שינוי סכמה:** מפת גרסאות והרצה בסביבת scratch בלבד (P0-04).
 5. **אימות שרידות ומסלול אמיתי:** PITR/restore, הרצת E2E לקוח–עסק–דואר (P0-05/06).
@@ -129,6 +146,8 @@
 - [Security #40528809270 — success](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/40528809270)
 - [Vercel Production deployment](https://vercel.com/yotamfried-7101s-projects/appointment-scheduling-system/2SnAMjdauRC6oS56cKzXAEtA1Bz3)
 - [Source vercel.json](https://github.com/yotamfried-ux/Appointment-scheduling-system/blob/main/vercel.json)
+- [Official Vercel Hobby Cron restriction](https://vercel.com/docs/cron-jobs/usage-and-pricing); [GitHub scheduling on default branch only](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule); [scheduler PR #25](https://github.com/yotamfried-ux/Appointment-scheduling-system/pull/25).
+- [New-booking immediate notification](https://github.com/yotamfried-ux/Appointment-scheduling-system/blob/main/app/api/public/%5Bslug%5D/bookings/route.ts) and [kickOutbox implementation](https://github.com/yotamfried-ux/Appointment-scheduling-system/blob/main/modules/notifications/service.ts).
 - [Source job-health.ts](https://github.com/yotamfried-ux/Appointment-scheduling-system/blob/main/modules/notifications/job-health.ts)
 - [Source environment mode](https://github.com/yotamfried-ux/Appointment-scheduling-system/blob/main/lib/env.ts) ו-[system DB](https://github.com/yotamfried-ux/Appointment-scheduling-system/blob/main/platform/system-db/index.ts).
 - [Source migration 20261057000000](https://github.com/yotamfried-ux/Appointment-scheduling-system/blob/main/supabase/migrations/20261057000000_differentiate_paying_vs_complimentary_pro.sql)
