@@ -39,10 +39,10 @@ jobs:
         run: |
           TOKEN="${MONITOR_SECRET:-$CRON_SECRET}"
           if [ -z "$TOKEN" ]; then
-            echo "::warning title=Missing Secret::Neither MONITOR_SECRET nor CRON_SECRET is configured in GitHub repository secrets. Skipping /api/jobs/health check."
-            echo "### ⚠️ /api/jobs/health: Skipped (Secret not yet added to GitHub repository secrets)" >> $GITHUB_STEP_SUMMARY
+            echo "::error title=Missing Secret::Neither MONITOR_SECRET nor CRON_SECRET is configured in GitHub repository secrets. Production monitoring fails closed."
+            echo "### 🔴 /api/jobs/health: FAILED (Monitoring secret not configured in repository secrets)" >> $GITHUB_STEP_SUMMARY
             echo "To enable external cron heartbeat monitoring, add MONITOR_SECRET (least privilege) or CRON_SECRET to GitHub Secrets." >> $GITHUB_STEP_SUMMARY
-            exit 0
+            exit 1
           fi
           echo "Checking https://turim.d2ryf.com/api/jobs/health with least-privilege bearer token..."
           res=$(curl -f -s -S --retry 2 --retry-delay 2 --retry-all-errors --max-time 15 -H "Authorization: Bearer $TOKEN" "https://turim.d2ryf.com/api/jobs/health")

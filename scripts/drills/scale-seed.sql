@@ -11,6 +11,8 @@ insert into public.businesses (id, slug, name, kind, created_by, published_at)
 select ('00000000-0000-4000-a002-' || lpad(n::text, 12, '0'))::uuid, 'scale-' || n, 'עסק ' || n, 'barber', ('00000000-0000-4000-a001-' || lpad(n::text, 12, '0'))::uuid, now() from generate_series(1, 200) n;
 insert into public.business_members (business_id, user_id, role)
 select ('00000000-0000-4000-a002-' || lpad(n::text, 12, '0'))::uuid, ('00000000-0000-4000-a001-' || lpad(n::text, 12, '0'))::uuid, 'owner' from generate_series(1, 200) n;
+insert into public.subscriptions (business_id, plan_id, status, trial_ends_at, current_period_end)
+select ('00000000-0000-4000-a002-' || lpad(n::text, 12, '0'))::uuid, 'pro', 'active', now() + interval '30 days', now() + interval '30 days' from generate_series(1, 200) n;
 insert into public.resources (id, business_id, name, position)
 select ('00000000-0000-4000-a003-' || lpad((n * 10 + r)::text, 12, '0'))::uuid, ('00000000-0000-4000-a002-' || lpad(n::text, 12, '0'))::uuid, 'איש צוות ' || r, r from generate_series(1, 200) n, generate_series(0, 2) r;
 insert into public.services (id, business_id, name, duration_minutes, price_cents, position)
@@ -39,5 +41,5 @@ insert into public.notification_log (business_id, appointment_id, type, recipien
 select business_id, id, 'booking_confirmed', 'customer', 'sent', md5(id::text) from public.appointments where reference like 'SC%';
 commit;
 analyze;
-select 'appointments' t, count(*) from public.appointments union all select 'customers', count(*) from public.customers union all select 'notification_log', count(*) from public.notification_log;
+select 'appointments' t, count(*) from public.appointments union all select 'customers', count(*) from public.customers union all select 'notification_log', count(*) from public.notification_log union all select 'subscriptions', count(*) from public.subscriptions;
 select pg_size_pretty(pg_database_size(current_database())) as db_size;

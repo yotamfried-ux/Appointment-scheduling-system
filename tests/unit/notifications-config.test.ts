@@ -117,6 +117,16 @@ describe("monitoring authorization", () => {
     expect(await call(`Bearer ${cronSecret}`)).toBe("ok");
     expect(await call(`Bearer wrong-token`)).toBe("UNAUTHENTICATED");
   });
+  it("least-privilege MONITOR_SECRET cannot authorize mutating cron endpoints", async () => {
+    const { authorizeCron } = await import("@/lib/security/cron");
+    const monitorSecret = `monitor-${"m".repeat(20)}`;
+    const cronSecret = `cron-${"c".repeat(20)}`;
+    vi.stubEnv("MONITOR_SECRET", monitorSecret);
+    vi.stubEnv("CRON_SECRET", cronSecret);
+    expect(() =>
+      authorizeCron(new Request("http://x/api/jobs/outbox", { headers: { authorization: `Bearer ${monitorSecret}` } })),
+    ).toThrow();
+  });
 });
 
 describe("appUrl (every e-mail link)", () => {
