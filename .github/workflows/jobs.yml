@@ -1,0 +1,46 @@
+name: Scheduled jobs
+# Production runs the four jobs once a day on Vercel's free plan (vercel.json). This workflow calls them at the real frequency instead (outbox and waitlist every 5 minutes,
+# reminders every 15) and checks that the site and the jobs are healthy; a failed run is the alert (GitHub e-mails the repository watchers). All the jobs are idempotent and
+# claim rows with SKIP LOCKED, so the daily Vercel cron running as well is harmless. GitHub may delay a scheduled run by a few minutes at busy times.
+# Needs the repository secret CRON_SECRET (the same value as in Vercel); the site address comes from the repository variable APP_URL, default https://turim.d2ryf.com.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+permissions: {}
+concurrency:
+  group: scheduled-jobs
+  cancel-in-progress: false
+
+jobs:
+  run:
+    name: Jobs and health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call the jobs and check health
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: ${{ vars.APP_URL }}
+        run: |
+          base="${APP_URL:-https://turim.d2ryf.com}"
+          base="${base%/}"
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::warning::CRON_SECRET is not set as a repository secret: jobs are not called from here (only the daily Vercel cron runs)."
+            curl -fsS --max-time 20 "$base/api/ready" && echo
+            exit 0
+          fi
+          status=0
+          call() { # name method path
+            code=$(curl -sS -o /tmp/out -w "%{http_code}" --max-time 55 -X "$2" -H "Authorization: Bearer $CRON_SECRET" "$base$3") || code=000
+            echo "$1: HTTP $code"
+            if [ "$code" != "200" ]; then status=1; echo "::error::$1 answered HTTP $code"; fi
+          }
+          call outbox POST /api/jobs/outbox
+          call waitlist POST /api/jobs/waitlist
+          minute=$((10#$(date -u +%M)))
+          if [ $((minute % 15)) -lt 5 ]; then call reminders POST /api/jobs/reminders; fi
+          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "$base/api/ready") || code=000
+          echo "ready: HTTP $code"; [ "$code" = "200" ] || { status=1; echo "::error::/api/ready answered HTTP $code"; }
+          call "job health" GET /api/jobs/health
+          exit $status
