@@ -1,0 +1,41 @@
+name: Production Uptime & Cron Monitor
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-uptime-monitor
+  cancel-in-progress: true
+
+jobs:
+  uptime:
+    name: Uptime & Cron Health Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check /api/health (Basic Liveness)
+        run: |
+          echo "Checking https://turim.d2ryf.com/api/health..."
+          res=$(curl -f -s -S --max-time 15 "https://turim.d2ryf.com/api/health")
+          echo "Response: $res"
+          echo "$res" | grep -q '"status":"ok"'
+
+      - name: Check /api/ready (Database Connectivity & Readiness)
+        run: |
+          echo "Checking https://turim.d2ryf.com/api/ready..."
+          res=$(curl -f -s -S --max-time 15 "https://turim.d2ryf.com/api/ready")
+          echo "Response: $res"
+          echo "$res" | grep -q '"status":"ready"'
+
+      - name: Check /api/jobs/health (Vercel Cron Health & SLA)
+        if: ${{ env.CRON_SECRET != '' }}
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          echo "Checking https://turim.d2ryf.com/api/jobs/health..."
+          res=$(curl -f -s -S --max-time 15 -H "Authorization: Bearer $CRON_SECRET" "https://turim.d2ryf.com/api/jobs/health")
+          echo "Response: $res"
+          echo "$res" | grep -q '"ok":true'
