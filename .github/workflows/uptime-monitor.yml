@@ -1,7 +1,7 @@
 name: Production Uptime & Cron Monitor
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -19,23 +19,33 @@ jobs:
       - name: Check /api/health (Basic Liveness)
         run: |
           echo "Checking https://turim.d2ryf.com/api/health..."
-          res=$(curl -f -s -S --max-time 15 "https://turim.d2ryf.com/api/health")
+          res=$(curl -f -s -S --retry 2 --retry-delay 2 --retry-all-errors --max-time 15 "https://turim.d2ryf.com/api/health")
           echo "Response: $res"
           echo "$res" | grep -q '"status":"ok"'
+          echo "### 🟢 /api/health Liveness: OK" >> $GITHUB_STEP_SUMMARY
 
       - name: Check /api/ready (Database Connectivity & Readiness)
         run: |
           echo "Checking https://turim.d2ryf.com/api/ready..."
-          res=$(curl -f -s -S --max-time 15 "https://turim.d2ryf.com/api/ready")
+          res=$(curl -f -s -S --retry 2 --retry-delay 2 --retry-all-errors --max-time 15 "https://turim.d2ryf.com/api/ready")
           echo "Response: $res"
           echo "$res" | grep -q '"status":"ready"'
+          echo "### 🟢 /api/ready Database Readiness: OK" >> $GITHUB_STEP_SUMMARY
 
       - name: Check /api/jobs/health (Vercel Cron Health & SLA)
-        if: ${{ env.CRON_SECRET != '' }}
         env:
+          MONITOR_SECRET: ${{ secrets.MONITOR_SECRET }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          echo "Checking https://turim.d2ryf.com/api/jobs/health..."
-          res=$(curl -f -s -S --max-time 15 -H "Authorization: Bearer $CRON_SECRET" "https://turim.d2ryf.com/api/jobs/health")
+          TOKEN="${MONITOR_SECRET:-$CRON_SECRET}"
+          if [ -z "$TOKEN" ]; then
+            echo "::warning title=Missing Secret::Neither MONITOR_SECRET nor CRON_SECRET is configured in GitHub repository secrets. Skipping /api/jobs/health check."
+            echo "### ⚠️ /api/jobs/health: Skipped (Secret not yet added to GitHub repository secrets)" >> $GITHUB_STEP_SUMMARY
+            echo "To enable external cron heartbeat monitoring, add MONITOR_SECRET (least privilege) or CRON_SECRET to GitHub Secrets." >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+          echo "Checking https://turim.d2ryf.com/api/jobs/health with least-privilege bearer token..."
+          res=$(curl -f -s -S --retry 2 --retry-delay 2 --retry-all-errors --max-time 15 -H "Authorization: Bearer $TOKEN" "https://turim.d2ryf.com/api/jobs/health")
           echo "Response: $res"
           echo "$res" | grep -q '"ok":true'
+          echo "### 🟢 /api/jobs/health Cron SLA: OK" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,99 @@
+name: Production Drills (Disaster Recovery & Scale)
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/drills/**'
+      - '.github/workflows/drills.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-drills-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  drills:
+    name: OPS Drills (Restore · Scale · Load)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { persist-credentials: false }
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with: { node-version: 22, cache: npm }
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start local Supabase stack
+        run: npm run db:start
+
+      - name: OPS-07 Restore Drill (Disaster Recovery RTO & Data Integrity)
+        id: restore_drill
+        run: |
+          echo "Starting OPS-07 Restore Drill..."
+          bash scripts/drills/restore.sh 2>&1 | tee restore.log
+
+      - name: OPS-08 Scale & Latency Drill (800k Appointments)
+        id: scale_drill
+        run: |
+          echo "Starting OPS-08 Scale Drill..."
+          bash scripts/drills/scale.sh 100 2>&1 | tee scale.log
+
+      - name: HTTP Burst Load Drill (Public Path Resiliency)
+        id: load_drill
+        run: |
+          source scripts/local-env.sh
+          npm run build
+          npx next start -p 3100 &
+          PID=$!
+          echo "Waiting for local Next.js server on port 3100..."
+          for i in {1..30}; do
+            if curl -s http://127.0.0.1:3100/api/health | grep -q '"status":"ok"'; then
+              echo "Server ready!"
+              break
+            fi
+            sleep 1
+          done
+          echo "Executing HTTP burst load against seeded business 'scale-1'..."
+          BASE=http://127.0.0.1:3100 SLUG=scale-1 node scripts/drills/http-load.mjs 10 15 2>&1 | tee load.log
+          kill $PID || true
+
+      - name: Publish Drill Results to Step Summary
+        if: always()
+        run: |
+          echo "## 📊 Production Qualification Drill Results" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f restore.log ]; then
+            echo "### 🔄 OPS-07 Database Restore Drill (Disaster Recovery)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat restore.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f scale.log ]; then
+            echo "### 📈 OPS-08 Scale & Latency Benchmark (~800k Appointments)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat scale.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ -f load.log ]; then
+            echo "### ⚡ HTTP Burst Load Test (Public Path)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            cat load.log >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Drill Artifacts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: production-drills-logs
+          path: |
+            restore.log
+            scale.log
+            load.log
+          retention-days: 7
