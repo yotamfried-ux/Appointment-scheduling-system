@@ -4,10 +4,14 @@ import "server-only";
 // SECURITY DEFINER RPC granted to service_role alone, and takes the tenant explicitly — never from the request body.
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { timeoutFetch } from "@/platform/db-timeout";
+import { isPreviewWithoutDb } from "@/lib/preview-isolation";
 
 let client: SupabaseClient | null = null;
 
 export function systemDb(): SupabaseClient {
+  if (isPreviewWithoutDb()) {
+    throw new Error("system-db is disabled in Preview environment (isolated, no database).");
+  }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SECRET_KEY;
   if (!url || !key) throw new Error("system-db is not configured"); // fail closed: never fall back to the publishable key

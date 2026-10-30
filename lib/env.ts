@@ -5,3 +5,5 @@
  * `check:env` refuses that flag in a real production environment.
  */
 export const isProductionLike = () => process.env.VERCEL_ENV === "production" || (process.env.NODE_ENV === "production" && process.env.ALLOW_NON_PRODUCTION_DEFAULTS !== "1");
+
+export { isPreviewEnvironment, isPreviewWithoutDb } from "@/lib/preview-isolation";

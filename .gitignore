@@ -52,3 +52,4 @@ graphify-out/
 # Strix scan output and the throw-away local test accounts
 strix_runs/
 strix-credentials.txt
+.vitest/
