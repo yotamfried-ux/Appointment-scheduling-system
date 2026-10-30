@@ -2,10 +2,11 @@ import { isProductionLike } from "@/lib/env";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { hasEnvVars } from "../utils";
+import { isPreviewWithoutDb } from "@/lib/preview-isolation";
 
 // Routes reachable without a session. Everything else requires one.
 // /book (public booking) and /api/public are added with their modules. /api/jobs and /api/webhooks carry their own authentication (cron secret, signed payloads).
-const PUBLIC_PREFIXES = ["/auth", "/login", "/api/health", "/api/ready", "/book", "/booking", "/waitlist", "/api/public", "/api/lab", "/api/jobs", "/api/webhooks", "/privacy", "/terms", "/cookies", "/accessibility", "/robots.txt", "/design"];
+const PUBLIC_PREFIXES = ["/auth", "/login", "/api/health", "/api/ready", "/book", "/booking", "/waitlist", "/api/public", "/api/lab", "/api/jobs", "/api/webhooks", "/privacy", "/terms", "/cookies", "/accessibility", "/robots.txt", "/design", "/preview-mode"];
 
 // Signed-out visitors are sent to the login page only for pages that exist behind it; any other address is a plain 404 (a mistyped link is not a reason to ask for a password).
 const PROTECTED_PREFIXES = ["/dashboard", "/customers", "/reports", "/settings", "/onboarding", "/billing", "/api"];
@@ -22,9 +23,8 @@ export async function updateSession(request: NextRequest) {
     request,
   });
 
-  // If the env vars are not set, skip proxy check. You can remove this
-  // once you setup the project.
-  if (!hasEnvVars) {
+  // If running in an isolated Preview deployment without a DB, or env vars are not set, skip proxy check.
+  if (isPreviewWithoutDb() || !hasEnvVars) {
     return supabaseResponse;
   }
 

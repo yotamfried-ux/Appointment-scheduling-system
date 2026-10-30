@@ -2,6 +2,7 @@ import { isProductionLike } from "@/lib/env";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { timeoutFetch } from "@/platform/db-timeout";
+import { isPreviewWithoutDb } from "@/lib/preview-isolation";
 
 /**
  * Especially important if using Fluid compute: Don't put this client in a
@@ -9,6 +10,10 @@ import { timeoutFetch } from "@/platform/db-timeout";
  * it.
  */
 export async function createClient() {
+  if (isPreviewWithoutDb()) {
+    throw new Error("Supabase is disabled in this Preview environment because no isolated database is configured.");
+  }
+
   const cookieStore = await cookies();
 
   return createServerClient(
