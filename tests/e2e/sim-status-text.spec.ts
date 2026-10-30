@@ -82,8 +82,23 @@ test("waitlist day chips: a full day says מלא, a day with room says יש תו
   const chips = page.locator('label:has(input[data-testid^="wl-day-"])');
   await expect(chips.first()).toBeAttached(); // the list loads after the fieldset appears
   expect(await chips.count()).toBeGreaterThan(3);
-  for (const chip of await chips.all()) {
-    const date = (await chip.locator("input").getAttribute("data-testid"))!.replace("wl-day-", "");
-    await expect(chip, date).toContainText(date === open[0] ? "מלא" : "יש תורים פנויים");
+  // The day we filled must be in the full group and say "מלא"
+  await expect(page.getByTestId("wl-group-full").getByTestId(`wl-day-${open[0]}`)).toBeAttached();
+  await expect(page.getByTestId(`wl-day-${open[0]}`).locator("..")).toContainText("מלא");
+
+  // An unfilled day must be in the room group and say "יש תורים פנויים"
+  await expect(page.getByTestId("wl-group-room").getByTestId(`wl-day-${open[1]}`)).toBeAttached();
+  await expect(page.getByTestId(`wl-day-${open[1]}`).locator("..")).toContainText("יש תורים פנויים");
+
+  // Every chip in the full group carries the visible word "מלא"
+  const fullChips = page.locator('[data-testid="wl-group-full"] label:has(input[data-testid^="wl-day-"])');
+  for (const chip of await fullChips.all()) {
+    await expect(chip).toContainText("מלא");
+  }
+
+  // Every chip in the room group carries the visible word "יש תורים פנויים"
+  const roomChips = page.locator('[data-testid="wl-group-room"] label:has(input[data-testid^="wl-day-"])');
+  for (const chip of await roomChips.all()) {
+    await expect(chip).toContainText("יש תורים פנויים");
   }
 });

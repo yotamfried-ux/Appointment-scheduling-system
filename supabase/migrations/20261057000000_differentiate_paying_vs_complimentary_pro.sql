@@ -279,7 +279,7 @@ revoke all on function private.admin_dashboard_metrics(timestamptz, timestamptz)
 grant execute on function private.admin_dashboard_metrics(timestamptz, timestamptz) to authenticated;
 
 create or replace function public.admin_dashboard_metrics(p_from timestamptz default null, p_to timestamptz default null)
-returns jsonb language sql stable security definer set search_path = '' as $$
+returns jsonb language sql stable security invoker set search_path = '' as $$
   select private.admin_dashboard_metrics(p_from, p_to);
 $$;
 
@@ -402,7 +402,7 @@ create or replace function public.admin_list_businesses(
   waitlist_enabled boolean,
   subscription_tier text,
   subscription_type text
-) language sql stable security definer set search_path = '' as $$
+) language sql stable security invoker set search_path = '' as $$
   select * from private.admin_list_businesses(p_search, p_status, p_from, p_to, p_limit, p_offset);
 $$;
 
