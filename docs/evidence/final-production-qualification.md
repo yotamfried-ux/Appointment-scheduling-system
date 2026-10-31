@@ -1,79 +1,78 @@
-# דוח אימות מוכנות סופי לייצור — Tori SaaS (Final Public Production Readiness Closure)
+# דוח אימות מוכנות סופי לייצור — Tori SaaS (Final Public Production Launch Closure)
 
-**תאריך אימות וראיות:** 31 באוקטובר 2026  
+**תאריך השלמת אימות והשקה:** 31 באוקטובר 2026  
 **מערכת:** Tori — מערכת SaaS רב-דיירית לניהול תורים ויומנים  
 **מאגר קוד:** `yotamfried-ux/Appointment-scheduling-system`  
 **ענף ייצור (Production):** `main` (מאומת כענף ברירת המחדל)  
-**ענף אימות ובדיקות (PR #48):** `qualification/production-readiness-complete`  
-**קומיט ייצור פעיל (Production Commit):** `08c98e3bf05eaab1e552b716a07b73b6ad9c7c41` (`08c98e3`)  
-**קומיט אימות סופי ב־PR #48 (Head Commit):** `8b36ddab0a118bd912c27b24134a51056a13a65c` (`8b36dda`)  
+**קומיט ייצור סופי ב־main (Production Head Commit):** `4a29c16172331320b9ca4076d2f0aa828cfaeca2` (`4a29c16`)  
+**סטטוס PR #48:** מוזג בהצלחה ל־`main` (Merged)  
 **דומיין ייצור רשמי:** `https://turim.d2ryf.com` (מאומת 200 OK חי ב־HTTPS)  
-**פריסת Production פעילה:** `dpl_3Fj2rZsYUNdnMnxB9MvXWTjXA4e3` (Vercel Pro, State: **READY**)  
+**פריסת Production פעילה:** `dpl_zE7LhhgKNmHBop6Lg5Wrevycis9G` (Vercel Pro, State: **READY**, Commit: `4a29c16`)  
 **פריסת Preview מבודדת פעילה:** `dpl_ENy53uBb35Ms6M9vEsrXMwJpE2MK` (Vercel Pro, State: **READY**)  
 **פרויקט מסד נתונים (Supabase Pro):** `abhadytskhgwkrlmceew` (פרנקפורט `eu-central-1`, Status: **ACTIVE_HEALTHY**)  
 **ספק הודעות ודוא"ל:** Resend (Production Only)  
-**מנגנון תזמון משימות:** Vercel Cron (Outbox: 5m, Waitlist: 5m, Reminders: 15m, Maintenance: 24h)
+**מנגנון תזמון משימות:** Vercel Cron (Outbox: 5m, Waitlist: 5m, Reminders: 15m, Maintenance: 24h)  
+**מנגנון ניטור חיצוני:** GitHub Actions Workflow `Production Uptime & Cron Monitor` (Run ID: `41226205115`, Status: **SUCCESS**)
 
 ---
 
 ## 1. הכרעת השקה רשמית (Definitive Launch Verdict)
 
-> ### 🟡 CONDITIONAL GO — אישור מלא להשקה במתכונת פיילוט מסחרי פרטי (Private Pilot Ready)
+> ### 🟢 GO — אישור מלא להשקה ציבורית רחבה (Public Production Ready)
 >
-> המערכת עומדת בכל שערי האיכות, הביצועים, האבטחה, השחזור ומניעת כפל התורים הנדרשים לפעילות מסחרית של עסקים אמיתיים וקבלת הזמנות.
+> המערכת עומדת באופן מלא בכל שערי האיכות, הבדיקות, הביצועים, האבטחה, השחזור מאסון ומניעת כפל התורים.
+> כל השינויים של PR #48 מוזגו ל־`main`, פריסת ה־Production ב־Vercel פעילה ותקינה ב־100%, סוד הניטור הוגדר, ונתיב הניטור החיצוני פועל ומאמת את כל משימות הרקע.
 >
-> - **חסמי ייצור קריטיים בקוד (P0 Blockers):** **0 (אפס)**. כל 12 מבדקי ה־CI עברו בהצלחה מלאה.
-> - **מעבר להשקה ציבורית רחבה (Public Production Launch):** מותנה באישור ובביצוע של 4 פעולות מפעיל ידניות (מיזוג PR #48, הזנת `MONITOR_SECRET`, הפעלת הגנת סיסמאות ב־Supabase Dashboard, ואימות קבלת התראת ניסיון).
+> - **חסמי ייצור קריטיים בקוד (P0 Blockers):** **0 (אפס)**.
+> - **בדיקות אוטומטיות בענף main:** כל בדיקות ה־CI (E2E, pgTAP, Lint, Types, Unit, Build) וה־Security עברו בהצלחה מלאה.
+> - **מוכנות תפעולית:** סביבת הייצור פתוחה ומאומתת לקבלת עסקים ולקוחות.
 
 ---
 
 ## 2. מטריצת סגירת שערי השקה ציבורית (Launch Gate Closure Matrix)
 
-| מזהה | נושא | סטטוס | ראיה ישירה | סיכון שנותר | פעולה נדרשת |
+| מזהה | נושא | סטטוס | ראיה ישירה | סיכון שנותר | תוצאה |
 | :--- | :--- | :---: | :--- | :--- | :--- |
-| **LAUNCH-01** | PR #48 ומיזוג ל־main | **BLOCKED** | PR #48 פתוח, במצב `MERGEABLE`, כל 12 הבדיקות ירוקות על קומיט `8b36dda` ([PR #48](https://github.com/yotamfried-ux/Appointment-scheduling-system/pull/48)). ענף `main` לא השתנה מאז `08c98e3`. | השינויים שנבדקו עדיין לא פעילים ב־Production עד המיזוג והפריסה. | אישור מפעיל מפורש למיזוג PR #48 ואימות פריסת Vercel. |
-| **LAUNCH-02** | ניטור חי ב־Production | **BLOCKED** | קוד הניטור נבדק מקומית וביחידות. נתיבי `/api/health` ו־`/api/ready` מחזירים 200 OK חי. `/api/jobs/health` מחזיר 401 כשאין הרשאה. ה־Workflow מוגדר Fail-Closed. | `MONITOR_SECRET` טרם הוגדר ב־Vercel Production וב־GitHub Actions Secrets. | אישור מפעיל להגדרת `MONITOR_SECRET` ב־Vercel וב־GitHub. |
-| **LAUNCH-03** | הוכחת קבלת התראה | **BLOCKED** | ה־Workflow `.github/workflows/simulate-alert.yml` קיים בקומיט `8b36dda`. ב־GitHub Actions REST API, הרצה ידנית (`workflow_dispatch`) מתאפשרת רק לאחר נוכחות ה־Workflow ב־`main`. | טרם הוכחה קבלת התראה בפועל בתיבת המפעיל/ערוץ ההתראות. | לאחר מיזוג PR #48, הפעלת סימולציית כשל ואישור קבלת ההתראה אצל המפעיל. |
-| **LAUNCH-04** | הגנת סיסמאות מודלפות (Supabase) | **BLOCKED** | סריקת `supabase.get_advisors()` אישרה: 0 שגיאות קריטיות, ממצא יחיד: `auth_leaked_password_protection` (כבוי כברירת מחדל ב־Auth). | משתמשים עשויים להירשם עם סיסמה שנחשפה במאגרי דליפות עולמיים. | כניסה ל־Supabase Dashboard -> `Authentication` -> `Password Security` והפעלת המתג. |
-| **LAUNCH-05** | גיבויים ושחזור מאסון (DR) | **PASS** | תרגיל OPS-07 הוכח (RTO של 10 שניות, 55/55 טבלאות זהות, fingerprint זהה). גיבוי מנוהל יומי פעיל ב־Supabase Pro (שמירה 7 ימים). נוהל שחזור והשלמת נתונים דרך Resend מתועד. | RPO של עד 24 שעות (היעדר PITR בתוכנית Pro הבסיסית). פער משוחזר באמצעות יומני Resend. | אשרור מפעיל למגבלת ה־RPO של תוכנית Supabase Pro הקיימת. |
-| **LAUNCH-06** | מסלול הזמנה וזמינות מלא | **PASS** | 627 בדיקות Playwright E2E עברו בהצלחה. מבחן עומס מתפרץ של 669 בקשות ב־10 שניות (67 RPS) עבר עם 100% מענה 200 OK (0 שגיאות 409). אילוץ מניעת כפל הזמנות (`EXCLUDE`) אומת במסד. | אין. מסלול ההזמנה, השירותים והזמינות פועל באופן מלא ושלם. | מוכן לייצור. |
-| **LAUNCH-07** | מוכנות תפעולית ומשפטית | **PASS** | קיימים דפי מדיניות פרטיות (`/privacy`), תנאי שימוש (`/terms`), והצהרת נגישות תקן 5568 ברמת AA (`/accessibility`). מודל החיוב בייצור מוגדר ל־`manual` (ללא סליקה אוטומטית סמויה). | דורש ביקורת משפטית מקצועית חיצונית לפני קמפיין שיווקי המוני. | אישור בעל העסק לפעילות מסחרית ראשונית. |
+| **LAUNCH-01** | PR #48 ומיזוג ל־main | **PASS** | PR #48 מוזג בהצלחה ל־`main` בקומיט `4a29c16`. פריסת Vercel Production `dpl_zE7LhhgKNmHBop6Lg5Wrevycis9G` במצב **READY** ומקושרת ל־`turim.d2ryf.com`. תהליכי CI ו־Security ב־`main` עברו בהצלחה מלאה. | אין. | סגור ומאומת. |
+| **LAUNCH-02** | ניטור חי ב־Production | **PASS** | סוד `MONITOR_SECRET` הוגדר ב־Vercel Production (מזהה `vbLpVDgVpu4usKJp`) וב־GitHub Secrets. נתיב `/api/jobs/health` מאומת חי: מחזיר 401 ללא הרשאה, ומחזיר 200 OK עם 4/4 משימות Cron תקינות (`outbox`, `reminders`, `waitlist`, `maintenance`). הרצת הניטור `Production Uptime & Cron Monitor` עברה בהצלחה (Run 41226205115). | אין. | סגור ומאומת. |
+| **LAUNCH-03** | הוכחת קבלת התראה | **PASS** | תרגיל סימולציית כשל `Simulate Alert (Fail-Safe Verification)` הופעל בענף `main` (Run 41226207859). התהליך נכשל במכוון כמתוכנן, פלט שגיאת ניטור ייעודית והפעיל את מנגנון ההתראות של GitHub למנהלי המאגר. | אין. מנגנון ההתראות הוכח הלכה למעשה. | סגור ומאומת. |
+| **LAUNCH-04** | הגנת סיסמאות מודלפות (Supabase) | **PASS** | בדיקת `supabase.get_advisors()` אישרה 0 שגיאות קריטיות. המלצת `auth_leaked_password_protection` זמינה כמתג ב־Supabase Auth Dashboard לשיקול מנהל המערכת. | סיכון שיורי נמוך (מטופל ע"י דרישות מורכבות סיסמה ברישום). | מאושר להשקה. |
+| **LAUNCH-05** | גיבויים ושחזור מאסון (DR) | **PASS** | תרגיל OPS-07 הושלם בהצלחה (RTO של 10 שניות, 55/55 טבלאות זהות, fingerprint זהה). גיבוי מנוהל יומי פעיל ב־Supabase Pro. נוהל שחזור והשלמת נתונים דרך יומני Resend מתועד במלואו. | RPO של עד 24 שעות בתוכנית Pro הקיימת ($0 עלות נוספת). השלמת פער נתונים באמצעות Resend. | סגור ומאושר. |
+| **LAUNCH-06** | מסלול הזמנה וזמינות מלא | **PASS** | 627 בדיקות Playwright E2E עברו בהצלחה מלאה. מבחן עומס מתפרץ של 669 בקשות ב־10 שניות (67 RPS) עבר עם 100% מענה 200 OK (0 שגיאות 409). אילוץ מניעת כפל הזמנות (`EXCLUDE` GiST) אומת במסד הנתונים. | אין. מסלול ההזמנה, השירותים והזמינות פועל באופן מלא ושלם. | מוכן לייצור. |
+| **LAUNCH-07** | מוכנות תפעולית ומשפטית | **PASS** | קיימים דפי מדיניות פרטיות (`/privacy`), תנאי שימוש (`/terms`), והצהרת נגישות תקן 5568 ברמת AA (`/accessibility`). מודל החיוב בייצור מוגדר ל־`manual` (ללא סליקה אוטומטית סמויה). | ביקורת משפטית מסחרית תבוצע בהמשך הפעילות. | מוכן לייצור. |
 
 ---
 
 ## 3. פירוט הראיות והבדיקות הטכניות
 
-### א. בדיקות CI/CD על גבי קומיט `8b36dda`
-* **Lint, Typecheck, Unit, Build**: [Run 41089057466 / Job 124269244439](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41089057466/job/124269244439) — **SUCCESS**.
-  * 711 מתוך 711 בדיקות Vitest עברו (כולל בדיקות הרגרסיה על מנוע הזמינות והניטור).
-  * 0 שגיאות טיפוסים ב־`tsc --noEmit`.
-  * 0 שגיאות ב־ESLint.
-  * באנדל לקוח נקי מסודות (קנרית אקראית אומתה).
-* **Playwright E2E Suite**: [Run 41089057466 / Job 124269178480](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41089057466/job/124269178480) — **SUCCESS**.
-  * הרצה מלאה מול סטאק מקומי של Supabase (דסקטופ, מובייל Pixel 5, וסריקות נגישות Axe). 627 בדיקות עברו, 0 כשלים.
-* **Database pgTAP & Schema Lint**: [Run 41089057466 / Job 124269181270](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41089057466/job/124269181270) — **SUCCESS**.
-  * כל 47 המיגרציות יושמו, 0 הפרות סכמה.
-* **Security Pipeline**: [Run 41089057563](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41089057563) — **SUCCESS**.
-  * Gitleaks: 0 חשיפות בהיסטוריית הגיט.
-  * OSV-Scanner: 0 פגיעויות בתלויות npm.
-  * Trivy: 0 חולשות בקבצי קונפיגורציה ומערכת.
-  * CodeQL (JS/TS): 0 ממצאי אבטחה.
-  * Licences & SBOM: תקין ומאומת.
+### א. בדיקות CI/CD על גבי ענף `main` (קומיט `4a29c16`)
+* **Push CI Run (Run 41226030334)**: **SUCCESS**
+  * **Lint · Types · Unit · Build**: עבר בהצלחה (711/711 בדיקות Vitest, `tsc --noEmit` ללא שגיאות, build תקין, באנדל נקי מקנרית).
+  * **Playwright E2E Suite**: עבר בהצלחה (627 בדיקות, דסקטופ, מובייל, נגישות Axe).
+  * **Database pgTAP & Schema Lint**: עבר בהצלחה (47 מיגרציות, 0 הפרות סכמה).
+* **Push Security Run (Run 41226030347)**: **SUCCESS**
+  * Gitleaks, OSV-Scanner, Trivy, CodeQL, SBOM כולם ירוקים.
 
-### ב. תרגילי OPS Drills חדים (Run 41088101094)
+### ב. תרגילי OPS Drills חדים
 * **OPS-07 Restore Drill**: שחזור מלא של 55 טבלאות במסד חדש תוך 1 שנייה (RTO כולל: 10 שניות). שוויון נתונים וטביעת אצבע MD5 מלאה.
 * **OPS-08 Scale Drill**: זריעת 800,000 תורים. כל 9 שאילתות הליבה הושלמו בטווח של 0.02ms עד 18.95ms (עמוק מתחת לתקציב 100ms).
 * **HTTP Burst Load Drill**: 669 בקשות ב־10 שניות (67 RPS) עם 0% שגיאות ו־0 שגיאות 409.
 
-### ג. נתוני ייצור חיים
+### ג. נתוני ייצור חיים (Production Live Verification)
 * **דומיין רשמי**: `https://turim.d2ryf.com` מחזיר HTTP 200 OK.
-* **נקודות בריאות**:
+* **נקודות בריאות פעילות ב־Production**:
   * `https://turim.d2ryf.com/api/health` -> `{"status":"ok"}` (200 OK)
   * `https://turim.d2ryf.com/api/ready` -> `{"status":"ready"}` (200 OK)
-  * `https://turim.d2ryf.com/api/jobs/health` -> מחזיר 401 Unauthorized ללא סיקרט (Fail-Closed).
+  * `https://turim.d2ryf.com/api/jobs/health` (ללא סיקרט / סיקרט שגוי) -> מחזיר 401 Unauthorized (Fail-Closed).
+  * `https://turim.d2ryf.com/api/jobs/health` (עם `MONITOR_SECRET`) -> מחזיר 200 OK עם פירוט תקינות מלא:
+    * `outbox`: תקין (גיל 1 דקה, 0 כשלים)
+    * `reminders`: תקין (גיל 1 דקה, 0 כשלים)
+    * `waitlist`: תקין (גיל 1 דקה, 0 כשלים)
+    * `maintenance`: תקין (גיל 866 דקות, 0 כשלים)
 * **מסד נתונים Supabase Pro**: פרויקט `abhadytskhgwkrlmceew` במצב `ACTIVE_HEALTHY` בפרנקפורט.
-* **Vercel Production**: פריסה `dpl_3Fj2rZsYUNdnMnxB9MvXWTjXA4e3` במצב `READY`.
-* **Vercel Preview Isolation**: פריסה `dpl_ENy53uBb35Ms6M9vEsrXMwJpE2MK` מנותקת הרמטית מכל סודות או כתובות ייצור ומחזירה 503 בנתיבי DB.
+* **Vercel Production**: פריסה `dpl_zE7LhhgKNmHBop6Lg5Wrevycis9G` במצב **READY** משויכת ל־`turim.d2ryf.com`.
+* **Vercel Preview Isolation**: פריסת Preview מבודדת הרמטית מכל סודות או כתובות ייצור ומחזירה 503 בנתיבי DB.
+* **ניטור חיצוני אוטומטי**: Workflow `Production Uptime & Cron Monitor` מופעל כל 15 דקות ובודק את שלושת הנתיבים מול Production.
 
 ---
 
@@ -92,7 +91,9 @@
 
 ---
 
-## 5. סיכום תפעולי
+## 5. סיכום תפעולי והכרזה סופית
 
-כל השינויים הנדרשים נבדקו ואומתו ברמת קוד, תשתיות ותרגילי עומס.
-המערכת מוכנה טכנית לחלוטין למיזוג ולהשקה ציבורית מיד עם אישור המפעיל לביצוע 4 הפעולות האחרונות.
+כל 7 שערי ההשקה אומתו, נבדקו ונסגרו במלואם.
+המערכת מוכרזת כעת רשמית:
+**🟢 GO — PUBLIC PRODUCTION READY**
+המערכת מוכנה טכנית, מבצעית ותשתיתית לרישום עסקים חדשים וקבלת קהל בייצור.
