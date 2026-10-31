@@ -13,6 +13,8 @@ const handler = api(async (req) => {
   const options: MonitorOptions = {};
   if (simulateHeader === "database" || simulateHeader === "cron") {
     options.simulate = simulateHeader;
+  } else if (simulateHeader === "none" || simulateHeader === "clear") {
+    options.simulate = "none";
   }
 
   const report = await runProductionMonitor(options);
