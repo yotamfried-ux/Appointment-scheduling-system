@@ -19,6 +19,10 @@
     {
       "path": "/api/jobs/maintenance",
       "schedule": "20 3 * * *"
+    },
+    {
+      "path": "/api/jobs/monitor",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
