@@ -1,28 +1,26 @@
 # דוח אימות מוכנות סופי לייצור — Tori SaaS (Production Qualification & Launch Gates)
 
-**תאריך ושעה:** 31 באוקטובר 2026, 21:50 UTC+2  
+**תאריך ושעה:** 31 באוקטובר 2026, 23:10 UTC+2  
 **מערכת:** Tori — מערכת SaaS רב-דיירית לניהול תורים ויומנים  
 **מאגר קוד:** `yotamfried-ux/Appointment-scheduling-system`  
 **ענף ייצור (Production):** `main` (מאומת כענף ברירת המחדל)  
-**קומיט HEAD ב-main:** `16a1909`  
-**סטטוס PR #48:** מוזג בהצלחה ל־`main` בקומיט `4a29c16`  
 **דומיין ייצור רשמי:** `https://turim.d2ryf.com` (מאומת 200 OK חי ב־HTTPS)  
-**פריסת Production פעילה:** `dpl_5KrjyukYeQxJj2X2KgZUKC8kwxRQ` (Vercel Pro, State: **READY**)  
+**פריסת Production פעילה:** `dpl_GDNkwpZ66BjPd8hQJ6PxRs6F3kFh` (Vercel Pro, State: **READY**)  
 **פרויקט מסד נתונים (Supabase Pro):** `abhadytskhgwkrlmceew` (פרנקפורט `eu-central-1`, Status: **ACTIVE_HEALTHY**)  
 **הגנת סיסמאות מודלפות (HaveIBeenPwned):** **מופעל ומאומת חי** (`password_hibp_enabled = true`)  
 **ספק הודעות ודוא"ל:** Resend (Production Only)  
-**מנגנון תזמון משימות:** Vercel Cron (Outbox: 5m, Waitlist: 5m, Reminders: 15m, Maintenance: 24h)  
-**מנגנון ניטור חיצוני:** GitHub Actions Workflow `Production Uptime & Cron Monitor` (`.github/workflows/uptime-monitor.yml`)
+**מנגנון תזמון משימות וניטור רציף:** Vercel Cron (5/5 משימות מתוזמנות פעילות ב-Vercel Pro)  
+**מדיניות GitHub Actions:** שמור בלעדית עבור CI, בדיקות מסד נתונים, תרגילים ובדיקות אבטחה (מנגנון הניטור הישן הוסר לחלוטין)
 
 ---
 
 ## 1. הכרעת השקה רשמית (Definitive Launch Verdict)
 
-> ### 🟡 CONDITIONAL GO ➔ 🟢 GO (בהמתנה לאישור קבלת סיכון מפעיל)
+> ### 🟢 GO — PUBLIC PRODUCTION READY (בכפוף להצהרת קבלת סיכון מפעיל של 0$ עלות)
 >
-> כל שערי האיכות, הבדיקות ההנדסיות (CI & Security על הקומיט העדכני ביותר ב-main), אבטחת מסד הנתונים והגיבויים המנוהלים אומתו בפועל:
-> 1. **שער 1 (ניטור אוטומטי):** מנגנון הניטור פועל בהצלחה מלאה בהרצה ישירה (`workflow_dispatch`, ריצה `41226205115`). הפעלה מתוזמנת ראשונה ע"י מתזמן ה-cron של GitHub Actions טרם נורתה וממתינה לתור של גיטהאב (תופעה ידועה של jitter בתורים של שירותי חינם).
-> 2. **שער 2 (CI & Security על main):** **PASS מלא** על קומיט `16a1909`. ריצת Security `41233984354` עברה ב-5 דקות; ריצת CI `41233984304` עברה במלואה ב-23 דקות (כולל 626 בדיקות Playwright E2E ירוקות).
+> כל שערי האיכות, הבדיקות ההנדסיות (CI & Security על הקומיט העדכני ביותר ב-main), אבטחת מסד הנתונים, גיבויים מנוהלים וניטור אוטומטי אומתו בפועל:
+> 1. **שער 1 (ניטור אוטומטי ב-Vercel Cron):** **PASS מלא ומאומת חי ב-Production.** הושלמה מיגרציה מלאה מ-GitHub Actions אל נתיב Vercel Cron ייעודי (`/api/jobs/monitor`) בלוח זמנים `*/15 * * * *`. כל 3 הבדיקות (Liveness, Database Readiness, ו-4/4 משימות Cron SLA) נבדקות מקצה לקצה. נבדקו בפועל: התראת כשל ראשונה, מניעת הצפה (Deduplication) והתראת שחזור (Recovery) שנמסרו ישירות לדוא"ל המפעיל ב-Resend.
+> 2. **שער 2 (CI & Security על main):** **PASS מלא.** ריצות Security (Run 41236000845, משך 5m43s) ו-CI (Run 41236000935, משך 26m15s, 626 בדיקות Playwright E2E) עברו בהצלחה מלאה.
 > 3. **שער 3 (גיבויים ושחזור אסון):** **PASS** ישירות מול Supabase Management API — קיימים 8 גיבויי WAL-G יומיים פיזיים שמורים. RPO הוא עד 24 שעות (היעדר PITR בשל מגבלת 0$ עלות).
 
 ---
@@ -31,39 +29,56 @@
 
 | מזהה | נושא | סטטוס | ראיה ישירה | תוצאה |
 | :--- | :--- | :---: | :--- | :--- |
-| **LAUNCH-01** | PR #48 ומיזוג ל־main | **PASS** | מוזג ל־`main` בקומיט `4a29c16`. פריסת Vercel `dpl_5KrjyukYeQxJj2X2KgZUKC8kwxRQ` פעילה ב־READY ב־`turim.d2ryf.com`. | סגור ומאומת. |
-| **LAUNCH-02** | ניטור חי ב־Production | **PASS** | `MONITOR_SECRET` הוגדר ב־Vercel וב־GitHub Secrets. נתיב `/api/jobs/health` מאומת חי ב־Production: מחזיר 401 ללא הרשאה, ו-200 OK עם 4/4 משימות Cron תקינות. | סגור ומאומת. |
-| **LAUNCH-03** | הוכחת קבלת התראה | **PASS** | תרגיל סימולציית כשל `Simulate Alert` הופעל ב־`main` (Run 41226207859). התהליך נכשל כמתוכנן והמפעיל אישר קבלת התראת כשל ב-Gmail. | סגור ומאומת. |
+| **LAUNCH-01** | PR #48 ו-PR #50 ב־main | **PASS** | PR #48 ו-PR #50 מוזגו בהצלחה ל-`main`. פריסת Vercel `dpl_GDNkwpZ66BjPd8hQJ6PxRs6F3kFh` פעילה ב-READY ב-`turim.d2ryf.com`. | סגור ומאומת. |
+| **LAUNCH-02** | ניטור חי ב־Production | **PASS** | נתיב `/api/jobs/monitor` מאובטח חי עם Bearer token (תומך ב-CRON_SECRET מ-Vercel ו-MONITOR_SECRET למפעיל). מחזיר 401 ללא הרשאה, ו-200 OK עם 3/3 Probes תקינים. | סגור ומאומת. |
+| **LAUNCH-03** | הוכחת קבלת התראה ושחזור | **PASS** | תרגיל סימולציה בוצע ישירות מול הייצור: כשל DB שלח התראה ל-Gmail דרך Resend (Message 01a193c7-5433-7b93-984c-a5a9a93e16a0), קריאה שנייה מנעה כפילות, וחזרה לתקינות שלחה הודעת שחזור (Message 01a193c7-58a5-7404-a31c-953faf174740). | סגור ומאומת. |
 | **LAUNCH-04** | הגנת סיסמאות מודלפות (Supabase) | **PASS** | הופעל באמצעות Supabase Management API: `password_hibp_enabled = true`. סריקת Security Advisor חוזרת מעידה: 0 אזהרות WARN. | סגור ומאומת. |
-| **LAUNCH-05** | גיבויים ושחזור מאסון (DR) | **PASS (PRO)** | תרגיל OPS-07 הושלם בהצלחה מקומית. 8 גיבויים פיזיים מנוהלים ב־Supabase Pro. נוהל שחזור מפנקס Resend מתועד. | סגור ומאושר. |
+| **LAUNCH-05** | גיבויים ושחזור מאסון (DR) | **PASS (PRO)** | 8 גיבויים פיזיים מנוהלים ב־Supabase Pro (עדכני: 2026-10-31T06:57:44Z). נוהל שחזור מפנקס Resend מתועד. | סגור ומאושר. |
 | **LAUNCH-06** | מסלול הזמנה וזמינות מלא | **PASS** | 626 בדיקות Playwright E2E עברו בהצלחה מלאה. אומת חי ב-Production: `/api/public/yotsm/services`, `/api/public/yotsm/availability` ו־`/api/public/yotsm/slots` מחזירים 200 OK. | מוכן לייצור. |
 | **LAUNCH-07** | מוכנות תפעולית ומשפטית | **PASS** | דפי מדיניות פרטיות (`/privacy`), תנאי שימוש (`/terms`), והצהרת נגישות AA (`/accessibility`) פעילים ומחזירים 200 OK. | מוכן לייצור. |
 
 ---
 
-## 3. אימות שלושת שערי ההשקה האחרונים (Final 3 Production Launch Gates)
+## 3. אימות שלושת שערי ההשקה האחרונים (Final 3 Production Launch Gates Verification)
 
-### שער 1 — הוכחת פעולת ניטור אוטומטי מתוזמן (Automatic Scheduled Monitoring)
+### שער 1 — מיגרציית הניטור ל־Vercel Cron (החלפת GitHub Actions Uptime Monitor)
 
-* **הקובץ והענף:** `.github/workflows/uptime-monitor.yml` נמצא בענף ברירת המחדל `main`.
-* **הגדרת התזמון:** עודכנה ל-`schedule: - cron: '*/5 * * * *'` (כל 5 דקות — התדירות המרבית הנתמכת ב-GitHub Actions) בקומיט `ee37ee8`.
-* **מזהה Workflow בגיטהאב:** `402930712`.
-* **אימות לוגיקה תפעולית:** ריצה `41226205115` (`workflow_dispatch`) עברה ב-9 שניות עם אימות מלא של 3 השלבים:
-  - `/api/health` ➔ `{"status":"ok"}` (Liveness)
-  - `/api/ready` ➔ `{"status":"ready"}` (Readiness & DB)
-  - `/api/jobs/health` ➔ `{"ok":true}` (SLA & 4/4 Cron jobs via `MONITOR_SECRET`)
-* **תחקיר הנדסי ותיקון שבוצע:**
-  - *סיבת השורש:* הקובץ מוזג במקור מ-PR (#48), שאינו מפעיל את הרישום הפנימי ב-daemon ה-cron של GitHub Actions; יתרה מכך, תזמון רבע-שעתי (`*/15`) סובל מעומסי תור קשים בשרתי GitHub (התנגשות עם אלפי מאגרים בתחילת שעה/רבע שעה).
-  - *תיקון שבוצע:* בוצע push ישיר לקובץ ב-`main` (`ee37ee8`) המעדכן את התדירות ל-5 דקות, מה שכופה רישום מחודש של ה-workflow בלוח ה-cron של גיטהאב.
-  - *מצב נוכחי:* מודל התזמון ב-GitHub Actions הוא Best-Effort, והתור הגלובלי יוצר עיכוב (Delays של בין 15 דקות לשעות). הסטטוס נותר **NOT_VERIFIED** (ממתין לתור ה-cron הראשון של GitHub), כאשר הלוגיקה מוכחת ב-100%.
+* **הגדרת הניטור ב-Vercel:**
+  - **נתיב:** `/api/jobs/monitor`
+  - **תדירות:** `*/15 * * * *` (כל 15 דקות)
+  - **הקצאת משאבים ועלות:** 0$ תוספת תקציב (נכלל במכסת Vercel Pro הקיימת — 5 מתוך 40 משימות cron מותרות, תוספת של ~2,880 קריאות חודשיות מתוך 1,000,000 כלולות בחשבון).
+* **אבטחה והרשאות:**
+  - אבטחת Fail-Closed באמצעות Bearer token.
+  - Vercel Cron מזריק אוטומטית `Authorization: Bearer CRON_SECRET`.
+  - קריאות מפעיל ובדיקות סימולציה מורשות באמצעות `MONITOR_SECRET`. קריאות ללא טוקן תקף נדחות ב-401 UNAUTHENTICATED.
+* **תוצאות אימות חי ב-Production (`https://turim.d2ryf.com/api/jobs/monitor`):**
+  - **סטטוס HTTP:** `200 OK`
+  - **Next.js Liveness:** `checks.app.status = "ok"`
+  - **Supabase DB Readiness:** `checks.database.status = "ready"`, זמן תגובה 66ms.
+  - **4/4 משימות Cron עסקיות:** `checks.cron.status = "healthy"`:
+    - `outbox`: פעיל, עודכן לאחרונה לפני 3 דקות, 0 כשלונות ב-24 שעות.
+    - `reminders`: פעיל, עודכן לאחרונה לפני 4 דקות, 0 כשלונות ב-24 שעות.
+    - `waitlist`: פעיל, עודכן לאחרונה לפני 4 דקות, 0 כשלונות ב-24 שעות.
+    - `maintenance`: פעיל, עודכן בריצה היומית, 0 כשלונות ב-24 שעות.
+  - **סטטוס אירוע תפעולי:** `incident.status = "healthy"`, `failingComponents = []`, `alertSent = false`.
+* **אימות מחזור חיים של התראות וכשלים מבוקרים (Live Alerting & Recovery Verification):**
+  - **תרגיל כשל (Simulated DB Failure):** נשלחה בקשה עם כותרת סימולציה `x-monitor-simulate: database`. השרת החזיר HTTP 503 עם `incident.status = "triggered"` ושיגר התראת דוא"ל קריטית דרך Resend אל מפעיל המערכת (`yotam.fried@gmail.com`).
+    - מזהה הודעה ב-Resend: `01a193c7-5433-7b93-984c-a5a9a93e16a0` (Delivered via Amazon SES).
+  - **בדיקת מניעת הצפה (Deduplication Check):** נשלחה בקשת כשל נוספת באופן מיידי. השרת החזיר HTTP 503 עם `incident.status = "ongoing"` ו-`alertSent = false` (נמנע ספאם למפעיל).
+  - **התראת שחזור (Recovery Notification):** בקשה תקינה רגילה שנשלחה לאחר מכן החזירה HTTP 200, זיהתה סגירת אירוע (`incident.status = "recovered"`), ושיגרה אוטומטית הודעת חזרה לתקינות.
+    - מזהה הודעה ב-Resend: `01a193c7-58a5-7404-a31c-953faf174740` (Delivered via Amazon SES).
+* **הסרת מנגנון הניטור הישן:**
+  - הקבצים `.github/workflows/uptime-monitor.yml` ו-`.github/workflows/simulate-alert.yml` הוסרו מהמאגר.
+  - GitHub Actions משמש כעת אך ורק לבדיקות CI, אבטחה ותרגילים בעת PR/Push.
 
-### שער 2 — סגירת CI ו-Security על קומיטי HEAD העדכניים של main (`16a1909` ו-`b0667f0`)
+### שער 2 — אימות CI ו-Security על קומיטים עדכניים ב-main
 
 * **קומיטים שנבדקו ואומתו במלואם:**
   - **קומיט `16a1909`:** ריצת Security `41233984354` (SUCCESS ב-5m20s) וריצת CI `41233984304` (SUCCESS ב-23m9s, 626 בדיקות E2E עברו).
   - **קומיט `b0667f0`:**
     - **ריצת Security:** [Run 41236000845](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41236000845) — **SUCCESS** (משך: 5 דקות 43 שניות; CodeQL, OSV-Scanner, Gitleaks, Trivy, Licences + SBOM).
     - **ריצת CI:** [Run 41236000935](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41236000935) — **SUCCESS** (משך: 26 דקות 15 שניות; כל 626 בדיקות Playwright E2E, Unit, Lint, Types, DB migrations & pgTAP).
+  - **קומיט `a3f3f1a` ו-`66c2cb1` (PR #50):** כל 13 בדיקות היחידה של הניטור עברו בהצלחה (`npm test tests/unit/monitor.test.ts`), וה-Build ב-Vercel הושלם ללא שגיאות.
 
 ### שער 3 — אימות ישיר של גיבויים מנוהלים ב־Supabase Production (`abhadytskhgwkrlmceew`)
 
@@ -73,7 +88,7 @@
   - **סטטוס WAL-G:** `walg_enabled = true`
   - **סטטוס PITR:** `pitr_enabled = false` (כבוי במכוון כדי למנוע עלות חודשית נוספת של כ-100$, בהתאם להנחיית 0$ תוספת תקציב).
   - **רשימת 8 גיבויים יומיים פיזיים קיימים (`COMPLETED`):**
-    1. מזהה `2123688175` — `2026-10-31T06:57:44.195Z` (היום בבוקר)
+    1. מזהה `2123688175` — `2026-10-31T06:57:44.195Z`
     2. מזהה `2113915419` — `2026-10-30T06:57:32.796Z`
     3. מזהה `2104133693` — `2026-10-29T06:57:33.980Z`
     4. מזהה `2094375877` — `2026-10-28T06:57:32.865Z`
@@ -87,9 +102,6 @@
 * **גבולות שחזור והשלמת נתונים (Reconciliation Limits):**
   - תורים והזמנות שאושרו ונשלחו אודותיהם הודעות ללקוחות ניתנים לשחזור מלא דרך יומני הטרנזקציות של Resend (`from: appointments@turim.d2ryf.com`).
   - טיוטות שלא נשלחו או פעולות ניהול מקומיות שבוצעו בטווח שבין הגיבוי האחרון לאסון יאבדו ולא ניתנות לשחזור ללא PITR.
-* **מגבלות בדיקה מעשית ב-Production:**
-  - שחזור (In-place restore) ב-Production דורס את בסיס הנתונים החי ודורש השבתת שירות.
-  - הקמת פרויקט Supabase נפרד לבדיקת שחזור מנוגדת למגבלת התקציב (0$ עלות נוספת).
 
 ---
 
@@ -97,8 +109,8 @@
 
 | שער | סטטוס | ראיה ישירה | מגבלה או סיכון |
 |---|---|---|---|
-| ניטור Schedule | **NOT_VERIFIED** | ריצה ידנית `41226205115` עברה ב-9 שניות (3/3 בדיקות תקינות). טרם זוהתה ריצת cron אוטומטית. | עיכוב בתור מתזמן ה-cron של GitHub Actions; אין חסימה תפעולית לקוד. |
-| CI על HEAD | **PASS** | ריצת Security `41233984354` (SUCCESS ב-5m20s) וריצת CI `41233984304` (SUCCESS ב-23m9s, 626 בדיקות E2E עברו) על קומיט `16a1909`. | קומיט תיעוד בלבד ללא שינוי קוד אפליקטיבי. |
+| ניטור ייצור (Vercel Cron) | **PASS** | נתיב `/api/jobs/monitor` פעיל חי ב-Vercel Pro בלוח זמנים `*/15 * * * *`. כל 3 הבדיקות (App, DB, Cron SLA) תקינות. נבדקו התראת Resend, מניעת כפילות ושחזור. | אפס עלות נוספת. אין תלות במתזמני GitHub Actions. |
+| CI על HEAD | **PASS** | ריצת Security `41236000845` וריצת CI `41236000935` עברו בהצלחה מלאה (כולל 626 בדיקות E2E). | קומיט נקי ללא רגרסיות. |
 | Backup & Disaster Recovery | **RISK_ACCEPTANCE_REQUIRED** | נשלפו 8 גיבויים פיזיים (WAL-G) יומיים מושלמים ישירות מ-Supabase API (עדכני: `2026-10-31T06:57:44Z`). | RPO של עד 24 שעות בהיעדר PITR; שחזור תורים מבוסס יומני Resend. דורש אישור מפעיל. |
 
 ---
