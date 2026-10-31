@@ -11,8 +11,8 @@ if [ "$(docker exec "$DB" psql -U postgres -Atc "select count(*) from public.bus
   echo "seeding (about a minute)..."
   docker exec -i "$DB" psql -U postgres -v ON_ERROR_STOP=1 -q < "$HERE/scale-seed.sql" >/dev/null
 fi
-OWNER='{"sub":"00000000-0000-0000-5ca1-000000000007","role":"authenticated"}'
-BIZ='00000000-0000-0000-b1b1-000000000007'
+OWNER='{"sub":"00000000-0000-4000-a001-000000000007","role":"authenticated"}'
+BIZ='00000000-0000-4000-a002-000000000007'
 fail=0
 run() { # name, role, sql
   local out ms
@@ -32,7 +32,7 @@ run "customers search"                        authenticated "select * from publi
 run "customers sorted by visits"              authenticated "select * from public.owner_customers('$BIZ', null, 'visits', 25, 0)"
 run "report, 30 days"                         authenticated "select public.owner_report('$BIZ', (current_date - 30)::date, current_date::date)"
 run "report, 140 days"                        authenticated "select public.owner_report('$BIZ', (current_date - 140)::date, current_date::date)"
-run "one customer's appointments"             authenticated "select id, status, starts_at from public.appointments where business_id = '$BIZ' and customer_id = '00000000-0000-0000-c057-000000007010' order by starts_at desc limit 50"
+run "one customer's appointments"             authenticated "select id, status, starts_at from public.appointments where business_id = '$BIZ' and customer_id = '00000000-0000-4000-a005-000000007010' order by starts_at desc limit 50"
 run "busy times for the public page (30 d)"   service_role   "select * from public.public_busy('$BIZ', now() - interval '1 day', now() + interval '31 days')"
 run "pending messages picker"                 service_role   "select id from public.notification_log where status in ('queued','failed','sending') and next_attempt_at <= now() limit 50"
 [ "$fail" = 0 ] && echo "OK: every query is within ${BUDGET} ms at $(docker exec "$DB" psql -U postgres -Atc "select count(*) from public.appointments") appointments" || { echo "FAILED"; exit 1; }

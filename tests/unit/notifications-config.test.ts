@@ -75,6 +75,60 @@ describe("cron authorization", () => {
   });
 });
 
+describe("monitoring authorization", () => {
+  const call = async (header?: string) => {
+    const { authorizeMonitoring } = await import("@/lib/security/cron");
+    try {
+      authorizeMonitoring(new Request("http://x/api/jobs/health", { headers: header ? { authorization: header } : {} }));
+      return "ok";
+    } catch (e) {
+      return (e as { code: string }).code;
+    }
+  };
+  it("fails closed when neither MONITOR_SECRET nor CRON_SECRET is configured or long enough", async () => {
+    delete process.env.MONITOR_SECRET;
+    delete process.env.CRON_SECRET;
+    expect(await call("Bearer anything")).toBe("UNAVAILABLE");
+    vi.stubEnv("MONITOR_SECRET", "short");
+    vi.stubEnv("CRON_SECRET", "short");
+    expect(await call("Bearer short")).toBe("UNAVAILABLE");
+  });
+  it("authenticates successfully with least-privilege MONITOR_SECRET", async () => {
+    const monitorSecret = `monitor-${"m".repeat(20)}`;
+    vi.stubEnv("MONITOR_SECRET", monitorSecret);
+    delete process.env.CRON_SECRET;
+    expect(await call(`Bearer ${monitorSecret}`)).toBe("ok");
+    expect(await call(`Bearer wrong-token`)).toBe("UNAUTHENTICATED");
+    expect(await call(undefined)).toBe("UNAUTHENTICATED");
+  });
+  it("falls back to CRON_SECRET if MONITOR_SECRET is not configured", async () => {
+    delete process.env.MONITOR_SECRET;
+    const cronSecret = `cron-${"c".repeat(20)}`;
+    vi.stubEnv("CRON_SECRET", cronSecret);
+    expect(await call(`Bearer ${cronSecret}`)).toBe("ok");
+    expect(await call(`Bearer wrong-token`)).toBe("UNAUTHENTICATED");
+  });
+  it("accepts either secret when both are configured", async () => {
+    const monitorSecret = `monitor-${"m".repeat(20)}`;
+    const cronSecret = `cron-${"c".repeat(20)}`;
+    vi.stubEnv("MONITOR_SECRET", monitorSecret);
+    vi.stubEnv("CRON_SECRET", cronSecret);
+    expect(await call(`Bearer ${monitorSecret}`)).toBe("ok");
+    expect(await call(`Bearer ${cronSecret}`)).toBe("ok");
+    expect(await call(`Bearer wrong-token`)).toBe("UNAUTHENTICATED");
+  });
+  it("least-privilege MONITOR_SECRET cannot authorize mutating cron endpoints", async () => {
+    const { authorizeCron } = await import("@/lib/security/cron");
+    const monitorSecret = `monitor-${"m".repeat(20)}`;
+    const cronSecret = `cron-${"c".repeat(20)}`;
+    vi.stubEnv("MONITOR_SECRET", monitorSecret);
+    vi.stubEnv("CRON_SECRET", cronSecret);
+    expect(() =>
+      authorizeCron(new Request("http://x/api/jobs/outbox", { headers: { authorization: `Bearer ${monitorSecret}` } })),
+    ).toThrow();
+  });
+});
+
 describe("appUrl (every e-mail link)", () => {
   afterEach(() => vi.unstubAllEnvs());
   it("configured address wins, then the Vercel deployment's own address, never localhost on Vercel", async () => {

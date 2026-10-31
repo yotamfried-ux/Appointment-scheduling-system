@@ -37,9 +37,9 @@ console.log(`${seconds}s, ${concurrency} concurrent, ${BASE}`);
 for (const [path, s] of stats) {
   const n = s.ms.length; total += n;
   const codes = [...s.status].map(([c, k]) => `${c}x${k}`).join(" ");
-  // only 5xx answers and network errors count as failures
-  for (const [c, k] of s.status) if (c === "ERR" || c.startsWith("5")) bad += k;
+  // Any non-200 status (or network error) is counted as a failure; availability must return 200 with real free slots
+  for (const [c, k] of s.status) if (c === "ERR" || c !== "200") bad += k;
   console.log(`${path.slice(0, 60).padEnd(62)} n=${String(n).padStart(5)}  p50=${q(s.ms, 0.5).toFixed(0)}ms  p95=${q(s.ms, 0.95).toFixed(0)}ms  p99=${q(s.ms, 0.99).toFixed(0)}ms  ${codes}`);
 }
-console.log(`requests=${total}  rps=${(total / seconds).toFixed(0)}  server-errors=${bad}`);
+console.log(`requests=${total}  rps=${(total / seconds).toFixed(0)}  errors=${bad}`);
 process.exit(bad === 0 ? 0 : 1);

@@ -11,3 +11,8 @@
 id = "GHSA-vfj7-8cjw-p6xm"
 ignoreUntil = 2026-12-31
 reason = "braces <=3.0.3 recursion DoS needs attacker-controlled brace patterns; lint toolchain only (eslint-config-next > fast-glob > micromatch), devDependency, no upstream fix."
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2026-12-31
+reason = "minimatch ReDoS in devDependencies (eslint > minimatch, @eslint/eslintrc > minimatch). Lint toolchain only, not bundled into production app, no upstream eslint release with minimatch 11 yet."
