@@ -62,7 +62,7 @@ vi.mock("@/modules/notifications/config", () => ({
 }));
 
 const { runProductionMonitor, resetMonitorStateForTesting } = await import("@/modules/notifications/monitor");
-const { authorizeCron } = await import("@/lib/security/cron");
+const { authorizeMonitoring } = await import("@/lib/security/cron");
 
 describe("Vercel Production Monitor (Step 5 Quality & Security Suite)", () => {
   beforeEach(() => {
@@ -83,18 +83,18 @@ describe("Vercel Production Monitor (Step 5 Quality & Security Suite)", () => {
     });
   });
 
-  describe("1-3. CRON_SECRET Authorization Guardrails", () => {
+  describe("1-3. CRON_SECRET / MONITOR_SECRET Authorization Guardrails", () => {
     const dummySecret = "a".repeat(32);
 
     it("1. Rejects request without CRON_SECRET", () => {
       vi.stubEnv("CRON_SECRET", dummySecret);
-      expect(() => authorizeCron(new Request("http://x/api/jobs/monitor"))).toThrow();
+      expect(() => authorizeMonitoring(new Request("http://x/api/jobs/monitor"))).toThrow();
     });
 
     it("2. Rejects request with wrong secret", () => {
       vi.stubEnv("CRON_SECRET", dummySecret);
       expect(() =>
-        authorizeCron(
+        authorizeMonitoring(
           new Request("http://x/api/jobs/monitor", {
             headers: { authorization: "Bearer invalid-secret-value-12345" },
           })
@@ -105,7 +105,7 @@ describe("Vercel Production Monitor (Step 5 Quality & Security Suite)", () => {
     it("3. Authorizes valid CRON_SECRET bearer request", () => {
       vi.stubEnv("CRON_SECRET", dummySecret);
       expect(() =>
-        authorizeCron(
+        authorizeMonitoring(
           new Request("http://x/api/jobs/monitor", {
             headers: { authorization: `Bearer ${dummySecret}` },
           })

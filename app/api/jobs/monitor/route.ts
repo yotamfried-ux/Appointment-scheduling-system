@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { api } from "@/lib/api/http";
-import { authorizeCron } from "@/lib/security/cron";
+import { authorizeMonitoring } from "@/lib/security/cron";
 import { runProductionMonitor, type MonitorOptions } from "@/modules/notifications/monitor";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const handler = api(async (req) => {
-  authorizeCron(req);
+  authorizeMonitoring(req);
 
   const simulateHeader = req.headers.get("x-monitor-simulate");
   const options: MonitorOptions = {};
