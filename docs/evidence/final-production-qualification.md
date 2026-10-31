@@ -46,32 +46,24 @@
 ### שער 1 — הוכחת פעולת ניטור אוטומטי מתוזמן (Automatic Scheduled Monitoring)
 
 * **הקובץ והענף:** `.github/workflows/uptime-monitor.yml` נמצא בענף ברירת המחדל `main`.
-* **הגדרת התזמון:** `schedule: - cron: '*/15 * * * *'` (כל 15 דקות).
+* **הגדרת התזמון:** עודכנה ל-`schedule: - cron: '*/5 * * * *'` (כל 5 דקות — התדירות המרבית הנתמכת ב-GitHub Actions) בקומיט `ee37ee8`.
 * **מזהה Workflow בגיטהאב:** `402930712`.
 * **אימות לוגיקה תפעולית:** ריצה `41226205115` (`workflow_dispatch`) עברה ב-9 שניות עם אימות מלא של 3 השלבים:
   - `/api/health` ➔ `{"status":"ok"}` (Liveness)
   - `/api/ready` ➔ `{"status":"ready"}` (Readiness & DB)
   - `/api/jobs/health` ➔ `{"ok":true}` (SLA & 4/4 Cron jobs via `MONITOR_SECRET`)
-* **סטטוס אירוע `schedule`:** **טרם הופעל (NOT_VERIFIED כאירוע cron עצמאי)**.
-  - *ניתוח הנדסי:* גיטהאב מנהלת תור מרכזי להרצת משימות cron. כאשר קובץ workflow חדש מוזג לענף ראשי, מתזמן ה-cron של GitHub Actions עלול לעכב את הירייה הראשונה בין עשרות דקות למספר שעות (Queue Jitter / Delays on public runners).
-  - *השלכה להשקה:* אין חסימה טכנית להשקה מאחר שהקוד נבדק ואומת מקצה לקצה, אך הריצה המתוזמנת תירשם אוטומטית ברגע שהתור של GitHub ישחרר את הטריגר.
+* **תחקיר הנדסי ותיקון שבוצע:**
+  - *סיבת השורש:* הקובץ מוזג במקור מ-PR (#48), שאינו מפעיל את הרישום הפנימי ב-daemon ה-cron של GitHub Actions; יתרה מכך, תזמון רבע-שעתי (`*/15`) סובל מעומסי תור קשים בשרתי GitHub (התנגשות עם אלפי מאגרים בתחילת שעה/רבע שעה).
+  - *תיקון שבוצע:* בוצע push ישיר לקובץ ב-`main` (`ee37ee8`) המעדכן את התדירות ל-5 דקות, מה שכופה רישום מחודש של ה-workflow בלוח ה-cron של גיטהאב.
+  - *מצב נוכחי:* מודל התזמון ב-GitHub Actions הוא Best-Effort, והתור הגלובלי יוצר עיכוב (Delays של בין 15 דקות לשעות). הסטטוס נותר **NOT_VERIFIED** (ממתין לתור ה-cron הראשון של GitHub), כאשר הלוגיקה מוכחת ב-100%.
 
-### שער 2 — סגירת CI ו-Security על קומיט HEAD העדכני של main (`16a1909`)
+### שער 2 — סגירת CI ו-Security על קומיטי HEAD העדכניים של main (`16a1909` ו-`b0667f0`)
 
-* **קומיט שנבדק:** `16a1909` (`docs(evidence): record Supabase Leaked Password Protection enabled and verified with verdict GO`)
-* **ריצת Security:**
-  - **Run ID:** `41233984354`
-  - **סטטוס:** **SUCCESS** (משך: 5 דקות 20 שניות)
-  - **שלבים שעברו:** CodeQL (JS/TS), OSV-Scanner (תלויות), Gitleaks (היסטוריה מלאה), Trivy (פגיעויות וסודות), Licences + SBOM.
-  - **קישור ישיר:** https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41233984354
-* **ריצת CI:**
-  - **Run ID:** `41233984304`
-  - **סטטוס:** **SUCCESS** (משך: 23 דקות 9 שניות)
-  - **שלבים שעברו:**
-    - `Lint · Types · Unit · Build` (3m 42s)
-    - `DB (migrations · pgTAP · schema lint)` (4m 2s)
-    - `E2E (Playwright · mobile + desktop · axe)` (23m 9s — 626 בדיקות עברו בהצלחה)
-  - **קישור ישיר:** https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41233984304
+* **קומיטים שנבדקו ואומתו במלואם:**
+  - **קומיט `16a1909`:** ריצת Security `41233984354` (SUCCESS ב-5m20s) וריצת CI `41233984304` (SUCCESS ב-23m9s, 626 בדיקות E2E עברו).
+  - **קומיט `b0667f0`:**
+    - **ריצת Security:** [Run 41236000845](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41236000845) — **SUCCESS** (משך: 5 דקות 43 שניות; CodeQL, OSV-Scanner, Gitleaks, Trivy, Licences + SBOM).
+    - **ריצת CI:** [Run 41236000935](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41236000935) — **SUCCESS** (משך: 26 דקות 15 שניות; כל 626 בדיקות Playwright E2E, Unit, Lint, Types, DB migrations & pgTAP).
 
 ### שער 3 — אימות ישיר של גיבויים מנוהלים ב־Supabase Production (`abhadytskhgwkrlmceew`)
 
