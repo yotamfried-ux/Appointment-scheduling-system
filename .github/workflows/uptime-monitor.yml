@@ -1,7 +1,8 @@
 name: Production Uptime & Cron Monitor
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    # Trigger every 5 minutes (standard production heartbeat cadence)
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 permissions:
