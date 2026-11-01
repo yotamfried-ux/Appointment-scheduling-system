@@ -17,6 +17,8 @@ vi.mock("@/modules/notifications/job-health", () => ({
 // Mock systemDb
 let mockJobRunsStore: Record<string, any> = {};
 let mockDbWriteFailure = false;
+let mockCasConflict = false;
+
 const mockSystemDb = {
   from: (table: string) => {
     if (table !== "job_runs") throw new Error("Unexpected table: " + table);
@@ -28,6 +30,45 @@ const mockSystemDb = {
               const key = `${val1}:${val2}`;
               return { data: mockJobRunsStore[key] ?? null, error: null };
             },
+          }),
+        }),
+      }),
+      insert: (row: any) => ({
+        select: async () => {
+          if (mockDbWriteFailure) {
+            return { data: null, error: { message: "Disk full or connection aborted" } };
+          }
+          if (mockCasConflict) {
+            return { data: null, error: { code: "23505", message: "duplicate key value violates unique constraint" } };
+          }
+          const key = `${row.job_name}:${row.run_key}`;
+          if (mockJobRunsStore[key]) {
+            return { data: null, error: { code: "23505", message: "duplicate key value violates unique constraint" } };
+          }
+          mockJobRunsStore[key] = { ...row };
+          return { data: [{ finished_at: row.finished_at }], error: null };
+        },
+      }),
+      update: (updates: any) => ({
+        eq: (_col1: string, val1: string) => ({
+          eq: (_col2: string, val2: string) => ({
+            eq: (_col3: string, val3: string) => ({
+              select: async () => {
+                if (mockDbWriteFailure) {
+                  return { data: null, error: { message: "Disk full or connection aborted" } };
+                }
+                if (mockCasConflict) {
+                  return { data: [], error: null };
+                }
+                const key = `${val1}:${val2}`;
+                const existing = mockJobRunsStore[key];
+                if (!existing || existing.finished_at !== val3) {
+                  return { data: [], error: null };
+                }
+                mockJobRunsStore[key] = { ...existing, ...updates };
+                return { data: [{ finished_at: updates.finished_at }], error: null };
+              },
+            }),
           }),
         }),
       }),
@@ -52,12 +93,21 @@ vi.mock("@/platform/system-db", () => ({
 const sentEmails: any[] = [];
 let mockEmailSendFailure = false;
 let mockEmailErrorStatus: number | undefined = undefined;
+let mockPermanentEmailError = false;
 
 vi.mock("@/modules/notifications/config", () => ({
   emailProvider: () => ({
     name: "fake",
     send: async (msg: any) => {
+      if (mockPermanentEmailError) {
+        const { PermanentEmailError } = await import("@/modules/notifications/ports");
+        throw new PermanentEmailError("Invalid email address domain rejected (permanent)");
+      }
       if (mockEmailSendFailure) {
+        if (mockEmailErrorStatus === 409) {
+          const { TransientEmailError } = await import("@/modules/notifications/ports");
+          throw new TransientEmailError("Resend idempotency conflict (HTTP 409)");
+        }
         const err: any = new Error("Resend rate limit exceeded (transient)");
         if (mockEmailErrorStatus) err.status = mockEmailErrorStatus;
         throw err;
@@ -69,7 +119,7 @@ vi.mock("@/modules/notifications/config", () => ({
   platformAdminEmail: () => "operator@turim.d2ryf.com",
 }));
 
-const { runProductionMonitor, resetMonitorStateForTesting } = await import("@/modules/notifications/monitor");
+const { runProductionMonitor, resetMonitorStateForTesting, calculateBackoffMinutes } = await import("@/modules/notifications/monitor");
 const { authorizeMonitoring } = await import("@/lib/security/cron");
 
 describe("Vercel Production Monitor Hardened Quality & Security Suite", () => {
@@ -77,9 +127,11 @@ describe("Vercel Production Monitor Hardened Quality & Security Suite", () => {
     vi.clearAllMocks();
     mockJobRunsStore = {};
     mockDbWriteFailure = false;
+    mockCasConflict = false;
     sentEmails.length = 0;
     mockEmailSendFailure = false;
     mockEmailErrorStatus = undefined;
+    mockPermanentEmailError = false;
     resetMonitorStateForTesting();
     mockDbReady.mockResolvedValue(true);
     mockJobHealth.mockResolvedValue({
@@ -181,21 +233,28 @@ describe("Vercel Production Monitor Hardened Quality & Security Suite", () => {
 
       // Run 2: 15 minutes later, still failing, but Resend is now recovered
       mockEmailSendFailure = false;
-      const run2 = await runProductionMonitor();
+      const run2 = await runProductionMonitor({ ignoreBackoff: true });
       expect(run2.healthy).toBe(false);
       expect(run2.incident.status).toBe("ongoing");
       expect(run2.incident.alertRetrying).toBe(true);
       expect(run2.incident.alertSent).toBe(true);
       expect(run2.incident.notificationStatus).toBe("alert_sent");
       expect(sentEmails.length).toBe(1);
-      expect(sentEmails[0].attempt).toBe(2);
 
-      // Verify the retry used the EXACT SAME idempotency key and timestamp as recorded in run 1
+      // Verify the retry used the EXACT SAME idempotency key and payload as recorded in run 1
       expect(sentEmails[0].idempotencyKey).toBe(stored.stableIdempotencyKey);
       expect(sentEmails[0].text).toContain(stored.firstDetectedAt);
+      expect(sentEmails[0].subject).not.toContain("Attempt");
+      expect(sentEmails[0].text).not.toContain("Attempt");
+      expect(sentEmails[0].html).not.toContain("Attempt");
+
+      // Verify stored state in DB now reflects attemptCount 2 and lastAlertSentAt set
+      const stored2 = JSON.parse(mockJobRunsStore["monitor:incident_state"].error);
+      expect(stored2.attemptCount).toBe(2);
+      expect(stored2.lastAlertSentAt).toBeDefined();
 
       // Run 3: 30 minutes later, still failing -> Should DEDUPLICATE (no duplicate email)
-      const run3 = await runProductionMonitor();
+      const run3 = await runProductionMonitor({ ignoreBackoff: true });
       expect(run3.healthy).toBe(false);
       expect(run3.incident.status).toBe("ongoing");
       expect(run3.incident.alertSent).toBe(false);
@@ -216,18 +275,19 @@ describe("Vercel Production Monitor Hardened Quality & Security Suite", () => {
 
       // Run 1 to 5: all fail sending
       for (let i = 1; i <= 5; i++) {
-        await runProductionMonitor();
+        await runProductionMonitor({ ignoreBackoff: true });
       }
 
-      // Run 6: Max retries exceeded
-      const run6 = await runProductionMonitor();
+      // Run 6: Max retries exceeded -> Transitions to permanent_failure and does not retry
+      const run6 = await runProductionMonitor({ ignoreBackoff: true });
       expect(run6.incident.alertSent).toBe(false);
+      expect(run6.incident.notificationStatus).toBe("permanent_failure");
       expect(run6.incident.alertError).toContain("Max alert retries (5) reached");
     });
   });
 
   describe("6. Resend Idempotency & 409 Conflict Handling", () => {
-    it("handles Resend 409 conflict gracefully as successful idempotent delivery", async () => {
+    it("treats Resend 409 conflict as TransientEmailError: keeps pending_alert and queues for backoff retry", async () => {
       mockJobHealth.mockResolvedValue({
         ok: false,
         jobs: [
@@ -242,8 +302,14 @@ describe("Vercel Production Monitor Hardened Quality & Security Suite", () => {
 
       const res = await runProductionMonitor();
       expect(res.healthy).toBe(false);
-      expect(res.incident.alertSent).toBe(true);
-      expect(res.incident.alertError).toBeUndefined();
+      expect(res.incident.alertSent).toBe(false);
+      expect(res.incident.notificationStatus).toBe("pending_alert");
+      expect(res.incident.alertError).toContain("409");
+
+      // Verify DB stored state preserves pending_alert for retry
+      const stored = JSON.parse(mockJobRunsStore["monitor:incident_state"].error);
+      expect(stored.notificationStatus).toBe("pending_alert");
+      expect(stored.lastAlertSentAt).toBeUndefined();
     });
   });
 
@@ -434,6 +500,121 @@ describe("Vercel Production Monitor Hardened Quality & Security Suite", () => {
       expect(serialized).not.toContain("Bearer");
       expect(serialized).not.toContain("customer");
       expect(serialized).not.toContain("booking");
+    });
+  });
+
+  describe("13. Compare-And-Swap (CAS) Concurrency & Atomic State Protection", () => {
+    it("safely flags cas_conflict when concurrent worker modifies state first", async () => {
+      mockJobHealth.mockResolvedValue({
+        ok: false,
+        jobs: [
+          { job: "outbox", lastOk: null, ageMinutes: null, failed24h: 1, stale: true },
+          { job: "reminders", lastOk: new Date().toISOString(), ageMinutes: 5, failed24h: 0, stale: false },
+          { job: "waitlist", lastOk: new Date().toISOString(), ageMinutes: 1, failed24h: 0, stale: false },
+          { job: "maintenance", lastOk: new Date().toISOString(), ageMinutes: 60, failed24h: 0, stale: false },
+        ],
+      });
+      mockEmailSendFailure = true;
+
+      // Run 1 initializes the incident in job_runs with pending_alert
+      await runProductionMonitor();
+      expect(mockJobRunsStore["monitor:incident_state"]).toBeDefined();
+
+      // Simulate concurrent worker updating finished_at behind our back
+      mockCasConflict = true;
+
+      // Run 2 attempts update with old finished_at -> CAS mismatch
+      const run2 = await runProductionMonitor({ ignoreBackoff: true });
+      expect(run2.checks.storage.status).toBe("cas_conflict");
+      expect(run2.checks.storage.error).toContain("CAS conflict");
+    });
+  });
+
+  describe("14. Permanent vs Transient Error Differentiation & Backoff Schedule", () => {
+    it("correctly calculates exponential backoff intervals", () => {
+      expect(calculateBackoffMinutes(1)).toBe(15);
+      expect(calculateBackoffMinutes(2)).toBe(30);
+      expect(calculateBackoffMinutes(3)).toBe(60);
+      expect(calculateBackoffMinutes(4)).toBe(60);
+    });
+
+    it("immediately transitions to permanent_failure without retrying on PermanentEmailError", async () => {
+      mockJobHealth.mockResolvedValue({
+        ok: false,
+        jobs: [
+          { job: "outbox", lastOk: null, ageMinutes: null, failed24h: 1, stale: true },
+          { job: "reminders", lastOk: new Date().toISOString(), ageMinutes: 5, failed24h: 0, stale: false },
+          { job: "waitlist", lastOk: new Date().toISOString(), ageMinutes: 1, failed24h: 0, stale: false },
+          { job: "maintenance", lastOk: new Date().toISOString(), ageMinutes: 60, failed24h: 0, stale: false },
+        ],
+      });
+      mockPermanentEmailError = true;
+
+      const res = await runProductionMonitor();
+      expect(res.healthy).toBe(false);
+      expect(res.incident.alertSent).toBe(false);
+      expect(res.incident.notificationStatus).toBe("permanent_failure");
+      expect(res.incident.alertError).toContain("permanent");
+
+      // Verify next run does not even attempt sending
+      sentEmails.length = 0;
+      const res2 = await runProductionMonitor();
+      expect(res2.incident.alertSent).toBe(false);
+      expect(res2.incident.notificationStatus).toBe("permanent_failure");
+      expect(sentEmails.length).toBe(0);
+    });
+
+    it("respects active backoff window and avoids sending emails before nextRetryAt", async () => {
+      mockJobHealth.mockResolvedValue({
+        ok: false,
+        jobs: [
+          { job: "outbox", lastOk: null, ageMinutes: null, failed24h: 1, stale: true },
+          { job: "reminders", lastOk: new Date().toISOString(), ageMinutes: 5, failed24h: 0, stale: false },
+          { job: "waitlist", lastOk: new Date().toISOString(), ageMinutes: 1, failed24h: 0, stale: false },
+          { job: "maintenance", lastOk: new Date().toISOString(), ageMinutes: 60, failed24h: 0, stale: false },
+        ],
+      });
+      mockEmailSendFailure = true;
+
+      // Run 1: fails and sets nextRetryAt = now + 15m
+      const run1 = await runProductionMonitor();
+      expect(run1.incident.notificationStatus).toBe("pending_alert");
+      const stored = JSON.parse(mockJobRunsStore["monitor:incident_state"].error);
+      expect(stored.nextRetryAt).toBeDefined();
+
+      // Run 2: immediately afterwards without ignoreBackoff -> suppressed by backoff window
+      mockEmailSendFailure = false;
+      const run2 = await runProductionMonitor();
+      expect(run2.incident.alertSent).toBe(false);
+      expect(run2.incident.alertRetrying).toBe(true);
+      expect(run2.incident.alertError).toContain("Retry backoff active");
+      expect(sentEmails.length).toBe(0);
+    });
+  });
+
+  describe("15. DB Outage 1-Hour Deterministic Deduplication", () => {
+    it("generates 100% identical idempotency key and payload across 4 runs during DB outage in the same hour", async () => {
+      mockDbReady.mockResolvedValue(false);
+
+      const hourTimestamp = new Date().toISOString().slice(0, 13);
+      const expectedKey = `tori-alert-db-outage-${hourTimestamp}`;
+
+      for (let i = 0; i < 4; i++) {
+        resetMonitorStateForTesting();
+        const run = await runProductionMonitor();
+        expect(run.healthy).toBe(false);
+        expect(run.checks.database.status).toBe("unavailable");
+        expect(run.checks.storage.status).toBe("transient_db_down");
+      }
+
+      expect(sentEmails.length).toBe(4);
+      // All 4 emails sent to Resend have the identical idempotencyKey and text
+      for (const email of sentEmails) {
+        expect(email.idempotencyKey).toBe(expectedKey);
+        expect(email.subject).toBe(sentEmails[0].subject);
+        expect(email.text).toBe(sentEmails[0].text);
+        expect(email.html).toBe(sentEmails[0].html);
+      }
     });
   });
 });
