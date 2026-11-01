@@ -119,3 +119,39 @@
 
 > **הצהרת מפעיל המערכת:**
 > "אני מאשר בזאת כי מערכת Tori SaaS תושק בגרסת ייצור ציבורית (Public Production) תחת תוכנית Supabase Pro עם גיבויים פיזיים יומיים מנוהלים (WAL-G) ללא הרחבת Point-in-Time Recovery (PITR), מתוך מודעות מלאה לכך שנקודת השחזור המרבית (RPO) עומדת על עד 24 שעות. במקרה של כשל קטסטרופלי, שחזור נתוני תורים שאירעו במהלך יום הפעילות יתבצע בהסתמך על יומני הדיוור של Resend, וכל שינוי שלא דווח יוגדר כאובדן נתונים ידוע ומקובל לטובת שמירה על מסגרת עלויות של 0$ הוצאות תשתית נוספות."
+
+---
+
+## 6. דוח אימות וסגירת PR #51 — חיזוק אמינות הניטור וסגירת CI (PR #51 Reliability Hardening Qualification)
+
+* **פרטי ה־Pull Request:**
+  - **PR:** `#51` (`fix/monitor-reliability-hardening` -> `main`)
+  - **קומיט מאומת סופית:** `30736c7`
+  - **סטטוס אימות:** **100% PASS בכל בדיקות ה־CI, האבטחה, הסקירה והפריסה.**
+* **תיקון כישלון ה־E2E שהתגלה ב־CI (Run 41243481300):**
+  - **התקלה:** `tests/e2e/permission-matrix.spec.ts:108` נכשל בגלל נתיב לא מסווג `jobs/monitor/route.ts`.
+  - **התיקון:** סיווג הנתיב בטבלת ההרשאות תחת `OTHER` (`monitoring secret / cron secret`) והוספת בדיקת כיסוי המוודאת שבקשות ללא הרשאה נדחות בקוד 401.
+  - **אימות ב־CI:** [Run 41340409137 - Job 124948984021](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41340409137/job/124948984021) — **SUCCESS** (משך: 24m44s, כל בדיקות ה־E2E Playwright עברו ללא כשלון).
+* **חיזוק אמינות הניטור (Production Monitoring Reliability Hardening):**
+  1. **Resend Idempotency & Deterministic Payload:** הסרת מונה הניסיונות מכותרת וגוף המייל (נשמר ב־DB State בלבד). ה־Payload זהה ב־100% בין ניסיונות.
+  2. **תיקון טיפול בשגיאת 409 (Conflict):** שגיאת 409 מזוהה כ־`TransientEmailError` ונשארת ב־`pending_alert` לניסיון חוזר עם Backoff, במקום סימון כוזב של `alert_sent`.
+  3. **מניעת כפילויות בעת נפילת מסד נתונים (Stateless DB Outage Deduplication):** ייצור מפתח יציב ומתוחם לחלון של שעה (`tori-alert-db-outage-${hourBucket}`) המונע כפילויות התראות בין מופעי Serverless קצרי חיים.
+  4. **סנכרון אטומי באמצעות Compare-And-Swap (CAS):** עדכון טבלת `job_runs` מבוצע באטומיות לפי `finished_at` למניעת Race Conditions בריצות מקבילות, עם זיהוי ודיווח של `cas_conflict`.
+  5. **מנגנון Backoff ותקרת ניסיונות (Retry Ceiling):** יישום Backoff מעריכי (15, 30, 60 דקות) ותקרה של 5 ניסיונות שלאחריהם המצב עובר ל־`permanent_failure` למניעת לולאות אינסופיות.
+  6. **הבדלה בין שגיאות קבועות לחולפות:** `PermanentEmailError` עוצר מיידית ניסיונות נוספים.
+  7. **בידוד תרגילים ומניעת שימוש לרעה (Simulation Guardrails):** בידוד מלא ב־`simulation_state` והגבלת קצב לכל היותר התראת תרגיל אחת לדקה.
+* **תוצאות CI & Security סופיות לקומיט `30736c7` ב־PR #51:**
+  - **CI Run [41340409137](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41340409137):** **SUCCESS**
+    - `Lint · Types · Unit · Build`: **PASS** (3m36s)
+    - `DB (migrations · pgTAP · schema lint)`: **PASS** (2m47s)
+    - `E2E (Playwright · mobile + desktop · axe)`: **PASS** (24m44s)
+  - **Security Run [41340409129](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41340409129):** **SUCCESS**
+    - `CodeQL (JS/TS)`: **PASS** (3m25s)
+    - `Gitleaks (full history)`: **PASS** (7s)
+    - `Trivy (fs · misconfig · secrets)`: **PASS** (19s)
+    - `OSV-Scanner (dependencies)`: **PASS** (6s)
+    - `Licences + SBOM`: **PASS** (51s)
+  - **CodeRabbit Review:** **PASS** (1m11s)
+  - **Vercel Preview Deployment:** **PASS (READY)**
+  - **בדיקות יחידה מקומיות מלאות:** 53 קבצי בדיקה, 729 בדיקות — **100% PASS** (כולל 18 בדיקות מקיפות לחבילת הניטור).
+* **סטטוס מיזוג:** **READY FOR OPERATOR APPROVAL** (מוכן לחלוטין למיזוג ל־`main` בכפוף לאישור מפעיל).
