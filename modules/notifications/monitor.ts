@@ -19,7 +19,7 @@ export interface MonitorReport {
   incident: {
     status: "healthy" | "triggered" | "ongoing" | "recovered";
     failingComponents: string[];
-    notificationStatus: "idle" | "pending_alert" | "alert_sent" | "pending_recovery" | "permanent_failure";
+    notificationStatus: "idle" | "pending_alert" | "alert_sent" | "pending_recovery" | "permanent_failure" | "in_cooldown";
     alertSent: boolean;
     alertRetrying?: boolean;
     alertError?: string;
@@ -34,11 +34,20 @@ export interface MonitorOptions {
   ignoreBackoff?: boolean;
 }
 
+export interface DispatchLease {
+  owner: string;
+  expiresAt: string;
+  action: "alert" | "recovery";
+  idempotencyKey: string;
+}
+
 export interface StoredIncidentState {
   isIncident: boolean;
   components: string[];
   firstDetectedAt?: string;
-  notificationStatus: "idle" | "pending_alert" | "alert_sent" | "pending_recovery" | "permanent_failure";
+  recoveryDetectedAt?: string;
+  stableRecoveryKey?: string;
+  notificationStatus: "idle" | "pending_alert" | "alert_sent" | "pending_recovery" | "permanent_failure" | "in_cooldown";
   lastAttemptAt?: string;
   lastAlertSentAt?: string;
   nextRetryAt?: string;
@@ -50,9 +59,12 @@ export interface StoredIncidentState {
   reason?: string;
   fromDb: boolean;
   rawFinishedAt: string | null;
+  dispatchLease?: DispatchLease;
 }
 
 const MAX_ALERT_RETRIES = 5;
+const COOLDOWN_MINUTES = 120;
+const LEASE_DURATION_MS = 60_000;
 
 // In-memory fallback for warm serverless instances when Supabase DB is down
 let warmInstanceFallback: Record<string, StoredIncidentState> = {};
@@ -85,8 +97,19 @@ function checkAppLiveness(): { status: "ok" | "degraded"; uptimeSeconds: number;
   };
 }
 
+function isLeaseActive(lease: DispatchLease | undefined, nowIso: string): boolean {
+  if (!lease || !lease.expiresAt) return false;
+  return new Date(lease.expiresAt).getTime() > new Date(nowIso).getTime();
+}
+
+export type IncidentReadResult = {
+  state: StoredIncidentState;
+  status: "empty" | "ok" | "unavailable" | "corrupted";
+  error?: string;
+};
+
 /** Retrieve durable incident state from job_runs. Completely isolates simulation states from real production states. */
-async function getStoredIncidentState(dbAvailable: boolean, runKey: string): Promise<StoredIncidentState> {
+async function getStoredIncidentState(dbAvailable: boolean, runKey: string): Promise<IncidentReadResult> {
   const defaultIdleState: StoredIncidentState = {
     isIncident: false,
     components: [],
@@ -98,7 +121,10 @@ async function getStoredIncidentState(dbAvailable: boolean, runKey: string): Pro
   };
 
   if (!dbAvailable) {
-    return warmInstanceFallback[runKey] ?? { ...defaultIdleState, fromDb: false };
+    if (warmInstanceFallback[runKey]) {
+      return { state: { ...warmInstanceFallback[runKey], fromDb: false }, status: "ok" };
+    }
+    return { state: { ...defaultIdleState, fromDb: false }, status: "unavailable" };
   }
 
   try {
@@ -109,8 +135,18 @@ async function getStoredIncidentState(dbAvailable: boolean, runKey: string): Pro
       .eq("run_key", runKey)
       .maybeSingle();
 
-    if (error || !data) {
-      return warmInstanceFallback[runKey] ?? defaultIdleState;
+    if (error) {
+      if (warmInstanceFallback[runKey]) {
+        return { state: warmInstanceFallback[runKey], status: "unavailable", error: error.message };
+      }
+      return { state: { ...defaultIdleState, fromDb: false }, status: "unavailable", error: error.message };
+    }
+
+    if (!data) {
+      if (warmInstanceFallback[runKey]) {
+        return { state: warmInstanceFallback[runKey], status: "ok" };
+      }
+      return { state: defaultIdleState, status: "empty" };
     }
 
     if (data.error) {
@@ -120,6 +156,8 @@ async function getStoredIncidentState(dbAvailable: boolean, runKey: string): Pro
           isIncident: Boolean(parsed.isIncident),
           components: Array.isArray(parsed.components) ? parsed.components : [],
           firstDetectedAt: parsed.firstDetectedAt ?? data.started_at,
+          recoveryDetectedAt: parsed.recoveryDetectedAt,
+          stableRecoveryKey: parsed.stableRecoveryKey,
           notificationStatus: parsed.notificationStatus ?? (parsed.isIncident ? "alert_sent" : "idle"),
           lastAttemptAt: parsed.lastAttemptAt,
           lastAlertSentAt: parsed.lastAlertSentAt ?? data.finished_at,
@@ -132,17 +170,30 @@ async function getStoredIncidentState(dbAvailable: boolean, runKey: string): Pro
           reason: parsed.reason,
           fromDb: true,
           rawFinishedAt: data.finished_at ?? null,
+          dispatchLease: parsed.dispatchLease,
         };
         warmInstanceFallback[runKey] = { ...state };
-        return state;
-      } catch {
-        return { ...defaultIdleState, rawFinishedAt: data.finished_at ?? null };
+        return { state, status: "ok" };
+      } catch (parseErr) {
+        console.error("Corrupted monitor state JSON in job_runs:", parseErr);
+        const safeCorruptedState: StoredIncidentState = {
+          ...defaultIdleState,
+          isIncident: true,
+          notificationStatus: "pending_alert",
+          rawFinishedAt: data.finished_at ?? null,
+          lastError: "Corrupted incident state JSON in database",
+        };
+        return { state: safeCorruptedState, status: "corrupted", error: "Corrupted state JSON" };
       }
     }
 
-    return { ...defaultIdleState, rawFinishedAt: data.finished_at ?? null };
-  } catch {
-    return warmInstanceFallback[runKey] ?? { ...defaultIdleState, fromDb: false };
+    return { state: { ...defaultIdleState, rawFinishedAt: data.finished_at ?? null }, status: "empty" };
+  } catch (err: any) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (warmInstanceFallback[runKey]) {
+      return { state: warmInstanceFallback[runKey], status: "unavailable", error: msg };
+    }
+    return { state: { ...defaultIdleState, fromDb: false }, status: "unavailable", error: msg };
   }
 }
 
@@ -159,6 +210,8 @@ async function persistIncidentStateCAS(
       isIncident: state.isIncident,
       components: state.components,
       firstDetectedAt: state.firstDetectedAt,
+      recoveryDetectedAt: state.recoveryDetectedAt,
+      stableRecoveryKey: state.stableRecoveryKey,
       notificationStatus: state.notificationStatus,
       lastAttemptAt: state.lastAttemptAt,
       lastAlertSentAt: state.lastAlertSentAt,
@@ -169,6 +222,7 @@ async function persistIncidentStateCAS(
       eventId: state.eventId,
       version: (state.version || 0) + 1,
       reason: state.reason,
+      dispatchLease: state.dispatchLease,
     });
 
     const newFinishedAt = new Date().toISOString();
@@ -237,7 +291,7 @@ interface AlertEmailParams {
   isSimulation?: boolean;
 }
 
-/** Send Alert Email with stable idempotency key and deterministic payload across retries (no changing attempt counters). */
+/** Send Alert Email with stable idempotency key and deterministic payload across retries. */
 async function sendAlertEmail(params: AlertEmailParams): Promise<{ id: string }> {
   const { components, reason, stableTimestamp, stableIdempotencyKey, isSimulation } = params;
   const provider = emailProvider();
@@ -343,12 +397,37 @@ async function sendRecoveryEmail(params: RecoveryEmailParams): Promise<{ id: str
   return await provider.send(message);
 }
 
+/** Check simulation rate limit: durable via Postgres RPC when available, falling back to memory. */
+async function checkSimulationRateLimit(realDbAvailable: boolean): Promise<boolean> {
+  const nowMs = Date.now();
+  if (realDbAvailable) {
+    try {
+      const { data, error } = await systemDb().rpc("public_rate_limit", {
+        p_key: "sim:dispatch",
+        p_window_seconds: 60,
+        p_max: 1,
+      });
+      if (!error && Array.isArray(data) && data[0]) {
+        return Boolean(data[0].allowed);
+      }
+    } catch {
+      // Fall through to memory
+    }
+  }
+
+  if (nowMs - lastSimulationDispatchAt < 60_000) {
+    return false;
+  }
+  lastSimulationDispatchAt = nowMs;
+  return true;
+}
+
 /** Calculate exponential backoff interval in minutes based on attempt count. */
 export function calculateBackoffMinutes(attempt: number): number {
   if (attempt <= 1) return 15;
   if (attempt === 2) return 30;
   if (attempt >= 3) return 60;
-  return 60; // capped at 60 minutes for recurring persistent reminder
+  return 60;
 }
 
 export async function runProductionMonitor(options: MonitorOptions = {}): Promise<MonitorReport> {
@@ -361,6 +440,10 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
 
   // 1. Application Liveness (Node process memory, uptime, environment sanity)
   const appStatus = checkAppLiveness();
+  if (appStatus.status === "degraded") {
+    failingComponents.push("app:memory");
+    failureReasons.push(appStatus.details ?? "Excessive heap memory usage (>950MB)");
+  }
 
   // 2. Database Readiness Check
   const dbStart = Date.now();
@@ -426,11 +509,12 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
   let alertSent = false;
   let alertRetrying = false;
   let alertError: string | undefined;
-  let nextNotificationStatus: "idle" | "pending_alert" | "alert_sent" | "pending_recovery" | "permanent_failure" = "idle";
+  let nextNotificationStatus: "idle" | "pending_alert" | "alert_sent" | "pending_recovery" | "permanent_failure" | "in_cooldown" = "idle";
   let storageStatus: "persisted" | "transient_db_down" | "persistence_failed" | "cas_conflict" = realDbAvailable ? "persisted" : "transient_db_down";
   let storageError: string | undefined;
 
-  const prevState = await getStoredIncidentState(realDbAvailable, stateRunKey);
+  const readRes = await getStoredIncidentState(realDbAvailable, stateRunKey);
+  const prevState = readRes.state;
   const eventId = prevState.eventId ?? `evt_${currentTimestamp.replace(/[^0-9]/g, "").slice(0, 14)}`;
 
   if (!isHealthy) {
@@ -439,11 +523,10 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
     const sortedPrev = [...prevState.components].sort();
     const isSameComponents = prevState.isIncident && sortedCurrent.join(",") === sortedPrev.join(",");
 
-    if (!prevState.isIncident || !isSameComponents) {
+    if (!prevState.isIncident || !isSameComponents || isSimulation) {
       // NEW INCIDENT OR MATERIAL CHANGE (New failing component)
       incidentStatus = "triggered";
 
-      // Deduplication strategy when DB is down: 1-hour deterministic bucket
       const hourBucket = currentTimestamp.slice(0, 13);
       const stableTimestamp = realDbAvailable
         ? currentTimestamp
@@ -454,125 +537,336 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
         ? `tori-alert-${componentsKey}-${stableTimestamp.slice(0, 16)}`
         : `tori-alert-db-outage-${hourBucket}`;
 
-      // Simulation rate limiting: at most 1 simulation email every 60 seconds
+      // Rate limit simulations
       let shouldSendEmail = true;
       if (isSimulation) {
-        const nowMs = Date.now();
-        if (nowMs - lastSimulationDispatchAt < 60_000) {
+        const allowed = await checkSimulationRateLimit(realDbAvailable);
+        if (!allowed) {
           shouldSendEmail = false;
           alertSent = false;
           alertError = "Simulation dispatch rate limited (max 1 test email per minute)";
-        } else {
-          lastSimulationDispatchAt = nowMs;
         }
       }
-
-      let sendSucceeded = false;
-      if (shouldSendEmail) {
-        try {
-          await sendAlertEmail({
-            components: failingComponents,
-            reason: failureReasons.join("; "),
-            stableTimestamp,
-            stableIdempotencyKey,
-            isSimulation,
-          });
-          sendSucceeded = true;
-          alertSent = true;
-        } catch (err: any) {
-          sendSucceeded = false;
-          alertSent = false;
-          alertError = err instanceof Error ? err.message : String(err);
-          console.error("Monitor alert email delivery failed:", err);
-
-          if (err instanceof PermanentEmailError) {
-            nextNotificationStatus = "permanent_failure";
-          }
-        }
-      }
-
-      if (nextNotificationStatus !== "permanent_failure") {
-        nextNotificationStatus = sendSucceeded ? "alert_sent" : "pending_alert";
-      }
-
-      const backoffMin = calculateBackoffMinutes(1);
-      const nextRetryAt = !sendSucceeded && backoffMin > 0
-        ? new Date(Date.now() + backoffMin * 60_000).toISOString()
-        : undefined;
-
-      const nextState: StoredIncidentState = {
-        isIncident: true,
-        components: failingComponents,
-        firstDetectedAt: stableTimestamp,
-        notificationStatus: nextNotificationStatus,
-        lastAttemptAt: currentTimestamp,
-        lastAlertSentAt: sendSucceeded ? currentTimestamp : undefined,
-        nextRetryAt,
-        attemptCount: 1,
-        lastError: sendSucceeded ? undefined : alertError,
-        stableIdempotencyKey,
-        eventId,
-        version: (prevState.version || 0) + 1,
-        reason: failureReasons.join("; "),
-        fromDb: realDbAvailable,
-        rawFinishedAt: prevState.rawFinishedAt,
-      };
 
       if (realDbAvailable) {
-        const persistResult = await persistIncidentStateCAS(stateRunKey, nextState, prevState.rawFinishedAt);
-        if (!persistResult.success) {
-          if (persistResult.conflict) {
-            storageStatus = "cas_conflict";
+        // Atomic Lease Claim Pattern to prevent concurrent worker duplicate sends
+        if (isLeaseActive(prevState.dispatchLease, currentTimestamp)) {
+          // Another worker is actively dispatching under a valid lease
+          storageStatus = "cas_conflict";
+          alertSent = false;
+          alertError = "Concurrent worker lease in progress";
+          nextNotificationStatus = prevState.notificationStatus;
+        } else {
+          const workerId = crypto.randomUUID();
+          const candidateState: StoredIncidentState = {
+            isIncident: true,
+            components: failingComponents,
+            firstDetectedAt: stableTimestamp,
+            notificationStatus: "pending_alert",
+            lastAttemptAt: currentTimestamp,
+            attemptCount: 1,
+            stableIdempotencyKey,
+            eventId,
+            version: (prevState.version || 0) + 1,
+            reason: failureReasons.join("; "),
+            fromDb: true,
+            rawFinishedAt: prevState.rawFinishedAt,
+            dispatchLease: shouldSendEmail ? {
+              owner: workerId,
+              expiresAt: new Date(Date.now() + LEASE_DURATION_MS).toISOString(),
+              action: "alert",
+              idempotencyKey: stableIdempotencyKey,
+            } : undefined,
+          };
+
+          const claimResult = await persistIncidentStateCAS(stateRunKey, candidateState, prevState.rawFinishedAt);
+          if (!claimResult.success) {
+            storageStatus = claimResult.conflict ? "cas_conflict" : "persistence_failed";
+            storageError = claimResult.error;
+            alertSent = false;
+            nextNotificationStatus = prevState.notificationStatus;
           } else {
-            storageStatus = "persistence_failed";
+            // Lease claimed successfully! Only this worker executes dispatch
+            let sendSucceeded = false;
+            let sendError: any = undefined;
+
+            if (shouldSendEmail) {
+              try {
+                await sendAlertEmail({
+                  components: failingComponents,
+                  reason: failureReasons.join("; "),
+                  stableTimestamp,
+                  stableIdempotencyKey,
+                  isSimulation,
+                });
+                sendSucceeded = true;
+                alertSent = true;
+              } catch (err: any) {
+                sendSucceeded = false;
+                alertSent = false;
+                sendError = err;
+                alertError = err instanceof Error ? err.message : String(err);
+                console.error("Monitor alert email delivery failed:", err);
+              }
+            }
+
+            if (sendSucceeded) {
+              nextNotificationStatus = "alert_sent";
+            } else if (sendError instanceof PermanentEmailError) {
+              nextNotificationStatus = "permanent_failure";
+            } else {
+              nextNotificationStatus = "pending_alert";
+            }
+
+            const backoffMin = calculateBackoffMinutes(1);
+            const nextRetryAt = !sendSucceeded && nextNotificationStatus !== "permanent_failure" && backoffMin > 0
+              ? new Date(Date.now() + backoffMin * 60_000).toISOString()
+              : undefined;
+
+            const finalizedState: StoredIncidentState = {
+              ...candidateState,
+              notificationStatus: nextNotificationStatus,
+              lastAlertSentAt: sendSucceeded ? currentTimestamp : undefined,
+              nextRetryAt,
+              lastError: sendSucceeded ? undefined : alertError,
+              dispatchLease: undefined, // Release lease
+            };
+
+            await persistIncidentStateCAS(stateRunKey, finalizedState, candidateState.rawFinishedAt);
           }
-          storageError = persistResult.error;
         }
+      } else {
+        // DB unreachable: dispatch directly, protected by warm instance fallback and Resend provider idempotency
+        let sendSucceeded = false;
+        let sendError: any = undefined;
+
+        if (shouldSendEmail) {
+          try {
+            await sendAlertEmail({
+              components: failingComponents,
+              reason: failureReasons.join("; "),
+              stableTimestamp,
+              stableIdempotencyKey,
+              isSimulation,
+            });
+            sendSucceeded = true;
+            alertSent = true;
+          } catch (err: any) {
+            sendSucceeded = false;
+            alertSent = false;
+            sendError = err;
+            alertError = err instanceof Error ? err.message : String(err);
+            console.error("Monitor alert email delivery failed (DB down):", err);
+          }
+        }
+
+        if (sendSucceeded) {
+          nextNotificationStatus = "alert_sent";
+        } else if (sendError instanceof PermanentEmailError) {
+          nextNotificationStatus = "permanent_failure";
+        } else {
+          nextNotificationStatus = "pending_alert";
+        }
+
+        const backoffMin = calculateBackoffMinutes(1);
+        const nextRetryAt = !sendSucceeded && nextNotificationStatus !== "permanent_failure" && backoffMin > 0
+          ? new Date(Date.now() + backoffMin * 60_000).toISOString()
+          : undefined;
+
+        const nextState: StoredIncidentState = {
+          isIncident: true,
+          components: failingComponents,
+          firstDetectedAt: stableTimestamp,
+          notificationStatus: nextNotificationStatus,
+          lastAttemptAt: currentTimestamp,
+          lastAlertSentAt: sendSucceeded ? currentTimestamp : undefined,
+          nextRetryAt,
+          attemptCount: 1,
+          lastError: sendSucceeded ? undefined : alertError,
+          stableIdempotencyKey,
+          eventId,
+          version: (prevState.version || 0) + 1,
+          reason: failureReasons.join("; "),
+          fromDb: false,
+          rawFinishedAt: prevState.rawFinishedAt,
+        };
+        warmInstanceFallback[stateRunKey] = nextState;
       }
     } else {
       // ONGOING INCIDENT (Components identical to previous run)
       incidentStatus = "ongoing";
 
-      if (prevState.notificationStatus === "pending_alert") {
-        if (prevState.attemptCount >= MAX_ALERT_RETRIES) {
-          nextNotificationStatus = "permanent_failure";
+      if (prevState.notificationStatus === "in_cooldown") {
+        const canRetryNow = Boolean(options.ignoreBackoff) || (prevState.nextRetryAt ? new Date(currentTimestamp) >= new Date(prevState.nextRetryAt) : true);
+        if (!canRetryNow) {
+          nextNotificationStatus = "in_cooldown";
           alertSent = false;
           alertRetrying = false;
-          alertError = `Max alert retries (${MAX_ALERT_RETRIES}) reached without provider confirmation`;
+          alertError = `Cooldown active until ${prevState.nextRetryAt}`;
+        } else {
+          // Cooldown expired or force retry: resume retry attempts
+          alertRetrying = true;
+          const stableTimestamp = prevState.firstDetectedAt ?? currentTimestamp;
+          const stableIdempotencyKey = prevState.stableIdempotencyKey ?? `tori-alert-${sortedCurrent.join("-").replace(/[^a-zA-Z0-9_-]/g, "_")}-${stableTimestamp.slice(0, 16)}`;
 
-          const nextState: StoredIncidentState = {
-            ...prevState,
-            notificationStatus: "permanent_failure",
-            lastAttemptAt: currentTimestamp,
-            lastError: alertError,
-            version: (prevState.version || 0) + 1,
-            fromDb: realDbAvailable,
-          };
+          let sendSucceeded = false;
+          let sendError: any = undefined;
 
           if (realDbAvailable) {
-            const persistResult = await persistIncidentStateCAS(stateRunKey, nextState, prevState.rawFinishedAt);
-            if (!persistResult.success) {
-              storageStatus = persistResult.conflict ? "cas_conflict" : "persistence_failed";
-              storageError = persistResult.error;
+            const workerId = crypto.randomUUID();
+            const candidateState: StoredIncidentState = {
+              ...prevState,
+              lastAttemptAt: currentTimestamp,
+              dispatchLease: {
+                owner: workerId,
+                expiresAt: new Date(Date.now() + LEASE_DURATION_MS).toISOString(),
+                action: "alert",
+                idempotencyKey: stableIdempotencyKey,
+              },
+            };
+            const claimResult = await persistIncidentStateCAS(stateRunKey, candidateState, prevState.rawFinishedAt);
+            if (!claimResult.success) {
+              storageStatus = claimResult.conflict ? "cas_conflict" : "persistence_failed";
+              storageError = claimResult.error;
+            } else {
+              try {
+                await sendAlertEmail({
+                  components: failingComponents,
+                  reason: failureReasons.join("; "),
+                  stableTimestamp,
+                  stableIdempotencyKey,
+                  isSimulation,
+                });
+                sendSucceeded = true;
+                alertSent = true;
+              } catch (err: any) {
+                sendSucceeded = false;
+                alertSent = false;
+                sendError = err;
+                alertError = err instanceof Error ? err.message : String(err);
+              }
+
+              if (sendSucceeded) {
+                nextNotificationStatus = "alert_sent";
+              } else if (sendError instanceof PermanentEmailError) {
+                nextNotificationStatus = "permanent_failure";
+              } else {
+                nextNotificationStatus = "in_cooldown";
+                alertError = `Retry failed after cooldown. Re-entering cooldown for ${COOLDOWN_MINUTES}m: ${alertError}`;
+              }
+
+              const nextRetryAt = !sendSucceeded && nextNotificationStatus === "in_cooldown"
+                ? new Date(Date.now() + COOLDOWN_MINUTES * 60_000).toISOString()
+                : undefined;
+
+              const finalizedState: StoredIncidentState = {
+                ...candidateState,
+                notificationStatus: nextNotificationStatus,
+                lastAlertSentAt: sendSucceeded ? currentTimestamp : prevState.lastAlertSentAt,
+                nextRetryAt,
+                attemptCount: prevState.attemptCount + 1,
+                lastError: sendSucceeded ? undefined : alertError,
+                dispatchLease: undefined,
+              };
+              await persistIncidentStateCAS(stateRunKey, finalizedState, candidateState.rawFinishedAt);
             }
           }
-        } else {
-          // PREVIOUS ALERT DELIVERY FAILED -> RETRY!
-          const canRetryNow = Boolean(options.ignoreBackoff) || !prevState.nextRetryAt || new Date(currentTimestamp) >= new Date(prevState.nextRetryAt);
+        }
+      } else if (prevState.notificationStatus === "pending_alert") {
+        const canRetryNow = Boolean(options.ignoreBackoff) || !prevState.nextRetryAt || new Date(currentTimestamp) >= new Date(prevState.nextRetryAt);
 
-          if (canRetryNow) {
-            alertRetrying = true;
+        if (canRetryNow) {
+          alertRetrying = true;
 
-            const hourBucket = currentTimestamp.slice(0, 13);
-            const stableTimestamp = realDbAvailable
-              ? (prevState.firstDetectedAt ?? currentTimestamp)
-              : `${hourBucket}:00:00.000Z`;
+          const hourBucket = currentTimestamp.slice(0, 13);
+          const stableTimestamp = realDbAvailable
+            ? (prevState.firstDetectedAt ?? currentTimestamp)
+            : `${hourBucket}:00:00.000Z`;
 
-            const stableIdempotencyKey = realDbAvailable
-              ? (prevState.stableIdempotencyKey ?? `tori-alert-${sortedCurrent.join("-").replace(/[^a-zA-Z0-9_-]/g, "_")}-${stableTimestamp.slice(0, 16)}`)
-              : `tori-alert-db-outage-${hourBucket}`;
+          const stableIdempotencyKey = realDbAvailable
+            ? (prevState.stableIdempotencyKey ?? `tori-alert-${sortedCurrent.join("-").replace(/[^a-zA-Z0-9_-]/g, "_")}-${stableTimestamp.slice(0, 16)}`)
+            : `tori-alert-db-outage-${hourBucket}`;
 
-            let sendSucceeded = false;
+          let sendSucceeded = false;
+          let sendError: any = undefined;
+
+          if (realDbAvailable) {
+            if (isLeaseActive(prevState.dispatchLease, currentTimestamp)) {
+              storageStatus = "cas_conflict";
+              alertSent = false;
+              alertError = "Concurrent worker lease in progress";
+              nextNotificationStatus = prevState.notificationStatus;
+            } else {
+              const workerId = crypto.randomUUID();
+              const candidateState: StoredIncidentState = {
+                ...prevState,
+                lastAttemptAt: currentTimestamp,
+                dispatchLease: {
+                  owner: workerId,
+                  expiresAt: new Date(Date.now() + LEASE_DURATION_MS).toISOString(),
+                  action: "alert",
+                  idempotencyKey: stableIdempotencyKey,
+                },
+              };
+
+              const claimResult = await persistIncidentStateCAS(stateRunKey, candidateState, prevState.rawFinishedAt);
+              if (!claimResult.success) {
+                storageStatus = claimResult.conflict ? "cas_conflict" : "persistence_failed";
+                storageError = claimResult.error;
+                alertSent = false;
+                nextNotificationStatus = prevState.notificationStatus;
+              } else {
+                try {
+                  await sendAlertEmail({
+                    components: failingComponents,
+                    reason: failureReasons.join("; "),
+                    stableTimestamp,
+                    stableIdempotencyKey,
+                    isSimulation,
+                  });
+                  sendSucceeded = true;
+                  alertSent = true;
+                } catch (err: any) {
+                  sendSucceeded = false;
+                  alertSent = false;
+                  sendError = err;
+                  alertError = err instanceof Error ? err.message : String(err);
+                  console.error("Monitor retry alert email delivery failed:", err);
+                }
+
+                const nextAttempts = prevState.attemptCount + 1;
+                let nextRetryAt: string | undefined = undefined;
+
+                if (sendSucceeded) {
+                  nextNotificationStatus = "alert_sent";
+                } else if (sendError instanceof PermanentEmailError) {
+                  nextNotificationStatus = "permanent_failure";
+                } else if (nextAttempts >= MAX_ALERT_RETRIES) {
+                  // Transient failures after max retries enter Cooldown (not permanent failure)
+                  nextNotificationStatus = "in_cooldown";
+                  alertError = `Max alert retries (${MAX_ALERT_RETRIES}) reached with transient error. Cooldown active for ${COOLDOWN_MINUTES}m.`;
+                  nextRetryAt = new Date(Date.now() + COOLDOWN_MINUTES * 60_000).toISOString();
+                } else {
+                  nextNotificationStatus = "pending_alert";
+                  const backoffMin = calculateBackoffMinutes(nextAttempts);
+                  nextRetryAt = new Date(Date.now() + backoffMin * 60_000).toISOString();
+                }
+
+                const finalizedState: StoredIncidentState = {
+                  ...candidateState,
+                  notificationStatus: nextNotificationStatus,
+                  lastAlertSentAt: sendSucceeded ? currentTimestamp : prevState.lastAlertSentAt,
+                  nextRetryAt,
+                  attemptCount: nextAttempts,
+                  lastError: sendSucceeded ? undefined : alertError,
+                  dispatchLease: undefined,
+                };
+
+                await persistIncidentStateCAS(stateRunKey, finalizedState, candidateState.rawFinishedAt);
+              }
+            }
+          } else {
+            // DB down retry
             try {
               await sendAlertEmail({
                 components: failingComponents,
@@ -586,26 +880,26 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
             } catch (err: any) {
               sendSucceeded = false;
               alertSent = false;
+              sendError = err;
               alertError = err instanceof Error ? err.message : String(err);
-              console.error("Monitor retry alert email delivery failed:", err);
-
-              if (err instanceof PermanentEmailError) {
-                nextNotificationStatus = "permanent_failure";
-              }
             }
 
             const nextAttempts = prevState.attemptCount + 1;
-            if (!sendSucceeded && nextAttempts >= MAX_ALERT_RETRIES) {
-              nextNotificationStatus = "permanent_failure";
-              alertError = `Max alert retries (${MAX_ALERT_RETRIES}) reached without provider confirmation`;
-            } else if (nextNotificationStatus !== "permanent_failure") {
-              nextNotificationStatus = sendSucceeded ? "alert_sent" : "pending_alert";
-            }
+            let nextRetryAt: string | undefined = undefined;
 
-            const backoffMin = calculateBackoffMinutes(nextAttempts);
-            const nextRetryAt = !sendSucceeded && nextNotificationStatus !== "permanent_failure" && backoffMin > 0
-              ? new Date(Date.now() + backoffMin * 60_000).toISOString()
-              : undefined;
+            if (sendSucceeded) {
+              nextNotificationStatus = "alert_sent";
+            } else if (sendError instanceof PermanentEmailError) {
+              nextNotificationStatus = "permanent_failure";
+            } else if (nextAttempts >= MAX_ALERT_RETRIES) {
+              nextNotificationStatus = "in_cooldown";
+              alertError = `Max alert retries (${MAX_ALERT_RETRIES}) reached. Cooldown active for ${COOLDOWN_MINUTES}m.`;
+              nextRetryAt = new Date(Date.now() + COOLDOWN_MINUTES * 60_000).toISOString();
+            } else {
+              nextNotificationStatus = "pending_alert";
+              const backoffMin = calculateBackoffMinutes(nextAttempts);
+              nextRetryAt = new Date(Date.now() + backoffMin * 60_000).toISOString();
+            }
 
             const nextState: StoredIncidentState = {
               ...prevState,
@@ -615,30 +909,58 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
               nextRetryAt,
               attemptCount: nextAttempts,
               lastError: sendSucceeded ? undefined : alertError,
-              version: (prevState.version || 0) + 1,
-              fromDb: realDbAvailable,
+              fromDb: false,
             };
-
-            if (realDbAvailable) {
-              const persistResult = await persistIncidentStateCAS(stateRunKey, nextState, prevState.rawFinishedAt);
-              if (!persistResult.success) {
-                storageStatus = persistResult.conflict ? "cas_conflict" : "persistence_failed";
-                storageError = persistResult.error;
-              }
-            }
-          } else {
-            // Waiting for backoff window
-            nextNotificationStatus = "pending_alert";
-            alertSent = false;
-            alertRetrying = true;
-            alertError = `Retry backoff active until ${prevState.nextRetryAt}`;
+            warmInstanceFallback[stateRunKey] = nextState;
           }
+        } else {
+          // Waiting for backoff window
+          nextNotificationStatus = "pending_alert";
+          alertSent = false;
+          alertRetrying = true;
+          alertError = `Retry backoff active until ${prevState.nextRetryAt}`;
         }
       } else if (prevState.notificationStatus === "permanent_failure") {
-        nextNotificationStatus = "permanent_failure";
-        alertSent = false;
-        alertRetrying = false;
-        alertError = prevState.lastError ?? `Max alert retries (${MAX_ALERT_RETRIES}) reached without provider confirmation`;
+        if (options.ignoreBackoff) {
+          // Operator explicitly forced retry
+          alertRetrying = true;
+          const stableTimestamp = prevState.firstDetectedAt ?? currentTimestamp;
+          const stableIdempotencyKey = prevState.stableIdempotencyKey ?? `tori-alert-${sortedCurrent.join("-").replace(/[^a-zA-Z0-9_-]/g, "_")}-${stableTimestamp.slice(0, 16)}`;
+          let sendSucceeded = false;
+          try {
+            await sendAlertEmail({
+              components: failingComponents,
+              reason: failureReasons.join("; "),
+              stableTimestamp,
+              stableIdempotencyKey,
+              isSimulation,
+            });
+            sendSucceeded = true;
+            alertSent = true;
+            nextNotificationStatus = "alert_sent";
+          } catch (err: any) {
+            sendSucceeded = false;
+            alertSent = false;
+            alertError = err instanceof Error ? err.message : String(err);
+            nextNotificationStatus = err instanceof PermanentEmailError ? "permanent_failure" : "pending_alert";
+          }
+          if (realDbAvailable) {
+            const nextState: StoredIncidentState = {
+              ...prevState,
+              notificationStatus: nextNotificationStatus,
+              lastAttemptAt: currentTimestamp,
+              lastAlertSentAt: sendSucceeded ? currentTimestamp : prevState.lastAlertSentAt,
+              lastError: sendSucceeded ? undefined : alertError,
+              version: (prevState.version || 0) + 1,
+            };
+            await persistIncidentStateCAS(stateRunKey, nextState, prevState.rawFinishedAt);
+          }
+        } else {
+          nextNotificationStatus = "permanent_failure";
+          alertSent = false;
+          alertRetrying = false;
+          alertError = prevState.lastError ?? `Unrecoverable email rejection (permanent failure)`;
+        }
       } else {
         // Alert was already confirmed sent to operator -> DEDUPLICATE (Zero duplicate emails)
         nextNotificationStatus = prevState.notificationStatus;
@@ -647,65 +969,146 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
     }
   } else {
     // Current run is healthy
-    if (prevState.isIncident || prevState.notificationStatus === "pending_recovery") {
+    if (prevState.isIncident || prevState.notificationStatus === "pending_recovery" || prevState.notificationStatus === "in_cooldown") {
       // RECOVERY DETECTED
       incidentStatus = "recovered";
 
       const alertWasDispatched =
-        prevState.notificationStatus === "alert_sent" || prevState.notificationStatus === "pending_recovery";
+        prevState.notificationStatus === "alert_sent" ||
+        prevState.notificationStatus === "pending_recovery" ||
+        prevState.lastAlertSentAt !== undefined;
 
       if (alertWasDispatched) {
-        const stableTimestamp = prevState.lastAlertSentAt
-          ? currentTimestamp
-          : (prevState.firstDetectedAt ?? currentTimestamp);
-        const stableIdempotencyKey = `tori-recovery-${(prevState.firstDetectedAt ?? currentTimestamp).slice(0, 16)}`;
-
-        let recoverySent = false;
-        try {
-          await sendRecoveryEmail({
-            stableTimestamp,
-            stableIdempotencyKey,
-            isSimulation,
-          });
-          recoverySent = true;
-          alertSent = true;
-        } catch (err: any) {
-          recoverySent = false;
-          alertSent = false;
-          alertError = err instanceof Error ? err.message : String(err);
-          console.error("Monitor recovery email delivery failed:", err);
-
-          if (err instanceof PermanentEmailError) {
-            nextNotificationStatus = "permanent_failure";
-          }
-        }
-
-        if (nextNotificationStatus !== "permanent_failure") {
-          nextNotificationStatus = recoverySent ? "idle" : "pending_recovery";
-        }
-
-        const nextState: StoredIncidentState = {
-          isIncident: false,
-          components: [],
-          notificationStatus: nextNotificationStatus,
-          lastAttemptAt: currentTimestamp,
-          lastAlertSentAt: undefined,
-          nextRetryAt: undefined,
-          attemptCount: recoverySent ? 0 : (prevState.attemptCount || 0) + 1,
-          lastError: recoverySent ? undefined : alertError,
-          stableIdempotencyKey: recoverySent ? undefined : stableIdempotencyKey,
-          eventId: recoverySent ? undefined : eventId,
-          version: (prevState.version || 0) + 1,
-          fromDb: realDbAvailable,
-          rawFinishedAt: prevState.rawFinishedAt,
-        };
+        // Recovery idempotency: deterministic timestamp and key that never mutate on retries
+        const recoveryDetectedAt = prevState.recoveryDetectedAt ?? currentTimestamp;
+        const stableRecoveryKey = prevState.stableRecoveryKey ?? (prevState.stableIdempotencyKey ? prevState.stableIdempotencyKey.replace(/^tori-alert-/, "") : `rec-${recoveryDetectedAt.slice(0, 16)}`);
+        const stableTimestamp = recoveryDetectedAt;
+        const stableIdempotencyKey = `tori-recovery-${stableRecoveryKey}-${recoveryDetectedAt.slice(0, 16)}`;
 
         if (realDbAvailable) {
-          const persistResult = await persistIncidentStateCAS(stateRunKey, nextState, prevState.rawFinishedAt);
-          if (!persistResult.success) {
-            storageStatus = persistResult.conflict ? "cas_conflict" : "persistence_failed";
-            storageError = persistResult.error;
+          if (isLeaseActive(prevState.dispatchLease, currentTimestamp)) {
+            storageStatus = "cas_conflict";
+            alertSent = false;
+            alertError = "Concurrent worker lease in progress";
+            nextNotificationStatus = prevState.notificationStatus;
+          } else {
+            const workerId = crypto.randomUUID();
+            const candidateState: StoredIncidentState = {
+              ...prevState,
+              isIncident: false,
+              recoveryDetectedAt,
+              stableRecoveryKey,
+              stableIdempotencyKey,
+              dispatchLease: {
+                owner: workerId,
+                expiresAt: new Date(Date.now() + LEASE_DURATION_MS).toISOString(),
+                action: "recovery",
+                idempotencyKey: stableIdempotencyKey,
+              },
+            };
+
+            const claimResult = await persistIncidentStateCAS(stateRunKey, candidateState, prevState.rawFinishedAt);
+            if (!claimResult.success) {
+              storageStatus = claimResult.conflict ? "cas_conflict" : "persistence_failed";
+              storageError = claimResult.error;
+              alertSent = false;
+              nextNotificationStatus = prevState.notificationStatus;
+            } else {
+              let recoverySent = false;
+              let recoveryError: any = undefined;
+
+              try {
+                await sendRecoveryEmail({
+                  stableTimestamp,
+                  stableIdempotencyKey,
+                  isSimulation,
+                });
+                recoverySent = true;
+                alertSent = true;
+              } catch (err: any) {
+                recoverySent = false;
+                alertSent = false;
+                recoveryError = err;
+                alertError = err instanceof Error ? err.message : String(err);
+                console.error("Monitor recovery email delivery failed:", err);
+              }
+
+              if (recoverySent) {
+                nextNotificationStatus = "idle";
+              } else if (recoveryError instanceof PermanentEmailError) {
+                nextNotificationStatus = "permanent_failure";
+              } else {
+                nextNotificationStatus = "pending_recovery";
+              }
+
+              const finalizedState: StoredIncidentState = {
+                isIncident: false,
+                components: [],
+                notificationStatus: nextNotificationStatus,
+                lastAttemptAt: currentTimestamp,
+                lastAlertSentAt: undefined,
+                nextRetryAt: undefined,
+                attemptCount: recoverySent ? 0 : (prevState.attemptCount || 0) + 1,
+                lastError: recoverySent ? undefined : alertError,
+                stableIdempotencyKey: recoverySent ? undefined : stableIdempotencyKey,
+                stableRecoveryKey: recoverySent ? undefined : stableRecoveryKey,
+                recoveryDetectedAt: recoverySent ? undefined : recoveryDetectedAt,
+                eventId: recoverySent ? undefined : eventId,
+                version: (candidateState.version || 0) + 1,
+                fromDb: true,
+                rawFinishedAt: candidateState.rawFinishedAt,
+                dispatchLease: undefined,
+              };
+
+              await persistIncidentStateCAS(stateRunKey, finalizedState, candidateState.rawFinishedAt);
+            }
           }
+        } else {
+          // DB down recovery
+          let recoverySent = false;
+          let recoveryError: any = undefined;
+
+          try {
+            await sendRecoveryEmail({
+              stableTimestamp,
+              stableIdempotencyKey,
+              isSimulation,
+            });
+            recoverySent = true;
+            alertSent = true;
+          } catch (err: any) {
+            recoverySent = false;
+            alertSent = false;
+            recoveryError = err;
+            alertError = err instanceof Error ? err.message : String(err);
+          }
+
+          if (recoverySent) {
+            nextNotificationStatus = "idle";
+          } else if (recoveryError instanceof PermanentEmailError) {
+            nextNotificationStatus = "permanent_failure";
+          } else {
+            nextNotificationStatus = "pending_recovery";
+          }
+
+          const nextState: StoredIncidentState = {
+            isIncident: false,
+            components: [],
+            notificationStatus: nextNotificationStatus,
+            lastAttemptAt: currentTimestamp,
+            lastAlertSentAt: undefined,
+            nextRetryAt: undefined,
+            attemptCount: recoverySent ? 0 : (prevState.attemptCount || 0) + 1,
+            lastError: recoverySent ? undefined : alertError,
+            stableIdempotencyKey: recoverySent ? undefined : stableIdempotencyKey,
+            stableRecoveryKey: recoverySent ? undefined : stableRecoveryKey,
+            recoveryDetectedAt: recoverySent ? undefined : recoveryDetectedAt,
+            eventId: recoverySent ? undefined : eventId,
+            version: (prevState.version || 0) + 1,
+            fromDb: false,
+            rawFinishedAt: prevState.rawFinishedAt,
+          };
+          warmInstanceFallback[stateRunKey] = nextState;
         }
       } else {
         // Incident resolved before initial alert was ever confirmed sent -> return directly to idle

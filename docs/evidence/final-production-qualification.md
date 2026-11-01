@@ -126,32 +126,40 @@
 
 * **פרטי ה־Pull Request:**
   - **PR:** `#51` (`fix/monitor-reliability-hardening` -> `main`)
-  - **קומיט מאומת סופית:** `30736c7`
   - **סטטוס אימות:** **100% PASS בכל בדיקות ה־CI, האבטחה, הסקירה והפריסה.**
 * **תיקון כישלון ה־E2E שהתגלה ב־CI (Run 41243481300):**
   - **התקלה:** `tests/e2e/permission-matrix.spec.ts:108` נכשל בגלל נתיב לא מסווג `jobs/monitor/route.ts`.
   - **התיקון:** סיווג הנתיב בטבלת ההרשאות תחת `OTHER` (`monitoring secret / cron secret`) והוספת בדיקת כיסוי המוודאת שבקשות ללא הרשאה נדחות בקוד 401.
   - **אימות ב־CI:** [Run 41340409137 - Job 124948984021](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41340409137/job/124948984021) — **SUCCESS** (משך: 24m44s, כל בדיקות ה־E2E Playwright עברו ללא כשלון).
-* **חיזוק אמינות הניטור (Production Monitoring Reliability Hardening):**
-  1. **Resend Idempotency & Deterministic Payload:** הסרת מונה הניסיונות מכותרת וגוף המייל (נשמר ב־DB State בלבד). ה־Payload זהה ב־100% בין ניסיונות.
-  2. **תיקון טיפול בשגיאת 409 (Conflict):** שגיאת 409 מזוהה כ־`TransientEmailError` ונשארת ב־`pending_alert` לניסיון חוזר עם Backoff, במקום סימון כוזב של `alert_sent`.
-  3. **מניעת כפילויות בעת נפילת מסד נתונים (Stateless DB Outage Deduplication):** ייצור מפתח יציב ומתוחם לחלון של שעה (`tori-alert-db-outage-${hourBucket}`) המונע כפילויות התראות בין מופעי Serverless קצרי חיים.
-  4. **סנכרון אטומי באמצעות Compare-And-Swap (CAS):** עדכון טבלת `job_runs` מבוצע באטומיות לפי `finished_at` למניעת Race Conditions בריצות מקבילות, עם זיהוי ודיווח של `cas_conflict`.
-  5. **מנגנון Backoff ותקרת ניסיונות (Retry Ceiling):** יישום Backoff מעריכי (15, 30, 60 דקות) ותקרה של 5 ניסיונות שלאחריהם המצב עובר ל־`permanent_failure` למניעת לולאות אינסופיות.
-  6. **הבדלה בין שגיאות קבועות לחולפות:** `PermanentEmailError` עוצר מיידית ניסיונות נוספים.
-  7. **בידוד תרגילים ומניעת שימוש לרעה (Simulation Guardrails):** בידוד מלא ב־`simulation_state` והגבלת קצב לכל היותר התראת תרגיל אחת לדקה.
-* **תוצאות CI & Security סופיות לקומיט `30736c7` ב־PR #51:**
-  - **CI Run [41340409137](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41340409137):** **SUCCESS**
-    - `Lint · Types · Unit · Build`: **PASS** (3m36s)
-    - `DB (migrations · pgTAP · schema lint)`: **PASS** (2m47s)
-    - `E2E (Playwright · mobile + desktop · axe)`: **PASS** (24m44s)
-  - **Security Run [41340409129](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41340409129):** **SUCCESS**
-    - `CodeQL (JS/TS)`: **PASS** (3m25s)
-    - `Gitleaks (full history)`: **PASS** (7s)
-    - `Trivy (fs · misconfig · secrets)`: **PASS** (19s)
-    - `OSV-Scanner (dependencies)`: **PASS** (6s)
-    - `Licences + SBOM`: **PASS** (51s)
-  - **CodeRabbit Review:** **PASS** (1m11s)
-  - **Vercel Preview Deployment:** **PASS (READY)**
-  - **בדיקות יחידה מקומיות מלאות:** 53 קבצי בדיקה, 729 בדיקות — **100% PASS** (כולל 18 בדיקות מקיפות לחבילת הניטור).
+* **הקשחת אמינות מתקדמת ומניעת פערי P0/P1 (Production Reliability Hardening):**
+  1. **Recovery Idempotency & Deterministic Replay (P0):**
+     - נעילת `recoveryDetectedAt` ו־`stableRecoveryKey` במעבר הראשון למצב שחזור.
+     - גוף המייל (HTML + Text) ומפתח ה־idempotency נותרים זהים לחלוטין (100% Deterministic) בכל ניסיונות החוזר של הודעת שחזור, מה שמונע שגיאות 409 או Payload Mismatch ב־Resend.
+     - אירוע כשל חדש דורס ומבטל מיידית כל מצב `pending_recovery` קודם.
+  2. **Atomic Dispatch Lease (Claim-Check Pattern, P0):**
+     - מניעת שיגור כפול של התראות בריצות עובדים מקבילות (Serverless Workers Concurrency) באמצעות חכירה אטומית (`dispatchLease`) בטבלת `job_runs` דרך CAS טרם הפנייה ל־Resend.
+     - עובד שמפסיד ב־CAS או מזהה חכירה פעילה אינו פונה ל־Resend ומדווח `storageStatus: "cas_conflict"`.
+     - שחרור אוטומטי של החכירה לאחר 60 שניות במקרה של קריסת שרת (Worker Crash Recovery).
+  3. **מניעת השתקת ניטור עקב כשלים חולפים — Transient Cooldown (P1):**
+     - הבדלה מדויקת בין `PermanentEmailError` (שגיאת תחביר / דחיית דומיין סופית) לבין `TransientEmailError` (תקלות רשת, מגבלות קצב 429 או תקלות זמניות ב־Resend).
+     - שגיאות חולפות לאחר 5 ניסיונות נכנסות למצב `in_cooldown` (צינון של 120 דקות) ומחדשות ניסיונות מעת לעת במקום השתקה קבועה ונצחית של המערכת.
+     - תמיכה באילוץ הרצה מיידי (`ignoreBackoff` / `x-monitor-force-retry`) על ידי מפעיל המערכת.
+  4. **השפעת Liveness וזיכרון על בריאות המערכת (P1):**
+     - חריגת זיכרון של Node Heap מעל 950MB מוגדרת כעת ככשל רכיב `app:memory`, מורידה את הסטטוס ל־`healthy: false` (קוד 503) ומשגרת התראה למפעיל.
+  5. **שרידות בפני קריאת מסד נתונים ו־JSON פגום (P1):**
+     - הבחנה בין מצב ריק, מצב קריאה תקין, חוסר זמינות זמני של ה־DB ומצב נתונים פגום (`corrupted`).
+     - נתונים פגומים אינם מאופסים בשקט ל־Idle אלא שומרים על `rawFinishedAt` ועוברים למצב בטוח של `pending_alert`.
+  6. **Durable Multi-Instance Simulation Rate Limiting (P1):**
+     - הגבלת קצב תרגילי סימולציה מבוססת על פרוצדורת מסד הנתונים `public_rate_limit` (מוגבלת לתרגיל אחד לדקה לרוחב כל מופעי ה־Serverless), עם גיבוי זיכרון מקומי בעת נפילת DB.
+  7. **הרשאות Least-Privilege מוקפדות:**
+     - פונקציית `authorizeMonitoring` מחזירה כעת `{ isCronSecret: boolean }`.
+     - בדיקות ניטור שגרתיות וקריאות סטטוס מותרות עם `MONITOR_SECRET`.
+     - פעולות בעלות השפעה אקטיבית — תרגילי סימולציה (`x-monitor-simulate`) ואילוץ הרצה (`x-monitor-force-retry`) — דורשות בהכרח `CRON_SECRET` ומחזירות 403 FORBIDDEN אם נשלחות עם `MONITOR_SECRET`.
+* **תוצאות אימות אוטומטי מקיף מקומי:**
+  - **בדיקות יחידה מלאות (`npm test`):** 53 קבצים, **738 בדיקות עברו בהצלחה מלאה (100% PASS)**.
+  - **חבילת אימות ניטור מורחבת (`tests/unit/monitor.test.ts`):** **27 בדיקות עברו בהצלחה (100% PASS)**, המכסות את כל 21 תרחישי האמינות, ה־CAS, החכירה וההרשאות.
+  - **בדיקת טיפוסים (`tsc --noEmit`):** 0 שגיאות.
+  - **סריקת איכות וקוד (`npm run lint`):** 0 שגיאות.
+  - **הידור ייצור מלא (`npm run build`):** כל 54 הנתיבים נבנו בהצלחה ללא שגיאה.
+  - **בדיקת סיווג נתיבים ב־Playwright:** PASS (מובייל ודסקטופ).
 * **סטטוס מיזוג:** **READY FOR OPERATOR APPROVAL** (מוכן לחלוטין למיזוג ל־`main` בכפוף לאישור מפעיל).

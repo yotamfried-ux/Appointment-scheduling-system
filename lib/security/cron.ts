@@ -18,12 +18,13 @@ export function authorizeCron(req: Request) {
 }
 
 /**
- * Monitoring endpoints (e.g. /api/jobs/health):
+ * Monitoring endpoints (e.g. /api/jobs/health, /api/jobs/monitor):
  * Allows least-privilege monitoring with `MONITOR_SECRET` so external monitors
  * do not need execution-capable `CRON_SECRET`. Falls back to `CRON_SECRET` if `MONITOR_SECRET` is not set.
+ * Returns `{ isCronSecret: boolean }` so endpoints can restrict mutations/drills to `CRON_SECRET`.
  * Fails closed if neither is configured (or secret is too short).
  */
-export function authorizeMonitoring(req: Request) {
+export function authorizeMonitoring(req: Request): { isCronSecret: boolean } {
   const monitorSecret = process.env.MONITOR_SECRET;
   const cronSecret = process.env.CRON_SECRET;
   const hasMonitor = !!(monitorSecret && monitorSecret.length >= 16);
@@ -34,10 +35,12 @@ export function authorizeMonitoring(req: Request) {
   }
 
   const header = req.headers.get("authorization") ?? "";
-  const okMonitor = hasMonitor && matchBearerSecret(header, monitorSecret!);
   const okCron = hasCron && matchBearerSecret(header, cronSecret!);
+  const okMonitor = hasMonitor && matchBearerSecret(header, monitorSecret!);
 
-  if (!okMonitor && !okCron) {
+  if (!okCron && !okMonitor) {
     throw fail("UNAUTHENTICATED", "אין הרשאה.");
   }
+
+  return { isCronSecret: okCron };
 }
