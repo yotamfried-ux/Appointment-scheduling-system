@@ -1,15 +1,21 @@
-# Secrets: rotation and leaks
+# Secrets: rotation, isolation, and leak response
 
-Rule: a secret lives in the hosting environment, one set per environment (Preview never shares Production's). `npm run check:env` (with the production values) refuses placeholders, test switches and missing secrets before a deploy. **Order matters: add the new, deploy, switch the provider, remove the old.**
+Rule: a secret lives in the hosting environment, one set per environment (Preview never shares Production's). `npm run check:env` (with production values) refuses placeholders, test switches, and missing secrets before a deploy. **Order matters: add the new, deploy, switch the provider, remove the old.**
 
-| Secret | How to rotate | Side effects |
-|---|---|---|
-| `SUPABASE_SECRET_KEY` | create a new secret key in Supabase, set it, redeploy, delete the old one | none; the browser never holds it (a bundle scan runs in CI) |
-| `BOOKING_TOKEN_SECRET` | set the new value, move the old one to `BOOKING_TOKEN_SECRET_PREVIOUS`, redeploy; remove `_PREVIOUS` after the longest token lifetime (a customer's manage link lives until the appointment plus 7 days; code: `modules/booking/token.ts`) | links already e-mailed keep working until `_PREVIOUS` is removed |
-| `CRON_SECRET` | change in the host **and** in any external scheduler, redeploy | jobs return 401 until both match |
-| `RESEND_API_KEY` | new sending-only key in Resend, set, redeploy, revoke the old | mail retries cover the gap (outbox) |
-| `RESEND_WEBHOOK_SECRET` | rotate in Resend, set the new `whsec_…`, redeploy | bounces during the gap are lost, check Resend's log |
-| `NOTIFICATIONS_PEPPER` | **avoid**: it keys the hash of every address in the suppression list; changing it forgets all suppressions | only rotate after a confirmed leak, and expect some bounced addresses to be mailed again |
-| billing provider keys / `BILLING_WEBHOOK_SECRET` | per the provider; the fake provider is never in production | |
+| Secret | Role & Scope | How to rotate | Side effects |
+|---|---|---|---|
+| `SUPABASE_SECRET_KEY` | Supabase Service Role (backend operations only; never exposed to browser) | create a new secret key in Supabase Project Settings → API, set it in Vercel Production, redeploy, delete the old one | None; browser never holds it (client bundle AST scan runs in CI) |
+| `CRON_SECRET` | Execution-level secret for all 5 background jobs (`/api/jobs/*`) and simulation drills | update in Vercel Environment Variables, redeploy | Vercel Cron automatically uses the updated secret; external triggers must update header |
+| `MONITOR_SECRET` | Least-privilege read-only monitoring secret for `/api/jobs/monitor` and `/api/jobs/health` | update in Vercel Environment Variables, redeploy | External uptime monitors must update their Bearer token |
+| `BOOKING_TOKEN_SECRET` | HMAC signature key for customer self-service links (`/booking/[token]`) | set new value, move old one to `BOOKING_TOKEN_SECRET_PREVIOUS`, redeploy; remove `_PREVIOUS` after 7 days | Links already emailed keep working until `_PREVIOUS` is removed |
+| `RESEND_API_KEY` | Transactional email delivery API key | generate a new sending-only key in Resend dashboard, set in Vercel, redeploy, revoke old key in Resend | Outbox transactional queue retries cover any transient gap |
+| `RESEND_WEBHOOK_SECRET` | Webhook signature verification (`whsec_...`) | rotate in Resend webhooks settings, set new value in Vercel, redeploy | Bounces during the gap can be reconciled from Resend logs |
+| `NOTIFICATIONS_PEPPER` | HMAC pepper for anonymized suppression hashing | **avoid rotation**: changing it forgets all bounced address hashes | Only rotate after confirmed leak; expect bounced addresses to be retried |
 
-**If a secret leaked:** rotate it first (above), then look for use: `audit_log`, Supabase and Vercel logs for the window. A leaked `SUPABASE_SECRET_KEY` means assume the whole database was readable: follow docs/05 §11 (incident response, notification duty, legal advice).
+---
+
+## Leak Response Procedure
+
+1. **Immediate containment:** Rotate the compromised secret immediately following the table above.
+2. **Access audit:** Inspect Vercel runtime logs, Supabase audit logs (`audit_log`), and Resend logs for suspicious activity during the leak window.
+3. **Escalation:** If `SUPABASE_SECRET_KEY` was leaked, assume database read exposure. Follow [`docs/runbooks/incident.md`](incident.md) and notify counsel and affected businesses.

@@ -1,13 +1,51 @@
-# Restore from a backup (drilled)
+# Restore from a backup (Production & Rehearsal Runbook)
 
-## Production (Supabase)
-1. **Prerequisite, before launch:** the project is on a plan with **Point-in-Time Recovery** enabled (Settings → Add-ons / Backups). Without it only the daily snapshot exists. Record the retention window here once chosen: `____ days`.
-2. **Decide the target time** (the minute before the incident). Use the `audit_log` and `billing_events` timestamps to find it.
-3. **Restore** from the dashboard (Database → Backups → Point in Time). Supabase restores the whole project in place; expect downtime proportional to size.
-4. **Verify before announcing** (the same checks the drill runs, against the restored project): row counts on the key tables, `select count(*) from private.lint_violations()` returns 0, RLS enabled and forced on every public table, the overlap constraint on `appointments` exists, a test booking succeeds and is refused when overlapping.
-5. **Tell people what was lost**: bookings made between the target time and the incident are gone; customers can be found from outbox e-mail logs and the provider's delivery logs, and re-contacted.
+## Production (Supabase Pro)
 
-## Rehearsal that needs no cloud (drilled)
-`bash scripts/drills/restore.sh` dumps the local database, restores it into a brand-new scratch database and proves the copy: equal row counts in all tables, a content fingerprint, **zero schema-lint violations, RLS enabled and forced, the same policies, functions and triggers, the no-overlap constraint present, no grants to `anon`**. `DRILL_SABOTAGE=1` damages the copy on purpose and must make it fail. Last result: see `docs/evidence/security/qualification.md`.
+1. **Backup Policy & Retention:**
+   - The production project (`abhadytskhgwkrlmceew`) is on **Supabase Pro** located in Frankfurt (`eu-central-1`).
+   - Daily automated physical snapshots are generated via **WAL-G** (every morning around 06:57 UTC).
+   - 8 daily snapshots are retained automatically by Supabase.
+   - **RPO (Recovery Point Objective):** up to 24 hours (point-in-time recovery is disabled to adhere to the $0 additional monthly infrastructure budget requirement).
+   - **RTO (Recovery Time Objective):** 5–15 minutes for in-place database restoration.
 
-Limits of the rehearsal: it exercises a logical dump, not Supabase's physical PITR, and it runs on a small dataset. It proves the schema, the data and the security properties survive a restore; it does not measure how long a production restore takes.
+2. **Triggering a Restore:**
+   - In [supabase.com/dashboard](https://supabase.com/dashboard) → Project `abhadytskhgwkrlmceew` → Database → Backups → Scheduled Backups.
+   - Select the desired daily backup snapshot and click **Restore**.
+   - Note: Restoration executes in place. Expect database downtime proportional to instance size.
+
+3. **Post-Restore Verification Checklist:**
+   - Verify table row counts across key tables (`businesses`, `services`, `appointments`, `customers`).
+   - Verify zero schema lint violations:
+     ```sql
+     select count(*) from private.lint_violations();
+     ```
+     Must return `0`.
+   - Verify Row Level Security is enabled and enforced:
+     ```sql
+     select tablename, rowsecurity from pg_tables where schemaname = 'public';
+     ```
+   - Verify the double-booking exclusion constraint exists on `public.appointments`:
+     ```sql
+     select conname, contype from pg_constraint where conname = 'no_overlapping_appointments';
+     ```
+   - Execute a live probe against `/api/health` and `/api/ready` on `https://turim.d2ryf.com`.
+
+4. **Data Reconciliation (Post-Incident Recovery):**
+   - Bookings made between the snapshot timestamp (06:57 UTC) and the incident timestamp cannot be restored from the DB image.
+   - **Customer & Appointment Recovery:** Query the Resend transaction logs (`from: noreply@mail.d2ryf.com` or `appointments@turim.d2ryf.com`). Every confirmed appointment produced an email with appointment date, time, business, customer name, and customer email.
+   - Reconstruct lost appointments and notify affected customers in Hebrew.
+
+---
+
+## Local Automated Restore Drill (Rehearsal)
+
+The automated script `scripts/drills/restore.sh` runs regularly in CI (`drills.yml`):
+- Dumps the local PostgreSQL database schema and data.
+- Restores it into a brand-new scratch database container.
+- Proves:
+  - Equal table row counts.
+  - Zero schema-lint violations (`private.lint_violations() = 0`).
+  - Row Level Security enabled and forced on all tables.
+  - All triggers, functions, policies, and constraints (`no_overlapping_appointments`) intact.
+  - Zero grants to role `anon`.

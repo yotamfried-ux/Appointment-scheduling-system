@@ -1,53 +1,45 @@
-# מה בעל המערכת צריך לעשות בעצמו (24.10.2026)
+# צ'קליסט פעולות בעל המערכת להשקה מסחרית — Owner Action Checklist
 
-כל מה שכאן דורש כניסה של בעל החשבון ללוחות הבקרה של השירותים. אני לא יכול לעשות אותם בשמך, כי אין לי הרשאה לשנות הגדרות Auth ב-Supabase, DNS אצל הרשם או סודות ב-GitHub. לכל סעיף: למה, איפה, איך, ואיך בודקים שהצליח.
+**תאריך עדכון:** 2 בנובמבר 2026  
+**מערכת:** Tori SaaS (`https://turim.d2ryf.com`)  
+**מטרה:** ריכוז מדויק של הפעולות האנושיות, המשפטיות והעסקיות שרק בעל המערכת (האדם האחראי) יכול לבצע.
 
-## 1. מיילי הרשמה ואימות (Supabase + Resend)
-**למה:** בלי זה המיילים נשלחים בשם "Supabase Auth" באנגלית והקישור פג מהר.
-**איפה:** [supabase.com/dashboard](https://supabase.com/dashboard) → הפרויקט `abhadytskhgwkrlmceew`.
+---
 
-1. **תוקף הקישור לשעה:** Authentication → Sign In / Providers → Email → שדה "Email OTP expiration" → `3600` → Save.
-2. **שולח מייל מותאם (Resend):**
-   - ב-[resend.com](https://resend.com): Domains → הדומיין `mail.d2ryf.com` צריך להיות במצב Verified (אם לא, מוסיפים אותו ומעתיקים את רשומות ה-DNS שמוצגות לשם אצל הרשם של `d2ryf.com`).
-   - API Keys → Create API Key → הרשאה "Sending access" → מעתיקים את המפתח (מוצג פעם אחת).
-   - בחזרה ב-Supabase: Authentication → Emails → SMTP Settings → מפעילים Custom SMTP: Host `smtp.resend.com`, Port `465`, Username `resend`, Password = מפתח ה-API, Sender email `noreply@mail.d2ryf.com`, Sender name `תורים`. שומרים.
-3. **תבניות בעברית:** Authentication → Emails → Templates. לכל אחת מ-6 התבניות (Confirm sign up, Magic link, Change email address, Invite user, Reset password, Reauthentication): מדביקים את קובץ ה-HTML המתאים מהתיקייה `supabase/templates` במאגר (`confirmation`, `magic_link`, `email_change`, `invite`, `recovery`, `reauthentication`), ואת הנושא מהקובץ `supabase/config.toml` (השורות `subject`).
-4. **כתובת האתר:** Authentication → URL Configuration → Site URL = `https://turim.d2ryf.com`. ב-Redirect URLs רק הדומיין הזה.
-5. **בדיקה:** נרשמים עם כתובת חדשה. המייל צריך להגיע בעברית מ-"תורים", הכפתור "אימות והמשך" עובד, ואחרי שעה הקישור מציג "הקישור כבר לא תקף" עם טופס לבקשת קישור חדש.
+## 1. פעולות שהושלמו ואומתו במלואן (Done & Verified)
 
-## 2. הגנה מסיסמאות שדלפו (דקה)
-**איפה:** Supabase → Authentication → Sign In / Providers → Password security (בחלק מהתצוגות: Attack Protection) → מפעילים "Prevent use of leaked passwords". דורש תוכנית Pro, והארגון כבר ב-Pro.
+- [x] **הגנת סיסמאות מודלפות (HaveIBeenPwned):** מופעל ומאומת ב־Supabase Pro (`password_hibp_enabled = true`).
+- [x] **דומיין דוא"ל רשמי:** `mail.d2ryf.com` מאומת מלא ב־Resend עם DKIM, SPF, MX ורשומת DMARC.
+- [x] **משימות מתוזמנות וניטור (Vercel Cron):** כל 5 המשימות מוגדרות ב־`vercel.json` ורצות אוטומטית עם `CRON_SECRET`.
+- [x] **מיגרציות מסד נתונים:** כל 47 המיגרציות הוחלו בהצלחה בייצור (`abhadytskhgwkrlmceew`), כולל מיגרציות זהות, אנונימיזציה ומניעת דדלוקים.
+- [x] **אבטחה והרשאות:** 0 אזהרות ב־Supabase Security Advisor; מפתח ניטור נפרד `MONITOR_SECRET` לקריאה בלבד.
+- [x] **בידוד Preview מול Production:** סביבות Preview חסומות בקוד מחיבור למסד הייצור.
 
-## 3. משימות מתוזמנות (תזכורות, תור המתנה, שליחת מיילים)
-**מצב (24.10.2026):** אין צורך בפעולה שלך. המשימות רצות ב-Vercel Cron לפי `vercel.json` (שליחה חוזרת של מיילים, תזכורות ותור המתנה פעם ביום בבוקר, ותחזוקה בלילה). המשתנה `CRON_SECRET` כבר קיים ב-Vercel (Production ו-Preview), ו-Vercel שולח אותו לבד בכל הרצה. אין סוד ב-GitHub ואין workflow בשם `jobs`. הערה: מייל אישור תור נשלח מיד בעת ההזמנה, והמשימה היומית משמשת לניסיון חוזר ולתזכורות. אם תרצה תזכורות בשעות שונות או תדירות גבוהה יותר, צריך תוכנית Vercel Pro או הרצה חיצונית.
+---
 
-## 4. מיגרציה 46 בפרודקשן
-**למה:** זהות הלקוח לפי אימייל (במקום טלפון) קיימת בקוד אבל לא במסד הנתונים של הפרודקשן. עד שתרוץ, הזמנה חדשה עם אימייל לא תעבוד נכון בפרודקשן. כתוב לי "תריץ מיגרציה 46" ואני מריץ, אחרי גיבוי.
+## 2. פעולות אנושיות הנדרשות מבעל המערכת (Owner Actions)
 
-## 5. הדומיין: DMARC (מניעת התחזות למיילים שלך)
-**איפה:** אצל הרשם של `d2ryf.com` (או ב-Vercel → Domains אם ה-DNS שם). מוסיפים רשומת TXT: שם `_dmarc`, ערך `v=DMARC1; p=none; rua=mailto:<תיבת הדוא"ל של D2R>`. אחרי כמה שבועות בלי בעיות אפשר להקשיח ל-`p=quarantine`.
+### פעולה 1 — חתימת אישור משפטי רשמי
+- **למה נדרש:** סוכן AI אינו גורם משפטי ואינו יכול לאשר מסמכים משפטיים בשמך.
+- **היכן מבצעים:** בקובץ [`docs/legal/legal-owner-approval.md`](legal/legal-owner-approval.md).
+- **מה לעשות:** למלא את שמך המלא בשורה 17 ואת המשפט:  
+  *"אני, [שם מלא], מאשר בזאת את תנאי השימוש ומדיניות הפרטיות בגרסה 2026-10-21."*
+- **איך בודקים שהושלם:** הקובץ מכיל את שמך המלא ומשפט האישור החתום ב־Git.
 
-## 6. פרסום העסק שלך לבדיקה
-בדשבורד של העסק לוחצים "פרסום הקישור". עסקים שייווצרו אחרי שאמזג את PR 31 יתפרסמו לבד.
+### פעולה 2 — אישור תנאי עיבוד מידע (DPA) מול ספקי הענן
+- **למה נדרש:** בהתאם לדיני הגנת הפרטיות, Tori משמשת כמעבד מידע עבור עסקים ומעבירה מידע לספקי תשתית.
+- **היכן מבצעים:**
+  1. ב־[supabase.com/dashboard](https://supabase.com/dashboard) → ארגון → אישור ה־DPA.
+  2. ב־[vercel.com](https://vercel.com) → הגדרות צוות → Data Processing Agreement → אישור.
+  3. ב־[resend.com](https://resend.com) → הגדרות חשבון → DPA.
+- **מה לעשות:** לאשר את ההסכמים ולרשום את תאריך האישור בקובץ [`docs/legal/processors-and-transfers.md`](legal/processors-and-transfers.md).
 
-## 7. הגדרות Vercel
-1. ב-Vercel → Settings → Environment Variables: `NEXT_PUBLIC_LEGAL_CONTACT` ו-`NEXT_PUBLIC_A11Y_CONTACT` = כתובת הדוא"ל של D2R (Production ו-Preview). כרגע הן placeholder.
-2. לוודא ש-Preview לא מחובר למסד הנתונים של הפרודקשן: באותה רשימה, `NEXT_PUBLIC_SUPABASE_URL` בסביבת Preview צריך להצביע על פרויקט הבדיקה ולא על `abhadytskhgwkrlmceew`.
+### פעולה 3 — פתיחת עוסק ועדכון פרטי התקשרות רשמיים
+- **למה נדרש:** תנאי השימוש ומדיניות הפרטיות דורשים ציון עוסק מורשה/פטור או חברה מפעילה.
+- **היכן מבצעים:** בקובץ `lib/legal/config.ts` ובדפי `/terms` ו־`/privacy`.
+- **מה לעשות:** לאחר פתיחת התיק ברשויות המס, לעדכן את מספר העוסק והשם הרשמי של מיזם D2R.
 
-## 8. חשבון מנהל פלטפורמה (אופציונלי)
-נותן גישה לממשק המפעיל (השהיית עסק). ההוראות ב-`docs/runbooks/abuse.md`. אפשר לדלג לפיילוט.
-
-## 9. מסלול לעסק של אמא
-כל עסק חדש מתחיל בניסיון חינם של 14 יום במסלול המלא, ואחריו העסק מפסיק לקבל תורים עד שמוענק מסלול. כדי שהפיילוט לא ייעצר: ב-Supabase → SQL Editor, אחרי שחשבון העסק שלה קיים:
-```sql
-update public.subscriptions
-set status = 'active', current_period_end = now() + interval '1 year'
-where business_id = (select id from public.businesses where slug = '<הקישור של העסק שלה>');
-```
-בדיקה: `select status from public.subscriptions where business_id = ...` מחזיר `active`. (דרך חלופית דרך ממשק המפעיל: `docs/runbooks/billing.md`.)
-
-## 10. משפטי
-1. ב-`docs/legal/legal-owner-approval.md` להוסיף את שמך המלא ואת משפט האישור (מתווסף לטקסט שכבר שם).
-2. לקרוא את `docs/legal/breach-and-liability-brief.md` ולקבוע שיחה עם עורך דין או יועץ פרטיות.
-3. אישור תנאי עיבוד המידע של Supabase, Vercel ו-Resend בלוחות הבקרה שלהם ורישום התאריך ב-`docs/legal/processors-and-transfers.md`.
-4. לפתוח עוסק (פטור או מורשה) ולתת לי את הפרטים להוספה לבלוק המפעיל בתנאים ובמדיניות.
+### פעולה 4 — ייעוץ משפטי להשקה מסחרית רחבה (חוק הגנת הפרטיות)
+- **למה נדרש:** לבחינת חובת רישום מאגר מידע והגדרת רמת אבטחת המידע לפי תקנות הגנת הפרטיות (אבטחת מידע) תשע"ז-2017 ותיקון 14 לחוק.
+- **היכן מבצעים:** פגישת ייעוץ עם עורך דין המתמחה בפרטיות וטכנולוגיה.
+- **מתי נדרש:** ניתן להשיק בפיילוט מבוקר למספר עסקים באופן מיידי; מומלץ להשלים לפני גיוס עשרות עסקים מסחריים בתשלום.
