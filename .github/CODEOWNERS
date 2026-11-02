@@ -1,9 +1,16 @@
-# Security-relevant paths require owner review (docs/05 §7).
-/supabase/migrations/   @yotamfried-ux
-/supabase/tests/        @yotamfried-ux
-/.github/               @yotamfried-ux
-/proxy.ts               @yotamfried-ux
-/next.config.ts         @yotamfried-ux
-/lib/security/          @yotamfried-ux
-/platform/              @yotamfried-ux
+# Security-relevant and production-critical paths require owner review (docs/05 §7, GATE-25).
+/supabase/migrations/             @yotamfried-ux
+/supabase/tests/                  @yotamfried-ux
+/.github/                         @yotamfried-ux
+/proxy.ts                         @yotamfried-ux
+/next.config.ts                   @yotamfried-ux
+/vercel.json                      @yotamfried-ux
+/lib/security/                    @yotamfried-ux
+/platform/                        @yotamfried-ux
+/app/api/jobs/                    @yotamfried-ux
+/app/api/admin/                   @yotamfried-ux
+/app/api/webhooks/                @yotamfried-ux
+/modules/booking/                 @yotamfried-ux
+/modules/tenancy/                 @yotamfried-ux
 /docs/05-security-architecture.md @yotamfried-ux
+/docs/runbooks/                   @yotamfried-ux
