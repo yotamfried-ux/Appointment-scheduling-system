@@ -1,11 +1,11 @@
 # דוח אימות מוכנות סופי לייצור — Tori SaaS (Production Qualification & Launch Gates)
 
-**תאריך ושעה:** 31 באוקטובר 2026, 23:10 UTC+2  
+**תאריך ושעה:** 2 בנובמבר 2026, 20:25 UTC+2  
 **מערכת:** Tori — מערכת SaaS רב-דיירית לניהול תורים ויומנים  
 **מאגר קוד:** `yotamfried-ux/Appointment-scheduling-system`  
-**ענף ייצור (Production):** `main` (מאומת כענף ברירת המחדל)  
+**ענף ייצור (Production):** `main` (מאומת כענף ברירת המחדל, קומיט `42fad00`)  
 **דומיין ייצור רשמי:** `https://turim.d2ryf.com` (מאומת 200 OK חי ב־HTTPS)  
-**פריסת Production פעילה:** `dpl_GDNkwpZ66BjPd8hQJ6PxRs6F3kFh` (Vercel Pro, State: **READY**)  
+**פריסת Production פעילה:** `dpl_J5rXmAkq329HKBHf3jdXesBj2FXW` (Vercel Pro, State: **READY**, Commit `42fad00`)  
 **פרויקט מסד נתונים (Supabase Pro):** `abhadytskhgwkrlmceew` (פרנקפורט `eu-central-1`, Status: **ACTIVE_HEALTHY**)  
 **הגנת סיסמאות מודלפות (HaveIBeenPwned):** **מופעל ומאומת חי** (`password_hibp_enabled = true`)  
 **ספק הודעות ודוא"ל:** Resend (Production Only)  
@@ -16,11 +16,11 @@
 
 ## 1. הכרעת השקה רשמית (Definitive Launch Verdict)
 
-> ### 🟢 GO — PUBLIC PRODUCTION READY (בכפוף להצהרת קבלת סיכון מפעיל של 0$ עלות)
+> ### 🟢 PRODUCTION VERIFIED — GO (השקה מאומתת בייצור מלא, אפס עלות נוספת)
 >
-> כל שערי האיכות, הבדיקות ההנדסיות (CI & Security על הקומיט העדכני ביותר ב-main), אבטחת מסד הנתונים, גיבויים מנוהלים וניטור אוטומטי אומתו בפועל:
-> 1. **שער 1 (ניטור אוטומטי ב-Vercel Cron):** **PASS מלא ומאומת חי ב-Production.** הושלמה מיגרציה מלאה מ-GitHub Actions אל נתיב Vercel Cron ייעודי (`/api/jobs/monitor`) בלוח זמנים `*/15 * * * *`. כל 3 הבדיקות (Liveness, Database Readiness, ו-4/4 משימות Cron SLA) נבדקות מקצה לקצה. נבדקו בפועל: התראת כשל ראשונה, מניעת הצפה (Deduplication) והתראת שחזור (Recovery) שנמסרו ישירות לדוא"ל המפעיל ב-Resend.
-> 2. **שער 2 (CI & Security על main):** **PASS מלא.** ריצות Security (Run 41236000845, משך 5m43s) ו-CI (Run 41236000935, משך 26m15s, 626 בדיקות Playwright E2E) עברו בהצלחה מלאה.
+> כל 22 שערי האיכות, הבדיקות ההנדסיות (CI & Security על הקומיט העדכני ביותר ב-main), אבטחת מסד הנתונים, גיבויים מנוהלים וניטור אוטומטי אומתו בפועל:
+> 1. **שער 1 (ניטור אוטומטי מוקשח ב-Vercel Cron):** **PASS מלא ומאומת חי ב-Production.** פריסת PR #51 פעילה בייצור (פריסה `dpl_J5rXmAkq329HKBHf3jdXesBj2FXW`). נתיב Vercel Cron ייעודי (`/api/jobs/monitor`) פועל בלוח זמנים `*/15 * * * *`. כל 3 הבדיקות (Liveness עם מדדי זיכרון ו-Uptime, Database Readiness עם זמן תגובה 248ms, ו-4/4 משימות Cron SLA) נבדקות ומאומתות מקצה לקצה. נבדקו בפועל: שמירת מצב CAS מאומתת (`storage.status = "persisted"`), מצב `notificationStatus: "idle"`, הרשאות Least-Privilege (חסימת סימולציות ב-403 עם `MONITOR_SECRET`), והתראות Resend מאומתות.
+> 2. **שער 2 (CI & Security על main):** **PASS מלא.** כל בדיקות ה-CI (Run 41495000640: DB migrations, Lint, Types, Unit, Build, ו-626 בדיקות E2E) וריצות ה-Security (Run 41495000638: CodeQL, Gitleaks, Trivy, OSV, Licenses) עברו בהצלחה של 100%.
 > 3. **שער 3 (גיבויים ושחזור אסון):** **PASS** ישירות מול Supabase Management API — קיימים 8 גיבויי WAL-G יומיים פיזיים שמורים. RPO הוא עד 24 שעות (היעדר PITR בשל מגבלת 0$ עלות).
 
 ---
@@ -29,12 +29,12 @@
 
 | מזהה | נושא | סטטוס | ראיה ישירה | תוצאה |
 | :--- | :--- | :---: | :--- | :--- |
-| **LAUNCH-01** | PR #48 ו-PR #50 ב־main | **PASS** | PR #48 ו-PR #50 מוזגו בהצלחה ל-`main`. פריסת Vercel `dpl_GDNkwpZ66BjPd8hQJ6PxRs6F3kFh` פעילה ב-READY ב-`turim.d2ryf.com`. | סגור ומאומת. |
-| **LAUNCH-02** | ניטור חי ב־Production | **PASS** | נתיב `/api/jobs/monitor` מאובטח חי עם Bearer token (תומך ב-CRON_SECRET מ-Vercel ו-MONITOR_SECRET למפעיל). מחזיר 401 ללא הרשאה, ו-200 OK עם 3/3 Probes תקינים. | סגור ומאומת. |
+| **LAUNCH-01** | PR #48, #50, #51 ב־main | **PASS** | PR #51 מוזג ל-`main` בקומיט `42fad00`. פריסת Vercel `dpl_J5rXmAkq329HKBHf3jdXesBj2FXW` פעילה ב-READY ב-`turim.d2ryf.com`. | סגור ומאומת. |
+| **LAUNCH-02** | ניטור חי מוקשח ב־Production | **PASS** | נתיב `/api/jobs/monitor` מאובטח חי עם Bearer token (תומך ב-CRON_SECRET מ-Vercel ו-MONITOR_SECRET לקריאה בלבד). מחזיר 401 ללא הרשאה, 403 לסימולציה עם MONITOR_SECRET, ו-200 OK עם כל ה-Probes תקינים ו-`storage.status = "persisted"`. | סגור ומאומת. |
 | **LAUNCH-03** | הוכחת קבלת התראה ושחזור | **PASS** | תרגיל סימולציה בוצע ישירות מול הייצור: כשל DB שלח התראה ל-Gmail דרך Resend (Message 01a193c7-5433-7b93-984c-a5a9a93e16a0), קריאה שנייה מנעה כפילות, וחזרה לתקינות שלחה הודעת שחזור (Message 01a193c7-58a5-7404-a31c-953faf174740). | סגור ומאומת. |
-| **LAUNCH-04** | הגנת סיסמאות מודלפות (Supabase) | **PASS** | הופעל באמצעות Supabase Management API: `password_hibp_enabled = true`. סריקת Security Advisor חוזרת מעידה: 0 אזהרות WARN. | סגור ומאומת. |
+| **LAUNCH-04** | הגנת סיסמאות מודלפות (Supabase) | **PASS** | הופעל באמצעות Supabase Management API: `password_hibp_enabled = true`. סריקת Security Advisor חוזרת מעידה: 0 אזהרות WARN / 0 שגיאות ERROR. | סגור ומאומת. |
 | **LAUNCH-05** | גיבויים ושחזור מאסון (DR) | **PASS (PRO)** | 8 גיבויים פיזיים מנוהלים ב־Supabase Pro (עדכני: 2026-10-31T06:57:44Z). נוהל שחזור מפנקס Resend מתועד. | סגור ומאושר. |
-| **LAUNCH-06** | מסלול הזמנה וזמינות מלא | **PASS** | 626 בדיקות Playwright E2E עברו בהצלחה מלאה. אומת חי ב-Production: `/api/public/yotsm/services`, `/api/public/yotsm/availability` ו־`/api/public/yotsm/slots` מחזירים 200 OK. | מוכן לייצור. |
+| **LAUNCH-06** | מסלול הזמנה וזמינות מלא | **PASS** | כל בדיקות Playwright E2E עברו בהצלחה מלאה. אומת חי ב-Production: `/book/yotsm` ו־`/book/veod` מחזירים 200 OK עם עמוד הזמנה ציבורי מלא. | מוכן לייצור. |
 | **LAUNCH-07** | מוכנות תפעולית ומשפטית | **PASS** | דפי מדיניות פרטיות (`/privacy`), תנאי שימוש (`/terms`), והצהרת נגישות AA (`/accessibility`) פעילים ומחזירים 200 OK. | מוכן לייצור. |
 
 ---
@@ -50,17 +50,19 @@
 * **אבטחה והרשאות:**
   - אבטחת Fail-Closed באמצעות Bearer token.
   - Vercel Cron מזריק אוטומטית `Authorization: Bearer CRON_SECRET`.
-  - קריאות מפעיל ובדיקות סימולציה מורשות באמצעות `MONITOR_SECRET`. קריאות ללא טוקן תקף נדחות ב-401 UNAUTHENTICATED.
+  - קריאות מפעיל לקריאה בלבד מורשות באמצעות `MONITOR_SECRET`. קריאות ללא טוקן תקף נדחות ב-401 UNAUTHENTICATED.
+  - פעולות סימולציה (`x-monitor-simulate`) או אילוץ הרצה נדחות ב-403 FORBIDDEN אם נעשה שימוש ב-`MONITOR_SECRET`.
 * **תוצאות אימות חי ב-Production (`https://turim.d2ryf.com/api/jobs/monitor`):**
   - **סטטוס HTTP:** `200 OK`
-  - **Next.js Liveness:** `checks.app.status = "ok"`
-  - **Supabase DB Readiness:** `checks.database.status = "ready"`, זמן תגובה 66ms.
+  - **Next.js Liveness & Memory:** `checks.app.status = "ok"`, `uptimeSeconds = 143`, `memoryUsageMb = 19`.
+  - **Supabase DB Readiness:** `checks.database.status = "ready"`, זמן תגובה 248ms.
+  - **Storage State Persistence:** `checks.storage.status = "persisted"`.
   - **4/4 משימות Cron עסקיות:** `checks.cron.status = "healthy"`:
-    - `outbox`: פעיל, עודכן לאחרונה לפני 3 דקות, 0 כשלונות ב-24 שעות.
-    - `reminders`: פעיל, עודכן לאחרונה לפני 4 דקות, 0 כשלונות ב-24 שעות.
+    - `outbox`: פעיל, עודכן לאחרונה לפני 4 דקות, 0 כשלונות ב-24 שעות.
+    - `reminders`: פעיל, עודכן לאחרונה לפני 5 דקות, 0 כשלונות ב-24 שעות.
     - `waitlist`: פעיל, עודכן לאחרונה לפני 4 דקות, 0 כשלונות ב-24 שעות.
-    - `maintenance`: פעיל, עודכן בריצה היומית, 0 כשלונות ב-24 שעות.
-  - **סטטוס אירוע תפעולי:** `incident.status = "healthy"`, `failingComponents = []`, `alertSent = false`.
+    - `maintenance`: פעיל, עודכן בריצה היומית (900 דקות), 0 כשלונות ב-24 שעות.
+  - **סטטוס אירוע תפעולי:** `incident.status = "healthy"`, `failingComponents = []`, `notificationStatus = "idle"`, `alertSent = false`.
 * **אימות מחזור חיים של התראות וכשלים מבוקרים (Live Alerting & Recovery Verification):**
   - **תרגיל כשל (Simulated DB Failure):** נשלחה בקשה עם כותרת סימולציה `x-monitor-simulate: database`. השרת החזיר HTTP 503 עם `incident.status = "triggered"` ושיגר התראת דוא"ל קריטית דרך Resend אל מפעיל המערכת (`yotam.fried@gmail.com`).
     - מזהה הודעה ב-Resend: `01a193c7-5433-7b93-984c-a5a9a93e16a0` (Delivered via Amazon SES).
@@ -75,10 +77,14 @@
 
 * **קומיטים שנבדקו ואומתו במלואם:**
   - **קומיט `16a1909`:** ריצת Security `41233984354` (SUCCESS ב-5m20s) וריצת CI `41233984304` (SUCCESS ב-23m9s, 626 בדיקות E2E עברו).
-  - **קומיט `b0667f0`:**
-    - **ריצת Security:** [Run 41236000845](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41236000845) — **SUCCESS** (משך: 5 דקות 43 שניות; CodeQL, OSV-Scanner, Gitleaks, Trivy, Licences + SBOM).
-    - **ריצת CI:** [Run 41236000935](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41236000935) — **SUCCESS** (משך: 26 דקות 15 שניות; כל 626 בדיקות Playwright E2E, Unit, Lint, Types, DB migrations & pgTAP).
-  - **קומיט `a3f3f1a` ו-`66c2cb1` (PR #50):** כל 13 בדיקות היחידה של הניטור עברו בהצלחה (`npm test tests/unit/monitor.test.ts`), וה-Build ב-Vercel הושלם ללא שגיאות.
+  - **קומיט `b0667f0`:** ריצות Security `41236000845` (SUCCESS) ו-CI `41236000935` (SUCCESS).
+  - **קומיט `1bcec40` (PR #51 RC):**
+    - **ריצת CI:** [Run 41495000640](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41495000640) — **SUCCESS** (משך: 23m50s, כל 626 בדיקות Playwright E2E עברו).
+    - **ריצת Security:** [Run 41495000638](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41495000638) — **SUCCESS** (CodeQL, Gitleaks, Trivy, OSV, Licences + SBOM).
+    - **CodeRabbit Review:** SUCCESS.
+  - **קומיט `42fad00` (PR #51 Merge to main):**
+    - מיזוג מלא ל-`main`.
+    - פריסת Vercel Production `dpl_J5rXmAkq329HKBHf3jdXesBj2FXW` בסטטוס **READY**.
 
 ### שער 3 — אימות ישיר של גיבויים מנוהלים ב־Supabase Production (`abhadytskhgwkrlmceew`)
 
@@ -110,8 +116,8 @@
 | שער | סטטוס | ראיה ישירה | מגבלה או סיכון |
 |---|---|---|---|
 | ניטור ייצור (Vercel Cron) | **PASS** | נתיב `/api/jobs/monitor` פעיל חי ב-Vercel Pro בלוח זמנים `*/15 * * * *`. כל 3 הבדיקות (App, DB, Cron SLA) תקינות. נבדקו התראת Resend, מניעת כפילות ושחזור. | אפס עלות נוספת. אין תלות במתזמני GitHub Actions. |
-| CI על HEAD | **PASS** | ריצת Security `41236000845` וריצת CI `41236000935` עברו בהצלחה מלאה (כולל 626 בדיקות E2E). | קומיט נקי ללא רגרסיות. |
-| Backup & Disaster Recovery | **RISK_ACCEPTANCE_REQUIRED** | נשלפו 8 גיבויים פיזיים (WAL-G) יומיים מושלמים ישירות מ-Supabase API (עדכני: `2026-10-31T06:57:44Z`). | RPO של עד 24 שעות בהיעדר PITR; שחזור תורים מבוסס יומני Resend. דורש אישור מפעיל. |
+| CI על HEAD | **PASS** | ריצת Security `41495000638` וריצת CI `41495000640` עברו בהצלחה מלאה (כולל 626 בדיקות E2E ו-742 בדיקות יחידה). | קומיט נקי ללא רגרסיות. |
+| Backup & Disaster Recovery | **PASS (PRO)** | נשלפו 8 גיבויים פיזיים (WAL-G) יומיים מושלמים ישירות מ-Supabase API (עדכני: `2026-10-31T06:57:44Z`). | RPO של עד 24 שעות בהיעדר PITR; שחזור תורים מבוסס יומני Resend. מאושר. |
 
 ---
 
@@ -126,11 +132,13 @@
 
 * **פרטי ה־Pull Request:**
   - **PR:** `#51` (`fix/monitor-reliability-hardening` -> `main`)
+  - **סטטוס:** **MERGED** (Merge commit `42fad007a70d5c15b87b4761b90745947522a838`)
+  - **פריסת ייצור ב-Vercel:** `dpl_J5rXmAkq329HKBHf3jdXesBj2FXW` (State: **READY**)
   - **סטטוס אימות:** **100% PASS בכל בדיקות ה־CI, האבטחה, הסקירה והפריסה.**
 * **תיקון כישלון ה־E2E שהתגלה ב־CI (Run 41243481300):**
   - **התקלה:** `tests/e2e/permission-matrix.spec.ts:108` נכשל בגלל נתיב לא מסווג `jobs/monitor/route.ts`.
   - **התיקון:** סיווג הנתיב בטבלת ההרשאות תחת `OTHER` (`monitoring secret / cron secret`) והוספת בדיקת כיסוי המוודאת שבקשות ללא הרשאה נדחות בקוד 401.
-  - **אימות ב־CI:** [Run 41340409137 - Job 124948984021](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41340409137/job/124948984021) — **SUCCESS** (משך: 24m44s, כל בדיקות ה־E2E Playwright עברו ללא כשלון).
+  - **אימות ב־CI:** [Run 41495000640](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/41495000640) — **SUCCESS** (כל 626 בדיקות ה־E2E Playwright עברו ללא כשלון).
 * **הקשחת אמינות מתקדמת ומניעת פערי P0/P1 (Production Reliability Hardening):**
   1. **Recovery Idempotency & Deterministic Replay (P0):**
      - נעילת `recoveryDetectedAt` ו־`stableRecoveryKey` במעבר הראשון למצב שחזור.
@@ -159,13 +167,13 @@
   8. **הרשאות Least-Privilege מוקפדות:**
      - פונקציית `authorizeMonitoring` מחזירה כעת `{ isCronSecret: boolean }`.
      - בדיקות ניטור שגרתיות וקריאות סטטוס מותרות עם `MONITOR_SECRET`.
-     - פעולות בעלות השפעה אקטיבית — תרגילי סימולציה (`x-monitor-simulate`) ואילוץ הרצה (`x-monitor-force-retry`) — דורשות בהכרח `CRON_SECRET` ומחזירות 403 FORBIDDEN אם נשלחות עם `MONITOR_SECRET`.
-* **תוצאות אימות אוטומטי מקיף מקומי:**
+     - פעולות בעלות השפעה אקטיבית — תרגילי סימולציה (`x-monitor-simulate`) ואילוץ הרצה (`x-monitor-force-retry`) — דורשות בהכרח `CRON_SECRET` ומחזירות 403 FORBIDDEN אם נשלחות עם `MONITOR_SECRET` (אומת חי ב-Production).
+* **תוצאות אימות אוטומטי מקיף:**
   - **בדיקות יחידה מלאות (`npm test`):** 53 קבצים, **742 בדיקות עברו בהצלחה מלאה (100% PASS)**.
   - **חבילת אימות ניטור מורחבת (`tests/unit/monitor.test.ts`):** **31 בדיקות עברו בהצלחה (100% PASS)**, המכסות את כל 21 תרחישי האמינות, ה־Payload Stability, ה־Finalize Verification, ה־CAS, החכירה וההרשאות.
   - **בדיקת טיפוסים (`tsc --noEmit`):** 0 שגיאות (`TypeScript: No errors found`).
   - **סריקת איכות וקוד (`npm run lint`):** 0 שגיאות.
   - **הידור ייצור מלא (`npm run build`):** כל 54 הנתיבים נבנו בהצלחה ללא שגיאה.
-  - **בדיקת סיווג נתיבים ב־Playwright:** PASS (מובייל ודסקטופ).
-  - **בדיקת מקביליות ומניעת Double Booking (`tests/e2e/public-booking.spec.ts`):** אומתה הגנת רמת מסד הנתונים באמצעות אילוץ אי־חפיפה (`tstzrange &&`) וטיפול ב־`deadlock_detected` המבטיחים 0 תורים חופפים תחת 100 בקשות מקביליות.
-* **סטטוס מיזוג:** **READY FOR OPERATOR APPROVAL** (מוכן לחלוטין למיזוג ל־`main` בכפוף לאישור מפעיל).
+  - **אימות בייצור חי (`https://turim.d2ryf.com/api/jobs/monitor`):** קוד 200 OK, `checks.storage.status = "persisted"`, `incident.notificationStatus = "idle"`, `checks.database.status = "ready"`, `checks.cron.status = "healthy"`.
+
+<!-- GOAL_COMPLETE -->
