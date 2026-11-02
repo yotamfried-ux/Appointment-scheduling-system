@@ -87,6 +87,7 @@ const OTHER: Record<string, string> = {
   "jobs/outbox/route.ts": "cron secret",
   "jobs/reminders/route.ts": "cron secret",
   "jobs/waitlist/route.ts": "cron secret",
+  "jobs/monitor/route.ts": "monitoring secret / cron secret",
   "webhooks/billing/[provider]/route.ts": "signed payload",
   "webhooks/resend/route.ts": "signed payload",
   "public/[slug]/availability/route.ts": "capability: published business",
@@ -217,6 +218,16 @@ test.describe("permission matrix (SEC-01, SEC-02, SEC-05, docs/05 §12.4)", () =
 });
 
 test.describe("routes that are not session-authenticated", () => {
+  test("monitor endpoint rejects unauthenticated requests and simulation abuse", async ({ request }) => {
+    // 1. Simulation header without auth -> 401
+    const r1 = await request.get("/api/jobs/monitor", { headers: { "x-monitor-simulate": "database" } });
+    expect(r1.status()).toBe(401);
+
+    // 2. Simulation header with invalid secret -> 401
+    const r2 = await request.get("/api/jobs/monitor", { headers: { authorization: "Bearer invalid-secret", "x-monitor-simulate": "database" } });
+    expect(r2.status()).toBe(401);
+  });
+
   test("cron endpoints refuse everyone without the secret, including a wrong one", async ({ request }) => {
     for (const name of Object.keys(OTHER).filter((k) => k.startsWith("jobs/"))) {
       const url = `/api/${name.replace("/route.ts", "")}`;
