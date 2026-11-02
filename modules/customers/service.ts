@@ -63,7 +63,7 @@ export async function listCustomers(ctx: OwnerCtx, o: { q?: string; sort?: Custo
 export interface CustomerDetail {
   customer: { id: string; fullName: string; phone: string; email: string | null; notes: string | null; createdAt: string; anonymizedAt: string | null };
   stats: { visits: number; noShows: number; noShows60d: number; cancellations: number; upcoming: number; spentCents: number };
-  appointments: { id: string; reference: string; status: string; startsAt: string; service: string; priceCents: number; source: string }[];
+  appointments: { id: string; reference: string; status: string; location?: "business" | "customer" | "online"; startsAt: string; service: string; priceCents: number; source: string }[];
   duplicates: CustomerDuplicate[];
 }
 

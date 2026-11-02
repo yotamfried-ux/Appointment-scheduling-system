@@ -88,11 +88,14 @@ export function serviceValid(s: OnboardingService): boolean {
   return s.name.trim().length >= 2 && s.durationMinutes > 0 && s.priceNis > 0;
 }
 
-/** A window is valid when it ends after it starts; windows of one day must not overlap (touching is fine). */
+export const isValidHHmm = (t: string, allow24End = false): boolean =>
+  (allow24End ? /^(([01]\d|2[0-3]):[0-5]\d|24:00)$/ : /^([01]\d|2[0-3]):[0-5]\d$/).test(t);
+
+/** A window is valid when it has valid HH:MM format, ends after it starts, and windows of one day do not overlap (touching is fine). */
 export function windowsValid(windows: HoursWindow[]): boolean {
-  if (windows.length === 0 || windows.some((w) => !(w.from < w.to))) return false;
-  const sorted = [...windows].sort((a, b) => a.from.localeCompare(b.from));
-  return sorted.every((w, i) => i === 0 || sorted[i - 1].to <= w.from);
+  if (windows.length === 0 || windows.some((w) => !isValidHHmm(w.from, false) || !isValidHHmm(w.to, true) || !(toMin(w.from) < toMin(w.to)))) return false;
+  const sorted = [...windows].sort((a, b) => toMin(a.from) - toMin(b.from));
+  return sorted.every((w, i) => i === 0 || toMin(sorted[i - 1].to) <= toMin(w.from));
 }
 
 export function hoursValid(hours: DayHours[]): boolean {
@@ -101,10 +104,24 @@ export function hoursValid(hours: DayHours[]): boolean {
 }
 
 /** Per-day problem for inline messages. */
-export function windowProblem(windows: HoursWindow[], index: number): "order" | "overlap" | null {
+export function windowProblem(windows: HoursWindow[], index: number): "order" | "overlap" | "format" | null {
   const w = windows[index];
-  if (!(w.from < w.to)) return "order";
-  return windows.some((o, i) => i !== index && o.from < w.to && w.from < o.to) ? "overlap" : null;
+  if (!isValidHHmm(w.from, false) || !isValidHHmm(w.to, true)) return "format";
+  if (!(toMin(w.from) < toMin(w.to))) return "order";
+  return windows.some((o, i) => i !== index && isValidHHmm(o.from, false) && isValidHHmm(o.to, true) && toMin(o.from) < toMin(w.to) && toMin(w.from) < toMin(o.to))
+    ? "overlap"
+    : null;
+}
+
+export function windowDurationMinutes(w: HoursWindow): number {
+  if (!isValidHHmm(w.from, false) || !isValidHHmm(w.to, true)) return 0;
+  return toMin(w.to) - toMin(w.from);
+}
+
+export function windowShorterThanService(w: HoursWindow, minServiceDuration?: number): boolean {
+  if (!minServiceDuration || minServiceDuration <= 0) return false;
+  const d = windowDurationMinutes(w);
+  return d > 0 && d < minServiceDuration;
 }
 
 export { toMin as onboardingToMinutes };
@@ -122,16 +139,59 @@ export function canContinueOnboarding(s: OnboardingState): boolean {
   }
 }
 
+function pickNextNonOverlappingWindow(windows: HoursWindow[]): HoursWindow {
+  const valid = windows
+    .filter((w) => isValidHHmm(w.from, false) && isValidHHmm(w.to, true) && toMin(w.from) < toMin(w.to))
+    .map((w) => ({ from: toMin(w.from), to: toMin(w.to) }));
+
+  if (valid.length === 0) return { from: "09:00", to: "17:00" };
+
+  const last = valid.at(-1)!;
+  const maxEnd = Math.max(...valid.map((w) => w.to));
+
+  // If the last window is the latest one on the day and there is room after it:
+  if (last.to === maxEnd && maxEnd < 24 * 60) {
+    if (maxEnd + 180 <= 24 * 60) {
+      const from = maxEnd + 60;
+      return { from: hhmm(from), to: hhmm(Math.min(from + 120, 24 * 60 - 1)) };
+    }
+    if (maxEnd + 60 <= 24 * 60) {
+      return { from: hhmm(maxEnd), to: hhmm(Math.min(maxEnd + 60, 24 * 60)) };
+    }
+    const step = Math.max(1, Math.min(15, 24 * 60 - maxEnd));
+    return { from: hhmm(maxEnd), to: hhmm(maxEnd + step) };
+  }
+
+  // Otherwise find any free gap across 00:00..24:00 (preferring daytime gaps first, then any gap).
+  const sorted = [...valid].sort((a, b) => a.from - b.from);
+  const gaps: { from: number; to: number }[] = [];
+  let cursor = 0;
+  for (const w of sorted) {
+    if (w.from > cursor) gaps.push({ from: cursor, to: w.from });
+    cursor = Math.max(cursor, w.to);
+  }
+  if (cursor < 24 * 60) gaps.push({ from: cursor, to: 24 * 60 });
+
+  const afterLast = gaps.find((g) => g.from >= last.to && g.to - g.from >= 1);
+  const chosen = afterLast ?? gaps.find((g) => g.to - g.from >= 15) ?? gaps.find((g) => g.to - g.from >= 1);
+  if (chosen) {
+    const start = chosen.from === 0 && chosen.to >= 7 * 60 ? 6 * 60 : chosen.from;
+    const len = chosen.to - start >= 60 ? 60 : chosen.to - start >= 15 ? 15 : 1;
+    return { from: hhmm(start), to: hhmm(start + len) };
+  }
+
+  return { from: "22:00", to: "23:00" };
+}
+
 // Pure hours edits, shared by the onboarding reducer and the settings page.
 export const toggleDay = (hours: DayHours[], weekday: number): DayHours[] => hours.map((h) => (h.weekday === weekday ? { ...h, open: !h.open } : h));
 export const setWindow = (hours: DayHours[], weekday: number, index: number, from: string, to: string): DayHours[] =>
   hours.map((h) => (h.weekday === weekday ? { ...h, windows: h.windows.map((w, i) => (i === index ? { from, to } : w)) } : h));
 export const addWindow = (hours: DayHours[], weekday: number): DayHours[] =>
   hours.map((h) => {
-    if (h.weekday !== weekday || h.windows.length >= 3) return h;
-    const last = h.windows.at(-1)!;
-    const from = hhmm(Math.min(toMin(last.to) + 60, 22 * 60));
-    return { ...h, windows: [...h.windows, { from, to: hhmm(Math.min(toMin(from) + 120, 24 * 60 - 1)) }] };
+    if (h.weekday !== weekday) return h;
+    const next = pickNextNonOverlappingWindow(h.windows);
+    return { ...h, windows: [...h.windows, next] };
   });
 export const removeWindow = (hours: DayHours[], weekday: number, index: number): DayHours[] =>
   hours.map((h) => (h.weekday === weekday && h.windows.length > 1 ? { ...h, windows: h.windows.filter((_, i) => i !== index) } : h));

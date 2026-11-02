@@ -8,7 +8,7 @@ export type CatalogResult = { ok: true } | { ok: false; code: CatalogErrorCode }
 export async function listServices(supabase: SupabaseClient, businessId: string): Promise<ServiceRow[]> {
   const { data } = await supabase
     .from("services")
-    .select("id, name, description, duration_minutes, buffer_minutes, price_cents, price_mode, capacity, active, position")
+    .select("id, name, description, duration_minutes, buffer_minutes, price_cents, price_mode, capacity, active, position, locations")
     .eq("business_id", businessId)
     .order("active", { ascending: false })
     .order("position")
@@ -25,6 +25,7 @@ export async function saveService(supabase: SupabaseClient, businessId: string, 
     price_cents: input.priceMode === "free" ? 0 : toCents(input.priceNis),
     price_mode: input.priceMode,
     capacity: input.capacity,
+    ...(input.locations !== undefined ? { locations: input.locations } : {}),
   };
   const { error } = input.id
     ? await supabase.from("services").update(row).eq("id", input.id).eq("business_id", businessId)

@@ -3,9 +3,21 @@ import { windowsValid, type DayHours } from "@/lib/lab/onboarding";
 import type { DayException, WeeklyRule } from "@/modules/availability/slots";
 
 const HHmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+const HHmmEnd = z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d|24:00)$/);
+
+export const MAX_WINDOWS_PER_DAY = 288;
+
+const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
 export const WeeklyHoursInput = z
-  .array(z.object({ weekday: z.number().int().min(0).max(6), open: z.boolean(), windows: z.array(z.object({ from: HHmm, to: HHmm })).min(1).max(3) }))
+  .array(
+    z.object({
+      weekday: z.number().int().min(0).max(6),
+      open: z.boolean(),
+      windows: z.array(z.object({ from: HHmm, to: HHmmEnd })).min(1).max(MAX_WINDOWS_PER_DAY),
+    }),
+  )
   .length(7)
   .refine((days) => days.some((d) => d.open) && days.filter((d) => d.open).every((d) => windowsValid(d.windows)), "invalid hours");
 
@@ -14,17 +26,14 @@ export const ExceptionInput = z
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     kind: z.enum(["closed", "open"]),
     from: HHmm.optional(),
-    to: HHmm.optional(),
+    to: HHmmEnd.optional(),
     note: z.string().trim().max(120).optional().default(""),
   })
   .strict()
   .refine((e) => (e.from === undefined) === (e.to === undefined), "range needs both ends")
-  .refine((e) => e.from === undefined || e.to === undefined || e.from < e.to, "range must end after it starts")
+  .refine((e) => e.from === undefined || e.to === undefined || toMin(e.from) < toMin(e.to), "range must end after it starts")
   .refine((e) => e.kind === "closed" || e.from !== undefined, "special opening needs hours");
 export type ExceptionInput = z.infer<typeof ExceptionInput>;
-
-const toMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
-const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
 export interface RuleRow {
   weekday: number;

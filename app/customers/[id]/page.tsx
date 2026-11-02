@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { AppShell } from "@/components/app-shell";
 import { OwnerNav } from "@/components/owner/owner-nav";
+import { ModalityBadge } from "@/components/patterns/modality-badge";
 import { PageHeader } from "@/components/patterns/page-header";
 import { StatStrip } from "@/components/lab/dashboard/stat-strip";
 import { ownerPage } from "@/lib/auth/owner-page";
@@ -74,8 +75,14 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
         {d.appointments.length === 0 ? <p className="text-sm text-muted-foreground">{t("detail.historyEmpty")}</p> : (
           <ul className="divide-y rounded-lg border bg-card" data-testid="customer-history">
             {d.appointments.map((a) => (
-              <li key={a.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 p-4 text-sm">
-                <div className="min-w-0"><p className="font-semibold">{a.service}</p><p className="text-muted-foreground tabular-nums">{when(a.startsAt)}</p></div>
+              <li key={a.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 p-4 text-sm" data-testid={`history-appt-${a.id}`}>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <p className="font-semibold">{a.service}</p>
+                    <ModalityBadge location={a.location} data-testid={`history-modality-${a.id}`} />
+                  </div>
+                  <p className="text-muted-foreground tabular-nums">{when(a.startsAt)}</p>
+                </div>
                 <div className="text-end"><p>{STATUS_LABEL_HE[a.status as StatusKey] ?? a.status}</p><p className="tabular-nums text-muted-foreground">{formatMoney(a.priceCents)}</p></div>
               </li>
             ))}

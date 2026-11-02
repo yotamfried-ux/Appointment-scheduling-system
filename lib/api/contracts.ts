@@ -22,6 +22,8 @@ export const ServiceDto = z.object({
   group: z.boolean(),
   /** Who can do it (null = everybody). Only meaningful when the business has two or more people. */
   personIds: z.array(z.string()).nullable().default(null),
+  /** Allowed modalities for this service (null/undefined = inherit business locations). */
+  locations: z.array(LocationSchema).min(1).nullable().optional(),
 });
 
 export const IntakeFieldDto = z.object({
@@ -99,7 +101,7 @@ export const CreateBookingRequest = z
     time: HHmm,
     /** The person the customer named; absent = "whoever is free". */
     personId: z.string().min(1).optional(),
-    location: LocationSchema.default("business"),
+    location: LocationSchema.optional(),
     customer: z
       .object({
         fullName: z.string().trim().min(2, "יש להזין שם (לפחות 2 תווים).").max(80, "השם ארוך מדי."),
@@ -143,6 +145,7 @@ export const BookingDto = z.object({
   time: HHmm,
   endTime: HHmm,
   requiresApproval: z.boolean(),
+  location: LocationSchema.optional(),
   /** Only in a business with two or more people. */
   personName: z.string().optional(),
   /** Public bookings only: the customer's private management link (shown on screen; e-mail comes with notifications). */
@@ -160,6 +163,7 @@ export const AppointmentDto = z.object({
   customer: z.string(),
   service: z.string(),
   status: z.enum(["confirmed", "pending", "cancelled", "completed", "cancellationRequested"]),
+  location: LocationSchema.optional(),
   note: z.string().optional(),
 });
 export const AppointmentsResponse = z.object({
@@ -184,6 +188,7 @@ export const OwnerAppointmentDto = z.object({
   phone: z.string(),
   service: z.string(),
   status: OwnerStatus,
+  location: LocationSchema.optional(),
   manual: z.boolean(),
   outOfHours: z.boolean(),
   note: z.string().optional(),
@@ -237,6 +242,7 @@ export const OwnerAgendaResponse = z.object({
       name: z.string(),
       durationMinutes: z.number().int().positive(),
       personIds: z.array(z.string()).nullable().optional(),
+      locations: z.array(LocationSchema).min(1).nullable().optional(),
     }),
   ),
   business: z.object({ name: z.string(), kind: KindSchema }),
@@ -254,6 +260,7 @@ export const CreateManualRequest = z
     serviceId: z.string().min(1),
     date: IsoDate,
     time: HHmm,
+    location: LocationSchema.optional(),
     customerId: z.string().uuid().optional(),
     customer: z.object({
       fullName: z.string().trim().min(2, "יש להזין שם (לפחות 2 תווים).").max(80, "השם ארוך מדי."),

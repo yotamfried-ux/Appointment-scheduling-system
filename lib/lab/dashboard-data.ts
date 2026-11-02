@@ -12,6 +12,7 @@ export interface LabAppointment {
   customer: string;
   service: string;
   status: LabStatus;
+  location?: "business" | "customer" | "online";
   note?: string;
   /** Real owner agenda only. */
   date?: string;
@@ -28,14 +29,14 @@ const H = (h: number, m = 0) => h * 60 + m;
 export const LAB_DAY = { from: H(9), to: H(18), now: H(11, 10), iso: "2026-10-14" } as const;
 
 export const LAB_APPOINTMENTS: LabAppointment[] = [
-  { id: "a1", start: H(9), end: H(9, 30), customer: "אורי שמעוני", service: "תספורת גברים", status: "completed" },
-  { id: "a2", start: H(9, 30), end: H(10, 30), customer: "מיכל אברהם", service: "טיפול פנים", status: "completed" },
-  { id: "a3", start: H(10, 30), end: H(11, 30), customer: "דנה כהן", service: "טיפול פנים", status: "confirmed" },
-  { id: "p1", start: H(11, 30), end: H(12), customer: "נועם לוי", service: "תספורת גברים", status: "pending", note: "לקוח חדש" },
-  { id: "a4", start: H(14), end: H(15, 30), customer: "שירה מזרחי", service: "צבע שיער", status: "confirmed" },
-  { id: "c1", start: H(15, 30), end: H(16), customer: "יוסי ביטון", service: "עיצוב זקן", status: "cancellationRequested", note: "מבקש לבטל, יש לו אירוע" },
-  { id: "p2", start: H(16), end: H(16, 30), customer: "רונית דאהר", service: "תספורת גברים", status: "pending" },
-  { id: "a5", start: H(16, 30), end: H(17, 30), customer: "עמית פרידמן", service: "טיפול פנים", status: "confirmed" },
+  { id: "a1", start: H(9), end: H(9, 30), customer: "אורי שמעוני", service: "תספורת גברים", status: "completed", location: "business" },
+  { id: "a2", start: H(9, 30), end: H(10, 30), customer: "מיכל אברהם", service: "טיפול פנים", status: "completed", location: "business" },
+  { id: "a3", start: H(10, 30), end: H(11, 30), customer: "דנה כהן", service: "טיפול פנים", status: "confirmed", location: "online" },
+  { id: "p1", start: H(11, 30), end: H(12), customer: "נועם לוי", service: "תספורת גברים", status: "pending", location: "business", note: "לקוח חדש" },
+  { id: "a4", start: H(14), end: H(15, 30), customer: "שירה מזרחי", service: "צבע שיער", status: "confirmed", location: "business" },
+  { id: "c1", start: H(15, 30), end: H(16), customer: "יוסי ביטון", service: "עיצוב זקן", status: "cancellationRequested", location: "online", note: "מבקש לבטל, יש לו אירוע" },
+  { id: "p2", start: H(16), end: H(16, 30), customer: "רונית דאהר", service: "תספורת גברים", status: "pending", location: "online" },
+  { id: "a5", start: H(16, 30), end: H(17, 30), customer: "עמית פרידמן", service: "טיפול פנים", status: "confirmed", location: "business" },
 ];
 
 export interface DashboardState {

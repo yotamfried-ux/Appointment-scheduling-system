@@ -2,6 +2,7 @@
 
 import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { ModalityBadge } from "@/components/patterns/modality-badge";
 import { StatusBadge, type AppointmentStatus } from "@/components/patterns/status-badge";
 import { Button } from "@/components/ui/button";
 import { fmt, formatDuration, gapsIn, type LabAppointment, type Window } from "@/lib/lab/dashboard-data";
@@ -21,7 +22,25 @@ type Row = { kind: "appt"; start: number; a: LabAppointment } | { kind: "gap"; s
 /** The day is read in three parts, whatever the business does: before noon, noon to 16:00, and from 16:00. */
 const part = (minute: number) => (minute < 12 * 60 ? "morning" : minute < 16 * 60 ? "noon" : "evening");
 
-export function DaySchedule({ appointments, windows, now, onAddInGap, renderActions, showPerson = false, showGaps = true }: { appointments: LabAppointment[]; windows: Window[]; now: number | null; onAddInGap: (start: number) => void; renderActions?: (a: LabAppointment) => React.ReactNode; showPerson?: boolean; showGaps?: boolean }) {
+export function DaySchedule({
+  appointments,
+  windows,
+  now,
+  onAddInGap,
+  renderActions,
+  showPerson = false,
+  showGaps = true,
+  onSelectAppointment,
+}: {
+  appointments: LabAppointment[];
+  windows: Window[];
+  now: number | null;
+  onAddInGap: (start: number) => void;
+  renderActions?: (a: LabAppointment) => React.ReactNode;
+  showPerson?: boolean;
+  showGaps?: boolean;
+  onSelectAppointment?: (a: LabAppointment) => void;
+}) {
   const t = useTranslations();
   const rows: Row[] = [
     ...appointments.filter((a) => a.status !== "cancelled").map((a): Row => ({ kind: "appt", start: a.start, a })),
@@ -55,16 +74,38 @@ export function DaySchedule({ appointments, windows, now, onAddInGap, renderActi
           const a = r.a;
           const isNow = now !== null && a.start <= now && now < a.end;
           out.push(
-            <li key={a.id} className={cn("grid grid-cols-[4.25rem_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-b px-4 py-3 last:border-b-0 hover:bg-accent/30 lg:grid-cols-[4.25rem_minmax(0,1fr)_auto_auto]", a.status === "completed" && "text-muted-foreground", isNow && "bg-accent/40")} data-testid={`row-${a.id}`} data-status={a.status}>
+            <li
+              key={a.id}
+              className={cn(
+                "grid grid-cols-[4.25rem_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-b px-4 py-3 last:border-b-0 hover:bg-accent/30 lg:grid-cols-[4.25rem_minmax(0,1fr)_auto_auto]",
+                a.status === "completed" && "text-muted-foreground",
+                isNow && "bg-accent/40",
+              )}
+              data-testid={`row-${a.id}`}
+              data-status={a.status}
+              data-modality={a.location ?? "business"}
+            >
               <div className="leading-tight tabular-nums">
                 <bdi className="block text-lg font-semibold">{fmt(a.start)}</bdi>
                 <bdi className="block text-xs text-muted-foreground">{fmt(a.end)}</bdi>
               </div>
               <div className="min-w-0">
-                <p className="flex items-center gap-2 font-semibold">
-                  <span className="truncate">{a.customer}</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {onSelectAppointment ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelectAppointment(a)}
+                      className="truncate font-semibold text-start hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                      data-testid={`open-detail-${a.id}`}
+                    >
+                      {a.customer}
+                    </button>
+                  ) : (
+                    <span className="truncate font-semibold">{a.customer}</span>
+                  )}
+                  <ModalityBadge location={a.location} data-testid={`modality-${a.id}`} />
                   {isNow ? <span className="shrink-0 rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">{t("owner.today.now")}</span> : null}
-                </p>
+                </div>
                 <p className="truncate text-sm text-muted-foreground">
                   {showPerson && a.personName ? <span data-testid={`person-of-${a.id}`} className="font-medium text-foreground">{a.personName} · </span> : null}
                   {a.service}

@@ -23,7 +23,20 @@ const CatalogRpc = z.object({
     id: z.uuid(), slug: z.string(), name: z.string(), kind: z.enum(KIND_IDS), timezone: z.string(), address: z.string(),
     requiresApproval: z.boolean(), cancelUntilHours: z.number(), minNoticeMinutes: z.number(), horizonDays: z.number(), waitlistEnabled: z.boolean(), acceptingBookings: z.boolean(),
   }),
-  services: z.array(z.object({ id: z.uuid(), name: z.string(), description: z.string(), durationMinutes: z.number(), bufferMinutes: z.number(), priceCents: z.number(), priceMode: z.enum(["fixed", "from", "free", "hidden"]).default("fixed"), requiresApproval: z.boolean().nullable(), staffIds: z.array(z.uuid()).nullable().default(null) })),
+  services: z.array(
+    z.object({
+      id: z.uuid(),
+      name: z.string(),
+      description: z.string(),
+      durationMinutes: z.number(),
+      bufferMinutes: z.number(),
+      priceCents: z.number(),
+      priceMode: z.enum(["fixed", "from", "free", "hidden"]).default("fixed"),
+      requiresApproval: z.boolean().nullable(),
+      locations: z.array(C.LocationSchema).nullable().optional().default(null),
+      staffIds: z.array(z.uuid()).nullable().default(null),
+    }),
+  ),
   team: z.array(z.object({ id: z.uuid(), name: z.string() })).min(1),
   rules: z.array(z.object({ resourceId: z.uuid(), weekday: z.number(), startMinute: z.number(), endMinute: z.number() })),
   exceptions: z.array(z.object({ resourceId: z.uuid().nullable(), date: z.string(), kind: z.enum(["closed", "open"]), startMinute: z.number().nullable(), endMinute: z.number().nullable() })),
@@ -89,7 +102,17 @@ export function toServicesResponse(c: Catalog): z.infer<typeof C.ServicesRespons
       waitlistEnabled: c.business.waitlistEnabled,
       acceptingBookings: c.business.acceptingBookings,
     },
-    services: c.services.map((s) => ({ id: s.id, name: s.name, description: s.description, durationMinutes: s.durationMinutes, priceNis: s.priceCents / 100, priceMode: s.priceMode, group: false, personIds: s.staffIds })),
+    services: c.services.map((s) => ({
+      id: s.id,
+      name: s.name,
+      description: s.description,
+      durationMinutes: s.durationMinutes,
+      priceNis: s.priceCents / 100,
+      priceMode: s.priceMode,
+      group: false,
+      personIds: s.staffIds,
+      locations: s.locations && s.locations.length > 0 ? s.locations : k.locations,
+    })),
     team: c.team.length > 1 ? c.team : [],
   };
 }
@@ -145,10 +168,10 @@ export async function computeAvailability(c: Catalog, svcId: string, from: strin
 }
 
 // ---------------------------------------------------------------- booking
-function validateIntake(kind: BusinessKindId, input: C.CreateBookingInput) {
+function validateIntake(kind: BusinessKindId, input: C.CreateBookingInput, allowedLocations: ("business" | "customer" | "online")[], effectiveLocation: "business" | "customer" | "online") {
   const k = BUSINESS_KINDS[kind];
   const errors: { field: string; message: string }[] = [];
-  if (!k.locations.includes(input.location)) errors.push({ field: "location", message: "אופן קבלת השירות אינו נתמך." });
+  if (!allowedLocations.includes(effectiveLocation)) errors.push({ field: "location", message: "אופן קבלת השירות אינו נתמך." });
   for (const key of Object.keys(input.intake)) {
     const f = k.intake.find((x) => x.id === key);
     if (!f) errors.push({ field: `intake.${key}`, message: "שדה לא מוכר." });
@@ -163,11 +186,14 @@ const hashOf = (x: unknown) => createHash("sha256").update(JSON.stringify(x)).di
 
 export async function createBooking(c: Catalog, input: C.CreateBookingInput, idemKey: string): Promise<{ booking: z.infer<typeof C.BookingDto>; replay: boolean }> {
   if (!c.business.acceptingBookings) throw fail("BOOKINGS_CLOSED", "העסק אינו מקבל כרגע תורים חדשים.");
-  const errors = validateIntake(kindOf(c), input);
+  const svc = findService(c, input.serviceId);
+  const k = BUSINESS_KINDS[kindOf(c)];
+  const allowedLocations = svc && svc.locations && svc.locations.length > 0 ? svc.locations : k.locations;
+  const effectiveLocation = input.location ?? allowedLocations[0] ?? "business";
+  const errors = validateIntake(kindOf(c), input, allowedLocations, effectiveLocation);
   const phone = normalizePhone(input.customer.phone);
   if (!phone) errors.push({ field: "customer.phone", message: "מספר הטלפון אינו תקין." });
   if (errors.length) throw fail("VALIDATION_FAILED", "הבקשה אינה תקינה.", errors);
-  const svc = findService(c, input.serviceId);
   if (!svc) throw fail("SERVICE_UNAVAILABLE", "השירות כבר אינו זמין. בחרו שירות אחר.");
 
   // Hours (TS): the requested start must be a time at least one eligible person works (ignoring who is busy). The people open then are the candidates,
@@ -188,17 +214,17 @@ export async function createBooking(c: Catalog, input: C.CreateBookingInput, ide
     p_full_name: input.customer.fullName.trim(),
     p_phone: phone,
     p_email: input.customer.email.trim(),
-    p_location: input.location,
+    p_location: effectiveLocation,
     p_intake: input.intake,
     p_idem_key: idemKey,
-    p_request_hash: hashOf({ s: svc.id, d: input.date, t: input.time, l: input.location, c: [input.customer.fullName.trim(), phone, input.customer.email.trim()], i: input.intake, p: input.personId ?? null }),
+    p_request_hash: hashOf({ s: svc.id, d: input.date, t: input.time, l: effectiveLocation, c: [input.customer.fullName.trim(), phone, input.customer.email.trim()], i: input.intake, p: input.personId ?? null }),
     p_resources: candidates,
     p_chosen: Boolean(input.personId),
     p_terms_version: input.acceptedTerms.terms,
     p_privacy_version: input.acceptedTerms.privacy,
   });
   if (error) throw mapBookingError(error);
-  const r = data as { replay: boolean; id: string; reference: string; status: "confirmed" | "pending"; startsAt: string; endsAt: string; resourceId?: string };
+  const r = data as { replay: boolean; id: string; reference: string; status: "confirmed" | "pending"; startsAt: string; endsAt: string; resourceId?: string; location?: "business" | "customer" | "online" };
   const start = new Date(r.startsAt);
   const manage = signToken({ appointmentId: r.id, scope: "view", ttlSeconds: Math.max(3600, Math.floor((start.getTime() - Date.now()) / 1000) + 7 * 86_400) });
   const end = zonedParts(new Date(r.endsAt), c.business.timezone).minutes;
@@ -213,6 +239,7 @@ export async function createBooking(c: Catalog, input: C.CreateBookingInput, ide
       time: input.time,
       endTime: `${String(Math.floor(end / 60)).padStart(2, "0")}:${String(end % 60).padStart(2, "0")}`,
       requiresApproval: r.status === "pending",
+      location: r.location ?? effectiveLocation,
       personName: c.team.length > 1 ? c.team.find((p) => p.id === r.resourceId)?.name : undefined,
       manageUrl: `/booking/${manage}`,
     },
@@ -225,6 +252,7 @@ function mapBookingError(e: { code?: string | null; message?: string | null }) {
   if (m.includes("idempotency_reuse")) return fail("IDEMPOTENCY_KEY_REUSED", "מפתח הבקשה כבר שימש לבקשה אחרת.");
   if (m.includes("slot_in_past") || m.includes("slot_too_far")) return fail("INVALID_SLOT", "השעה אינה זמינה להזמנה.");
   if (m.includes("service_unavailable")) return fail("SERVICE_UNAVAILABLE", "השירות כבר אינו זמין. בחרו שירות אחר.");
+  if (m.includes("invalid_location")) return fail("VALIDATION_FAILED", "אופן קבלת השירות אינו נתמך.", [{ field: "location", message: "אופן קבלת השירות אינו נתמך." }]);
   if (m.includes("customer_blocked")) return fail("BLOCKED", (e as { details?: string | null }).details?.trim() || "לא ניתן לקבוע תור אונליין כרגע. נשמח שתיצרו קשר עם העסק."); // BKG-08: the business' own words, nothing about counts
   if (m.includes("booking_limit")) return fail("BOOKING_LIMIT", "יש כבר כמה תורים עתידיים על המספר הזה. אפשר לנהל אותם בקישור שנשלח.");
   if (m.includes("billing_inactive")) return fail("BOOKINGS_CLOSED", "העסק אינו מקבל כרגע תורים חדשים.");
@@ -258,6 +286,7 @@ export interface AppointmentView {
   canAttend: boolean;
   serviceChangeAllowed: boolean;
   movedByBusinessAt: string | null;
+  location?: "business" | "customer" | "online";
   /** Stage 16: shown only when the business has two or more people. */
   personName?: string | null;
   resourceId?: string;

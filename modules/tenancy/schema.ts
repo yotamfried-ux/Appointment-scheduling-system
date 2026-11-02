@@ -6,11 +6,14 @@ import { normalizePhone } from "@/lib/phone";
 import { KIND_IDS } from "@/modules/tenancy/business-kind";
 
 const HHmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+const HHmmEnd = z.string().regex(/^(([01]\d|2[0-3]):[0-5]\d|24:00)$/);
+const LocationOption = z.enum(["business", "customer", "online"]);
 
 export const OnboardingServiceInput = z.object({
   name: z.string().trim().min(2).max(80),
   durationMinutes: z.number().int().min(5).max(480),
   priceNis: z.number().int().min(1).max(100_000),
+  locations: z.array(LocationOption).min(1).max(3).optional(),
 });
 
 export const OnboardingHoursInput = z
@@ -18,7 +21,7 @@ export const OnboardingHoursInput = z
     z.object({
       weekday: z.number().int().min(0).max(6),
       open: z.boolean(),
-      windows: z.array(z.object({ from: HHmm, to: HHmm })).min(1).max(3),
+      windows: z.array(z.object({ from: HHmm, to: HHmmEnd })).min(1).max(288),
     }),
   )
   .length(7)
