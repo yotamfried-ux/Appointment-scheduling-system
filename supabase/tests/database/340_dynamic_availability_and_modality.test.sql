@@ -143,13 +143,15 @@ create temp table bk_online as
     'online',
     '{}',
     'd340-idem-1',
-    'tok-d340-1'
+    'hash-d340-1',
+    null::uuid[],
+    false
   ) as r;
 grant select on bk_online to authenticated, service_role;
 
 select is((select r->>'location' from bk_online), 'online', 'public_book_team returns location = online');
 select is(
-  (select public.public_get_appointment('tok-d340-1')->>'location'),
+  (select public.public_get_appointment(((select r->>'id' from bk_online))::uuid)->>'location'),
   'online',
   'public_get_appointment returns location = online'
 );
@@ -166,7 +168,9 @@ select throws_ok($$
     'business',
     '{}',
     'd340-idem-2',
-    'tok-d340-2'
+    'hash-d340-2',
+    null::uuid[],
+    false
   )
 $$, '23514', 'invalid_location', 'booking business modality on an online-only service raises invalid_location');
 
@@ -182,7 +186,9 @@ select throws_ok($$
     'online',
     '{}',
     'd340-idem-3',
-    'tok-d340-3'
+    'hash-d340-3',
+    null::uuid[],
+    false
   )
 $$, '23514', 'invalid_location', 'booking online modality on a frontal-only service raises invalid_location');
 
@@ -198,7 +204,9 @@ create temp table bk_frontal as
     'business',
     '{}',
     'd340-idem-4',
-    'tok-d340-4'
+    'hash-d340-4',
+    null::uuid[],
+    false
   ) as r;
 grant select on bk_frontal to authenticated, service_role;
 
