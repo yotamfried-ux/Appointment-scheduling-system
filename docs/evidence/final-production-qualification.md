@@ -136,30 +136,36 @@
      - נעילת `recoveryDetectedAt` ו־`stableRecoveryKey` במעבר הראשון למצב שחזור.
      - גוף המייל (HTML + Text) ומפתח ה־idempotency נותרים זהים לחלוטין (100% Deterministic) בכל ניסיונות החוזר של הודעת שחזור, מה שמונע שגיאות 409 או Payload Mismatch ב־Resend.
      - אירוע כשל חדש דורס ומבטל מיידית כל מצב `pending_recovery` קודם.
-  2. **Atomic Dispatch Lease (Claim-Check Pattern, P0):**
+  2. **Resend Alert Payload Stability across Retries (P0):**
+     - שמירת Snapshot יציב של נתוני ההתראה המקורית (`stableReason`, `stableComponents`, `firstDetectedAt`, `eventId`).
+     - בכל ניסיון חוזר (Retry) של התראה קריטית, גוף ההודעה הנשלח ל־Resend נשאר זהה ב־100% להודעה הראשונית (למשל `age: 60m` נשמר עבור אותו מפתח Idempotency, גם אם בריצה הבאה המדד החי עלה ל־`75m`), בעוד דוח הניטור המוצג למפעיל משקף את המדדים החיים העדכניים.
+  3. **Atomic Dispatch Lease & Finalize Verification (Claim-Check Pattern, P0):**
      - מניעת שיגור כפול של התראות בריצות עובדים מקבילות (Serverless Workers Concurrency) באמצעות חכירה אטומית (`dispatchLease`) בטבלת `job_runs` דרך CAS טרם הפנייה ל־Resend.
      - עובד שמפסיד ב־CAS או מזהה חכירה פעילה אינו פונה ל־Resend ומדווח `storageStatus: "cas_conflict"`.
+     - בדיקה קפדנית של כל תוצאת Finalize CAS לאחר שליחת המייל; אם עדכון המצב ב־DB נכשל, המערכת מדווחת `storageStatus: "persistence_failed"` או `cas_conflict` ואינה מציגה הצלחה כוזבת.
      - שחרור אוטומטי של החכירה לאחר 60 שניות במקרה של קריסת שרת (Worker Crash Recovery).
-  3. **מניעת השתקת ניטור עקב כשלים חולפים — Transient Cooldown (P1):**
+  4. **שרידות מלאה בקריאת מסד נתונים ו־JSON פגום (DB Read & Corrupted State Fail-Safe, P1):**
+     - הבחנה מפורשת בין מצב ריק (`empty`), קריאה תקינה (`ok`), חוסר זמינות זמני של ה־DB (`unavailable`), ומצב נתונים פגום (`corrupted`).
+     - כאשר `databaseReady()` תקין אך שליפת הרשומה נכשלת, או שה־JSON פגום, המערכת מדווחת `storageStatus: "persistence_failed"` ושומרת על `rawFinishedAt` במצב `pending_alert`.
+     - מניעה מוחלטת של איפוס שקט ל־Idle ומניעת דריסה לא בטוחה של רשומות פגומות בעת מעבר בדיקות תקינות.
+  5. **מניעת השתקת ניטור עקב כשלים חולפים — Transient Cooldown (P1):**
      - הבדלה מדויקת בין `PermanentEmailError` (שגיאת תחביר / דחיית דומיין סופית) לבין `TransientEmailError` (תקלות רשת, מגבלות קצב 429 או תקלות זמניות ב־Resend).
      - שגיאות חולפות לאחר 5 ניסיונות נכנסות למצב `in_cooldown` (צינון של 120 דקות) ומחדשות ניסיונות מעת לעת במקום השתקה קבועה ונצחית של המערכת.
      - תמיכה באילוץ הרצה מיידי (`ignoreBackoff` / `x-monitor-force-retry`) על ידי מפעיל המערכת.
-  4. **השפעת Liveness וזיכרון על בריאות המערכת (P1):**
+  6. **השפעת Liveness וזיכרון על בריאות המערכת (P1):**
      - חריגת זיכרון של Node Heap מעל 950MB מוגדרת כעת ככשל רכיב `app:memory`, מורידה את הסטטוס ל־`healthy: false` (קוד 503) ומשגרת התראה למפעיל.
-  5. **שרידות בפני קריאת מסד נתונים ו־JSON פגום (P1):**
-     - הבחנה בין מצב ריק, מצב קריאה תקין, חוסר זמינות זמני של ה־DB ומצב נתונים פגום (`corrupted`).
-     - נתונים פגומים אינם מאופסים בשקט ל־Idle אלא שומרים על `rawFinishedAt` ועוברים למצב בטוח של `pending_alert`.
-  6. **Durable Multi-Instance Simulation Rate Limiting (P1):**
+  7. **Durable Multi-Instance Simulation Rate Limiting (P1):**
      - הגבלת קצב תרגילי סימולציה מבוססת על פרוצדורת מסד הנתונים `public_rate_limit` (מוגבלת לתרגיל אחד לדקה לרוחב כל מופעי ה־Serverless), עם גיבוי זיכרון מקומי בעת נפילת DB.
-  7. **הרשאות Least-Privilege מוקפדות:**
+  8. **הרשאות Least-Privilege מוקפדות:**
      - פונקציית `authorizeMonitoring` מחזירה כעת `{ isCronSecret: boolean }`.
      - בדיקות ניטור שגרתיות וקריאות סטטוס מותרות עם `MONITOR_SECRET`.
      - פעולות בעלות השפעה אקטיבית — תרגילי סימולציה (`x-monitor-simulate`) ואילוץ הרצה (`x-monitor-force-retry`) — דורשות בהכרח `CRON_SECRET` ומחזירות 403 FORBIDDEN אם נשלחות עם `MONITOR_SECRET`.
 * **תוצאות אימות אוטומטי מקיף מקומי:**
-  - **בדיקות יחידה מלאות (`npm test`):** 53 קבצים, **738 בדיקות עברו בהצלחה מלאה (100% PASS)**.
-  - **חבילת אימות ניטור מורחבת (`tests/unit/monitor.test.ts`):** **27 בדיקות עברו בהצלחה (100% PASS)**, המכסות את כל 21 תרחישי האמינות, ה־CAS, החכירה וההרשאות.
-  - **בדיקת טיפוסים (`tsc --noEmit`):** 0 שגיאות.
+  - **בדיקות יחידה מלאות (`npm test`):** 53 קבצים, **742 בדיקות עברו בהצלחה מלאה (100% PASS)**.
+  - **חבילת אימות ניטור מורחבת (`tests/unit/monitor.test.ts`):** **31 בדיקות עברו בהצלחה (100% PASS)**, המכסות את כל 21 תרחישי האמינות, ה־Payload Stability, ה־Finalize Verification, ה־CAS, החכירה וההרשאות.
+  - **בדיקת טיפוסים (`tsc --noEmit`):** 0 שגיאות (`TypeScript: No errors found`).
   - **סריקת איכות וקוד (`npm run lint`):** 0 שגיאות.
   - **הידור ייצור מלא (`npm run build`):** כל 54 הנתיבים נבנו בהצלחה ללא שגיאה.
   - **בדיקת סיווג נתיבים ב־Playwright:** PASS (מובייל ודסקטופ).
+  - **בדיקת מקביליות ומניעת Double Booking (`tests/e2e/public-booking.spec.ts`):** אומתה הגנת רמת מסד הנתונים באמצעות אילוץ אי־חפיפה (`tstzrange &&`) וטיפול ב־`deadlock_detected` המבטיחים 0 תורים חופפים תחת 100 בקשות מקביליות.
 * **סטטוס מיזוג:** **READY FOR OPERATOR APPROVAL** (מוכן לחלוטין למיזוג ל־`main` בכפוף לאישור מפעיל).

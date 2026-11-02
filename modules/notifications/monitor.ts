@@ -517,6 +517,16 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
   const prevState = readRes.state;
   const eventId = prevState.eventId ?? `evt_${currentTimestamp.replace(/[^0-9]/g, "").slice(0, 14)}`;
 
+  if (realDbAvailable) {
+    if (readRes.status === "unavailable") {
+      storageStatus = "persistence_failed";
+      storageError = readRes.error ?? "Database read failure for incident state";
+    } else if (readRes.status === "corrupted") {
+      storageStatus = "persistence_failed";
+      storageError = "Corrupted incident state JSON in database";
+    }
+  }
+
   if (!isHealthy) {
     // Current run is in a failing state
     const sortedCurrent = [...failingComponents].sort();
@@ -632,7 +642,11 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
               dispatchLease: undefined, // Release lease
             };
 
-            await persistIncidentStateCAS(stateRunKey, finalizedState, candidateState.rawFinishedAt);
+            const finalizeResult = await persistIncidentStateCAS(stateRunKey, finalizedState, candidateState.rawFinishedAt);
+            if (!finalizeResult.success) {
+              storageStatus = finalizeResult.conflict ? "cas_conflict" : "persistence_failed";
+              storageError = finalizeResult.error;
+            }
           }
         }
       } else {
@@ -729,10 +743,13 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
               storageStatus = claimResult.conflict ? "cas_conflict" : "persistence_failed";
               storageError = claimResult.error;
             } else {
+              const stableReason = prevState.reason ?? failureReasons.join("; ");
+              const stableComponents = prevState.components.length > 0 ? prevState.components : failingComponents;
+
               try {
                 await sendAlertEmail({
-                  components: failingComponents,
-                  reason: failureReasons.join("; "),
+                  components: stableComponents,
+                  reason: stableReason,
                   stableTimestamp,
                   stableIdempotencyKey,
                   isSimulation,
@@ -768,7 +785,11 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
                 lastError: sendSucceeded ? undefined : alertError,
                 dispatchLease: undefined,
               };
-              await persistIncidentStateCAS(stateRunKey, finalizedState, candidateState.rawFinishedAt);
+              const finalizeResult = await persistIncidentStateCAS(stateRunKey, finalizedState, candidateState.rawFinishedAt);
+            if (!finalizeResult.success) {
+              storageStatus = finalizeResult.conflict ? "cas_conflict" : "persistence_failed";
+              storageError = finalizeResult.error;
+            }
             }
           }
         }
@@ -816,10 +837,13 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
                 alertSent = false;
                 nextNotificationStatus = prevState.notificationStatus;
               } else {
+                const stableReason = prevState.reason ?? failureReasons.join("; ");
+                const stableComponents = prevState.components.length > 0 ? prevState.components : failingComponents;
+
                 try {
                   await sendAlertEmail({
-                    components: failingComponents,
-                    reason: failureReasons.join("; "),
+                    components: stableComponents,
+                    reason: stableReason,
                     stableTimestamp,
                     stableIdempotencyKey,
                     isSimulation,
@@ -862,15 +886,22 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
                   dispatchLease: undefined,
                 };
 
-                await persistIncidentStateCAS(stateRunKey, finalizedState, candidateState.rawFinishedAt);
+                const finalizeResult = await persistIncidentStateCAS(stateRunKey, finalizedState, candidateState.rawFinishedAt);
+            if (!finalizeResult.success) {
+              storageStatus = finalizeResult.conflict ? "cas_conflict" : "persistence_failed";
+              storageError = finalizeResult.error;
+            }
               }
             }
           } else {
             // DB down retry
+            const stableReason = prevState.reason ?? failureReasons.join("; ");
+            const stableComponents = prevState.components.length > 0 ? prevState.components : failingComponents;
+
             try {
               await sendAlertEmail({
-                components: failingComponents,
-                reason: failureReasons.join("; "),
+                components: stableComponents,
+                reason: stableReason,
                 stableTimestamp,
                 stableIdempotencyKey,
                 isSimulation,
@@ -927,10 +958,13 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
           const stableTimestamp = prevState.firstDetectedAt ?? currentTimestamp;
           const stableIdempotencyKey = prevState.stableIdempotencyKey ?? `tori-alert-${sortedCurrent.join("-").replace(/[^a-zA-Z0-9_-]/g, "_")}-${stableTimestamp.slice(0, 16)}`;
           let sendSucceeded = false;
+          const stableReason = prevState.reason ?? failureReasons.join("; ");
+          const stableComponents = prevState.components.length > 0 ? prevState.components : failingComponents;
+
           try {
             await sendAlertEmail({
-              components: failingComponents,
-              reason: failureReasons.join("; "),
+              components: stableComponents,
+              reason: stableReason,
               stableTimestamp,
               stableIdempotencyKey,
               isSimulation,
@@ -953,7 +987,11 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
               lastError: sendSucceeded ? undefined : alertError,
               version: (prevState.version || 0) + 1,
             };
-            await persistIncidentStateCAS(stateRunKey, nextState, prevState.rawFinishedAt);
+            const persistResult = await persistIncidentStateCAS(stateRunKey, nextState, prevState.rawFinishedAt);
+            if (!persistResult.success) {
+              storageStatus = persistResult.conflict ? "cas_conflict" : "persistence_failed";
+              storageError = persistResult.error;
+            }
           }
         } else {
           nextNotificationStatus = "permanent_failure";
@@ -1060,7 +1098,11 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
                 dispatchLease: undefined,
               };
 
-              await persistIncidentStateCAS(stateRunKey, finalizedState, candidateState.rawFinishedAt);
+              const finalizeResult = await persistIncidentStateCAS(stateRunKey, finalizedState, candidateState.rawFinishedAt);
+            if (!finalizeResult.success) {
+              storageStatus = finalizeResult.conflict ? "cas_conflict" : "persistence_failed";
+              storageError = finalizeResult.error;
+            }
             }
           }
         } else {
@@ -1122,8 +1164,12 @@ export async function runProductionMonitor(options: MonitorOptions = {}): Promis
           fromDb: realDbAvailable,
           rawFinishedAt: prevState.rawFinishedAt,
         };
-        if (realDbAvailable) {
-          await persistIncidentStateCAS(stateRunKey, nextState, prevState.rawFinishedAt);
+        if (realDbAvailable && readRes.status !== "corrupted" && readRes.status !== "unavailable") {
+          const persistResult = await persistIncidentStateCAS(stateRunKey, nextState, prevState.rawFinishedAt);
+          if (!persistResult.success) {
+            storageStatus = persistResult.conflict ? "cas_conflict" : "persistence_failed";
+            storageError = persistResult.error;
+          }
         }
       }
     } else {

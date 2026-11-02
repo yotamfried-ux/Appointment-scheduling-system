@@ -17,6 +17,7 @@ vi.mock("@/modules/notifications/job-health", () => ({
 // Mock systemDb
 let mockJobRunsStore: Record<string, any> = {};
 let mockDbWriteFailure = false;
+let mockFinalizeFailure = false;
 let mockCasConflict = false;
 let mockDbReadError: string | null = null;
 let mockCorruptedJson = false;
@@ -69,6 +70,12 @@ const mockSystemDb = {
                 if (mockDbWriteFailure) {
                   return { data: null, error: { message: "Disk full or connection aborted" } };
                 }
+                if (mockFinalizeFailure) {
+                  const parsed = updates.error ? JSON.parse(updates.error) : {};
+                  if (!parsed.dispatchLease) {
+                    return { data: null, error: { message: "Network connection dropped on finalize" } };
+                  }
+                }
                 if (mockCasConflict) {
                   return { data: [], error: null };
                 }
@@ -94,7 +101,7 @@ const mockSystemDb = {
       },
     };
   },
-  rpc: async (fn: string, _args: any) => {
+  rpc: async (fn: string) => {
     if (fn === "public_rate_limit") {
       mockRateLimitCalls++;
       return { data: [{ allowed: mockRateLimitAllowed, retry_after: 60 }], error: null };
@@ -145,6 +152,7 @@ describe("Vercel Production Monitor Hardened Quality & Security Suite", () => {
     vi.clearAllMocks();
     mockJobRunsStore = {};
     mockDbWriteFailure = false;
+    mockFinalizeFailure = false;
     mockCasConflict = false;
     mockDbReadError = null;
     mockCorruptedJson = false;
@@ -255,6 +263,45 @@ describe("Vercel Production Monitor Hardened Quality & Security Suite", () => {
       const run3 = await runProductionMonitor();
       expect(run3.incident.alertSent).toBe(false);
       expect(sentEmails.length).toBe(1);
+    });
+
+    it("guarantees 100% identical alert email payload and idempotency key on retry even when live probe metrics (such as stale job age) change between runs", async () => {
+      // Run 1: fails with outbox age: 60m
+      mockJobHealth.mockResolvedValue({
+        ok: false,
+        jobs: [
+          { job: "outbox", lastOk: new Date(Date.now() - 3600_000).toISOString(), ageMinutes: 60, failed24h: 1, stale: true },
+          { job: "reminders", lastOk: new Date().toISOString(), ageMinutes: 5, failed24h: 0, stale: false },
+          { job: "waitlist", lastOk: new Date().toISOString(), ageMinutes: 1, failed24h: 0, stale: false },
+          { job: "maintenance", lastOk: new Date().toISOString(), ageMinutes: 60, failed24h: 0, stale: false },
+        ],
+      });
+      mockEmailSendFailure = true;
+
+      const run1 = await runProductionMonitor();
+      expect(run1.incident.notificationStatus).toBe("pending_alert");
+
+      // Run 2: 15 minutes later, job is now 75m old and failed24h increased to 3!
+      mockJobHealth.mockResolvedValue({
+        ok: false,
+        jobs: [
+          { job: "outbox", lastOk: new Date(Date.now() - 4500_000).toISOString(), ageMinutes: 75, failed24h: 3, stale: true },
+          { job: "reminders", lastOk: new Date().toISOString(), ageMinutes: 20, failed24h: 0, stale: false },
+          { job: "waitlist", lastOk: new Date().toISOString(), ageMinutes: 16, failed24h: 0, stale: false },
+          { job: "maintenance", lastOk: new Date().toISOString(), ageMinutes: 75, failed24h: 0, stale: false },
+        ],
+      });
+      mockEmailSendFailure = false;
+
+      const run2 = await runProductionMonitor({ ignoreBackoff: true });
+      expect(run2.incident.alertSent).toBe(true);
+      expect(sentEmails.length).toBe(1);
+
+      // The sent email has the stable reason ("age: 60m") matching the original incident
+      expect(sentEmails[0].text).toContain("age: 60m");
+      expect(sentEmails[0].text).not.toContain("age: 75m");
+      // But the report itself displays the live current probe reason
+      expect(run2.incident.reason).toContain("age: 75m");
     });
 
     it("enters cooldown after 5 transient failures to prevent busy-loops without permanently silencing alerts", async () => {
@@ -648,6 +695,28 @@ describe("Vercel Production Monitor Hardened Quality & Security Suite", () => {
       expect(run.incident.alertSent).toBe(true);
       expect(sentEmails.length).toBe(1);
     });
+
+    it("reports persistence_failed when finalize CAS update fails after successful email send", async () => {
+      mockJobHealth.mockResolvedValue({
+        ok: false,
+        jobs: [
+          { job: "outbox", lastOk: null, ageMinutes: null, failed24h: 1, stale: true },
+          { job: "reminders", lastOk: new Date().toISOString(), ageMinutes: 5, failed24h: 0, stale: false },
+          { job: "waitlist", lastOk: new Date().toISOString(), ageMinutes: 1, failed24h: 0, stale: false },
+          { job: "maintenance", lastOk: new Date().toISOString(), ageMinutes: 60, failed24h: 0, stale: false },
+        ],
+      });
+      // Simulate network crash precisely during the finalize CAS call
+      mockFinalizeFailure = true;
+
+      const run = await runProductionMonitor();
+      expect(run.healthy).toBe(false);
+      expect(run.incident.alertSent).toBe(true);
+      expect(sentEmails.length).toBe(1);
+      // Storage status accurately flags persistence_failed
+      expect(run.checks.storage.status).toBe("persistence_failed");
+      expect(run.checks.storage.error).toContain("finalize");
+    });
   });
 
   describe("17. Recovery Idempotency & Exact Payload Match Across Retries", () => {
@@ -793,6 +862,46 @@ describe("Vercel Production Monitor Hardened Quality & Security Suite", () => {
       expect(run2.incident.status).toBe("ongoing");
       // Does not send duplicate email because warm instance knew alert was sent
       expect(sentEmails.length).toBe(1);
+    });
+
+    it("reports persistence_failed when databaseReady is true but reading job_runs encounters a query failure", async () => {
+      mockDbReady.mockResolvedValue(true);
+      mockDbReadError = "Connection reset by peer";
+
+      const run = await runProductionMonitor();
+      expect(run.checks.storage.status).toBe("persistence_failed");
+      expect(run.checks.storage.error).toContain("Connection reset by peer");
+    });
+
+    it("does not overwrite a corrupted incident state row with idle when health probes pass", async () => {
+      mockJobRunsStore["monitor:incident_state"] = {
+        job_name: "monitor",
+        run_key: "incident_state",
+        status: "succeeded",
+        started_at: new Date().toISOString(),
+        finished_at: new Date().toISOString(),
+        error: "CORRUPTED_NON_JSON",
+      };
+      mockCorruptedJson = true;
+
+      // All probes pass (system is nominally healthy)
+      mockDbReady.mockResolvedValue(true);
+      mockJobHealth.mockResolvedValue({
+        ok: true,
+        jobs: [
+          { job: "outbox", lastOk: new Date().toISOString(), ageMinutes: 1, failed24h: 0, stale: false },
+          { job: "reminders", lastOk: new Date().toISOString(), ageMinutes: 1, failed24h: 0, stale: false },
+          { job: "waitlist", lastOk: new Date().toISOString(), ageMinutes: 1, failed24h: 0, stale: false },
+          { job: "maintenance", lastOk: new Date().toISOString(), ageMinutes: 1, failed24h: 0, stale: false },
+        ],
+      });
+
+      const run = await runProductionMonitor();
+      // Storage status flags the corrupted state
+      expect(run.checks.storage.status).toBe("persistence_failed");
+      expect(run.checks.storage.error).toContain("Corrupted incident state");
+      // Does not overwrite corrupted DB record with idle
+      expect(mockJobRunsStore["monitor:incident_state"].error).toBe("CORRUPTED_NON_JSON");
     });
   });
 
