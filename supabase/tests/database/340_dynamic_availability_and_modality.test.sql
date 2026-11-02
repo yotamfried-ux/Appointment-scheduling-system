@@ -70,7 +70,7 @@ select is(
 -- 2. Update hours to 10 non-overlapping windows (including custom minutes like 06:17-07:22, 09:05-10:35, 22:10-23:40)
 select pg_temp.as_user('00000000-0000-0000-0000-00000000d340');
 select lives_ok($$
-  select public.update_hours(
+  select public.replace_weekly_hours(
     (select b from ids),
     '[
       {
@@ -103,7 +103,7 @@ select is(
 -- 3. Overlap rejection at DB level (EXCLUDE constraint)
 select pg_temp.as_user('00000000-0000-0000-0000-00000000d340');
 select throws_ok($$
-  select public.update_hours(
+  select public.replace_weekly_hours(
     (select b from ids),
     '[{"weekday":0,"open":true,"windows":[{"from":"10:00","to":"11:00"},{"from":"10:30","to":"11:30"}]}]'::jsonb
   )
@@ -111,7 +111,7 @@ $$, '23P01', null, 'overlapping windows in the same day are rejected by the DB')
 
 -- Touching windows (10:00-11:00 and 11:00-12:00) are allowed
 select lives_ok($$
-  select public.update_hours(
+  select public.replace_weekly_hours(
     (select b from ids),
     '[{"weekday":0,"open":true,"windows":[{"from":"10:00","to":"11:00"},{"from":"11:00","to":"12:00"}]}]'::jsonb
   )

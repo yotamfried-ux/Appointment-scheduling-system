@@ -281,8 +281,8 @@ test.describe("Full-Stack Real Supabase · Dynamic Availability & Modality", () 
       windows: d === wd ? sixIntervals : [],
     }));
     const [resA, resB] = await Promise.all([
-      db.rpc("update_hours", { p_business: biz.id, p_hours: payloadA }),
-      db.rpc("update_hours", { p_business: biz.id, p_hours: payloadB }),
+      db.rpc("replace_weekly_hours", { p_business: biz.id, p_hours: payloadA }),
+      db.rpc("replace_weekly_hours", { p_business: biz.id, p_hours: payloadB }),
     ]);
     expect(resA.error).toBeNull();
     expect(resB.error).toBeNull();
