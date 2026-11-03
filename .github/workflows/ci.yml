@@ -47,7 +47,7 @@ jobs:
           source scripts/local-env.sh
           npm run build
           # Verification branch: run focused full-stack scenarios against local Supabase
-          npx playwright test tests/e2e/dynamic-availability-modality.spec.ts
+          npx playwright test tests/e2e/dynamic-availability-modality.spec.ts tests/e2e/owner-modality-real.spec.ts
         env:
           CI: "true"
           E2E_REAL_SUPABASE: "1"
