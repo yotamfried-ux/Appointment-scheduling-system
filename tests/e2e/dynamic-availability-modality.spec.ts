@@ -255,7 +255,7 @@ test.describe("Full-Stack Real Supabase · Dynamic Availability & Modality", () 
     }
 
     await page.getByTestId("save-hours").click();
-    await expect(page.getByRole("status").filter({ hasText: "שעות הפעילות נשמרו." })).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: "השעות נשמרו." })).toBeVisible();
 
     const savedRules = (
       await db.from("availability_rules").select("start_minute, end_minute").eq("business_id", biz.id).eq("weekday", wd).order("start_minute")
