@@ -10,6 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import {
   isValidHHmm,
   onboardingToMinutes as toMin,
+  pickNextNonOverlappingWindow,
   windowProblem,
   windowShorterThanService,
   type DayHours,
@@ -54,6 +55,8 @@ export function HoursEditor({
         const day = t(`hours.days.${h.weekday}`);
         const all = h.windows;
         const valid = all.every((_, i) => windowProblem(all, i) === null);
+        const nextAvailable = valid ? pickNextNonOverlappingWindow(all) : null;
+        const dayIsFull = valid && nextAvailable === null;
         const bounds = valid
           ? { from: Math.min(...all.map((w) => toMin(w.from))), to: Math.max(...all.map((w) => toMin(w.to))) }
           : { from: 6 * 60, to: 22 * 60 };
@@ -179,10 +182,22 @@ export function HoursEditor({
                     label={`${day} ${all.map((w) => `${w.from}–${w.to}`).join(", ")}`}
                   />
                 ) : null}
+                {dayIsFull ? (
+                  <div
+                    role="status"
+                    data-testid={`day-full-${h.weekday}`}
+                    className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50/70 p-2.5 text-xs text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200"
+                  >
+                    <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" aria-hidden />
+                    <p className="font-medium leading-relaxed">{t("hours.dayFull")}</p>
+                  </div>
+                ) : null}
                 <Button
                   type="button"
                   variant="ghost"
                   size="sm"
+                  disabled={!valid || dayIsFull}
+                  aria-disabled={!valid || dayIsFull ? true : undefined}
                   className="justify-self-start text-muted-foreground"
                   data-testid={`add-window-${h.weekday}`}
                   onClick={() => onAdd(h.weekday)}
