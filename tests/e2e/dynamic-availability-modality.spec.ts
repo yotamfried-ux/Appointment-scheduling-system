@@ -333,4 +333,68 @@ test.describe("Full-Stack Real Supabase · Dynamic Availability & Modality", () 
     expect(resA.error).toBeNull();
     expect(resB.error).toBeNull();
   });
+
+  test("TEST-A50 (real Supabase): 50 windows survive RPC, database reload, owner UI reload, and public slot generation", async ({ page }) => {
+    const email = unique("verify-fifty");
+    await signUpAndOnboard(page, email, "teacher", "מורה פרטי — 50 טווחים");
+    const db = await clientFor(email);
+
+    const { data: business, error: businessError } = await db.from("businesses").select("id, slug").single();
+    expect(businessError).toBeNull();
+    expect(business).not.toBeNull();
+
+    const { data: service, error: serviceError } = await db
+      .from("services").select("id").eq("business_id", business!.id).eq("active", true).limit(1).single();
+    expect(serviceError).toBeNull();
+    expect(service).not.toBeNull();
+
+    // Every interval lasts 20 minutes with a 5-minute gap. A 20-minute service
+    // should therefore produce exactly one distinct public slot per interval.
+    const { error: durationError } = await db
+      .from("services").update({ duration_minutes: 20, buffer_minutes: 0 })
+      .eq("business_id", business!.id).eq("id", service!.id);
+    expect(durationError).toBeNull();
+
+    const targetDate = localDate(2);
+    const wd = weekdayOfIso(targetDate);
+    const fmt = (m: number) =>
+      String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+    const windows = Array.from({ length: 50 }, (_, i) => ({
+      from: fmt(10 + i * 25),
+      to: fmt(30 + i * 25),
+    }));
+    const payload = Array.from({ length: 7 }, (_, d) => ({
+      weekday: d,
+      open: d === wd,
+      windows: d === wd ? windows : [{ from: "09:00", to: "17:00" }],
+    }));
+
+    const save = await db.rpc("replace_weekly_hours", { p_business: business!.id, p_hours: payload });
+    expect(save.error).toBeNull();
+
+    const reloaded = await db.from("availability_rules")
+      .select("start_minute, end_minute")
+      .eq("business_id", business!.id).eq("weekday", wd)
+      .order("start_minute");
+    expect(reloaded.error).toBeNull();
+    expect(reloaded.data).toEqual(windows.map((w) => ({
+      start_minute: Number(w.from.slice(0, 2)) * 60 + Number(w.from.slice(3)),
+      end_minute: Number(w.to.slice(0, 2)) * 60 + Number(w.to.slice(3)),
+    })));
+
+    await page.goto("/settings/hours");
+    const ownerDay = page.getByTestId("hours-" + wd);
+    await expect(ownerDay.locator('[data-testid^="manual-from-' + wd + '-"]')).toHaveCount(50);
+    await expect(page.getByTestId("manual-from-" + wd + "-49")).toHaveValue(windows[49].from);
+    await expect(page.getByTestId("manual-to-" + wd + "-49")).toHaveValue(windows[49].to);
+    await page.reload();
+    await expect(ownerDay.locator('[data-testid^="manual-from-' + wd + '-"]')).toHaveCount(50);
+
+    // Exercise the actual customer-facing slot API, not just the pure JS slot function.
+    const response = await page.request.get("/api/public/" + encodeURIComponent(business!.slug) +
+      "/slots?service=" + encodeURIComponent(service!.id) + "&date=" + targetDate);
+    expect(response.status()).toBe(200);
+    const result = await response.json();
+    expect(result.slots.map((slot: { time: string }) => slot.time)).toEqual(windows.map((w) => w.from));
+  });
 });
