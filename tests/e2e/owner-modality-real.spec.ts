@@ -14,19 +14,19 @@ test("real online/frontal bookings are labelled correctly in the owner's day, we
   const from = todayLocal(2);
   const av = await request.get(url + "/availability?service=" + serviceId + "&from=" + from + "&days=14");
   expect(av.status()).toBe(200);
-  const day = (await av.json()).days.find((d: { freeSlots: number }) => d.freeSlots >= 2);
+  const day = (await av.json()).days.find((d: { freeSlots: number }) => d.freeSlots >= 5);
   expect(day).toBeDefined();
   const available = await request.get(url + "/slots?service=" + serviceId + "&date=" + day.date);
   expect(available.status()).toBe(200);
   const times = (await available.json()).slots as { time: string }[];
-  expect(times.length).toBeGreaterThanOrEqual(2);
+  expect(times.length).toBeGreaterThanOrEqual(5);
 
   const ids: Record<string, string> = {};
   for (const [index, location] of (["online", "business"] as const).entries()) {
     const response = await request.post(url + "/bookings", {
       headers: { "idempotency-key": "verify-modality-" + location + "-" + Date.now(),
                  "x-forwarded-for": fakeIp() },
-      data: { serviceId, date: day.date, time: times[index].time, location,
+      data: { serviceId, date: day.date, time: times[index * 4].time, location,
               customer: { fullName: location === "online" ? "בדיקת אונליין" : "בדיקת פרונטלי",
                           phone: "+97250123420" + (index + 1),
                           email: "modality-" + location + "-" + Date.now() + "@example.com" },
