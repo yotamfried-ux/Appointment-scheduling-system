@@ -83,6 +83,52 @@ test.describe("E2E · Dynamic Availability & Modality (UI + API)", () => {
     await expect(page.getByTestId("done-title")).toHaveText("העסק מוכן לקבל תורים");
   });
 
+  test("TEST-D2: Day is full (00:00-24:00) disables add-window, displays explanatory guidance banner, and re-enables when shortened", async ({ page }) => {
+    await page.goto("/design/onboarding");
+    await page.getByLabel("שם העסק").fill("קליניקה רפואית");
+    await page.getByLabel("טלפון ליצירת קשר").fill("052-9876543");
+    await page.getByTestId("continue").click();
+
+    // Step 2: Services
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("מה אתם מציעים?");
+    await page.getByTestId("continue").click();
+
+    // Step 3: Hours Editor
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("מתי אתם פתוחים?");
+
+    // Fill Sunday with 00:00 to 24:00
+    await page.getByTestId("manual-from-0-0").fill("00:00");
+    await page.getByTestId("manual-to-0-0").fill("24:00");
+
+    // Verify explanation banner is visible and add-window button is disabled
+    await expect(page.getByTestId("day-full-0")).toBeVisible();
+    await expect(page.getByTestId("day-full-0")).toContainText("אין עוד זמן פנוי ביום זה");
+    await expect(page.getByTestId("day-full-0")).toContainText("לערוך, לקצר או לפצל");
+    await expect(page.getByTestId("add-window-0")).toBeDisabled();
+
+    // Accessibility check on day-full state
+    expect((await axe(page)).violations).toEqual([]);
+
+    // Shorten window to 00:00 to 20:00 -> frees 4 hours
+    await page.getByTestId("manual-to-0-0").fill("20:00");
+
+    // Banner disappears and add-window button re-enables
+    await expect(page.getByTestId("day-full-0")).not.toBeVisible();
+    await expect(page.getByTestId("add-window-0")).toBeEnabled();
+
+    // Click add-window-0 -> adds a new non-overlapping window within the free interval
+    await page.getByTestId("add-window-0").click();
+    await expect(page.getByTestId("manual-from-0-1")).toBeVisible();
+    const fromVal = await page.getByTestId("manual-from-0-1").inputValue();
+    const toVal = await page.getByTestId("manual-to-0-1").inputValue();
+    expect(Number(fromVal.slice(0, 2))).toBeGreaterThanOrEqual(20);
+    expect(toVal).toBe("23:00");
+
+    // Responsive check
+    await page.setViewportSize({ width: 360, height: 800 });
+    await noOverflow(page);
+  });
+
   test("TEST-E, TEST-F, TEST-G: Online & Frontal modality booking, single-modality auto-selection + API rejection, and Owner Dashboard modality badges", async ({ page }) => {
     const session = `mod-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 

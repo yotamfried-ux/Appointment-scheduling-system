@@ -139,30 +139,14 @@ export function canContinueOnboarding(s: OnboardingState): boolean {
   }
 }
 
-function pickNextNonOverlappingWindow(windows: HoursWindow[]): HoursWindow {
+export function pickNextNonOverlappingWindow(windows: HoursWindow[]): HoursWindow | null {
   const valid = windows
     .filter((w) => isValidHHmm(w.from, false) && isValidHHmm(w.to, true) && toMin(w.from) < toMin(w.to))
     .map((w) => ({ from: toMin(w.from), to: toMin(w.to) }));
 
   if (valid.length === 0) return { from: "09:00", to: "17:00" };
 
-  const last = valid.at(-1)!;
-  const maxEnd = Math.max(...valid.map((w) => w.to));
-
-  // If the last window is the latest one on the day and there is room after it:
-  if (last.to === maxEnd && maxEnd < 24 * 60) {
-    if (maxEnd + 180 <= 24 * 60) {
-      const from = maxEnd + 60;
-      return { from: hhmm(from), to: hhmm(Math.min(from + 120, 24 * 60 - 1)) };
-    }
-    if (maxEnd + 60 <= 24 * 60) {
-      return { from: hhmm(maxEnd), to: hhmm(Math.min(maxEnd + 60, 24 * 60)) };
-    }
-    const step = Math.max(1, Math.min(15, 24 * 60 - maxEnd));
-    return { from: hhmm(maxEnd), to: hhmm(maxEnd + step) };
-  }
-
-  // Otherwise find any free gap across 00:00..24:00 (preferring daytime gaps first, then any gap).
+  // Calculate disjoint free gaps across [0, 24*60]
   const sorted = [...valid].sort((a, b) => a.from - b.from);
   const gaps: { from: number; to: number }[] = [];
   let cursor = 0;
@@ -172,15 +156,48 @@ function pickNextNonOverlappingWindow(windows: HoursWindow[]): HoursWindow {
   }
   if (cursor < 24 * 60) gaps.push({ from: cursor, to: 24 * 60 });
 
-  const afterLast = gaps.find((g) => g.from >= last.to && g.to - g.from >= 1);
-  const chosen = afterLast ?? gaps.find((g) => g.to - g.from >= 15) ?? gaps.find((g) => g.to - g.from >= 1);
+  const positiveGaps = gaps.filter((g) => g.to - g.from >= 1);
+  if (positiveGaps.length === 0) {
+    return null;
+  }
+
+  const last = valid.at(-1)!;
+  const maxEnd = Math.max(...valid.map((w) => w.to));
+
+  // If the last window is the latest one on the day and there is room after it:
+  if (last.to === maxEnd && maxEnd < 24 * 60) {
+    if (maxEnd + 180 <= 24 * 60) {
+      const from = maxEnd + 60;
+      return { from: hhmm(from), to: hhmm(Math.min(from + 120, 24 * 60)) };
+    }
+    if (maxEnd + 60 <= 24 * 60) {
+      return { from: hhmm(maxEnd), to: hhmm(Math.min(maxEnd + 60, 24 * 60)) };
+    }
+    const step = Math.max(1, Math.min(15, 24 * 60 - maxEnd));
+    return { from: hhmm(maxEnd), to: hhmm(maxEnd + step) };
+  }
+
+  // Otherwise pick the best available gap:
+  // 1. Gap after the last window
+  // 2. Daytime gap (>=08:00) with >=15m
+  // 3. Any gap >=15m
+  // 4. Any remaining positive gap
+  const afterLast = positiveGaps.find((g) => g.from >= last.to);
+  const daytimeGap = positiveGaps.find((g) => g.from >= 8 * 60 && g.to - g.from >= 15);
+  const largeGap = positiveGaps.find((g) => g.to - g.from >= 15);
+  const chosen = afterLast ?? daytimeGap ?? largeGap ?? positiveGaps[0];
+
   if (chosen) {
-    const start = chosen.from === 0 && chosen.to >= 7 * 60 ? 6 * 60 : chosen.from;
-    const len = chosen.to - start >= 60 ? 60 : chosen.to - start >= 15 ? 15 : 1;
+    let start = chosen.from;
+    if (chosen.from === 0 && chosen.to >= 7 * 60) {
+      start = 6 * 60;
+    }
+    const available = chosen.to - start;
+    const len = available >= 60 ? 60 : available >= 15 ? 15 : Math.max(1, available);
     return { from: hhmm(start), to: hhmm(start + len) };
   }
 
-  return { from: "22:00", to: "23:00" };
+  return null;
 }
 
 // Pure hours edits, shared by the onboarding reducer and the settings page.
@@ -191,6 +208,7 @@ export const addWindow = (hours: DayHours[], weekday: number): DayHours[] =>
   hours.map((h) => {
     if (h.weekday !== weekday) return h;
     const next = pickNextNonOverlappingWindow(h.windows);
+    if (!next) return h;
     return { ...h, windows: [...h.windows, next] };
   });
 export const removeWindow = (hours: DayHours[], weekday: number, index: number): DayHours[] =>

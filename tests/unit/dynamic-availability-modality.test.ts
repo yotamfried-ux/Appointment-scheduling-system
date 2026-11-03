@@ -4,6 +4,7 @@ import {
   DEFAULT_HOURS,
   hoursValid,
   isValidHHmm,
+  pickNextNonOverlappingWindow,
   setWindow,
   windowDurationMinutes,
   windowProblem,
@@ -67,6 +68,42 @@ describe("FEATURE-01: Unlimited Availability Intervals (TEST-A)", () => {
     }
     expect(hours[0].windows).toHaveLength(10);
     expect(hoursValid(hours)).toBe(true);
+  });
+
+  it("pickNextNonOverlappingWindow returns null when the 24h day is full, and addWindow is a safe no-op", () => {
+    // Case 1: A single 24-hour window covering 00:00 to 24:00
+    const fullDaySingle = [{ from: "00:00", to: "24:00" }];
+    expect(pickNextNonOverlappingWindow(fullDaySingle)).toBeNull();
+
+    let hoursFull = DEFAULT_HOURS.map((h, idx) =>
+      idx === 0 ? { ...h, open: true, windows: fullDaySingle } : h,
+    );
+    const beforeLength = hoursFull[0].windows.length;
+    hoursFull = addWindow(hoursFull, 0);
+    expect(hoursFull[0].windows).toHaveLength(beforeLength);
+    expect(hoursFull[0].windows).toEqual(fullDaySingle);
+
+    // Case 2: Contiguous multiple windows spanning the entire 24h day
+    const fullDayMultiple = [
+      { from: "00:00", to: "08:00" },
+      { from: "08:00", to: "16:00" },
+      { from: "16:00", to: "24:00" },
+    ];
+    expect(pickNextNonOverlappingWindow(fullDayMultiple)).toBeNull();
+
+    // Case 3: Shortening a full day window frees up space, allowing a new non-overlapping window
+    const shortened = [{ from: "00:00", to: "20:00" }];
+    const nextWindow = pickNextNonOverlappingWindow(shortened);
+    expect(nextWindow).not.toBeNull();
+    expect(toMinutes(nextWindow!.from)).toBeGreaterThanOrEqual(toMinutes("20:00"));
+    expect(toMinutes(nextWindow!.to)).toBeLessThanOrEqual(toMinutes("24:00"));
+
+    let hoursShortened = DEFAULT_HOURS.map((h, idx) =>
+      idx === 0 ? { ...h, open: true, windows: shortened } : h,
+    );
+    hoursShortened = addWindow(hoursShortened, 0);
+    expect(hoursShortened[0].windows).toHaveLength(2);
+    expect(windowsValid(hoursShortened[0].windows)).toBe(true);
   });
 
   it("single-lesson windows generate exact slots matching each window start and nothing outside", () => {
