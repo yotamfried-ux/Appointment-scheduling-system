@@ -1,131 +1,180 @@
-# Tori — דוח אימות מוכנות סופי לייצור (Final Production Readiness Verification)
+# Tori / Appointment System — אימות מוכנות לייצור ממקורות חיים (ללא סליקה)
 
-**תאריך הביקורת:** 27 באוקטובר 2026  
-**סביבת יעד:** Production (`https://turim.d2ryf.com`)  
-**גרסת פרודקשן פעילה:** Commit `e191edb6d733ad6428da9c4dd933e3a642e461e6` (פריסת Vercel: `dpl_22BXqVeAKLwzjVQQDQZf1G8CsFfG`)  
-**ענף אימות טכני ב־CI:** `test/fix-onboarding-layout-overflow` (Commit `dd4c638`)  
-**צוות ביקורת:** Principal Software Engineer, Principal SRE, Lead Application Security Engineer, Independent Production Readiness Auditor  
-**תקני ייחוס מחייבים:** Engineering-OS (`docs/operations/operational-readiness-audit.md`, `patterns/security/README.md`, `patterns/testing/README.md`, `docs/runbooks/restore.md`, `docs/runbooks/incident.md`)
+**תאריך:** 2026-10-30 (Israel)  
+**עדכון:** אימות שדרוג Vercel ל-Pro ותוכנית סגירת Cron ב-Vercel בלבד (לא נפרס).  
+**הכרעה:** **NO-GO להשקה ציבורית מלאה; ניתן להמשיך פיילוט מוגבל ומפוקח בלבד**.  
+**היקף שאינו נבדק:** ספק סליקה, גבייה אוטומטית, חשבוניות/מע"מ, פורטל תשלומים והחזרי כסף. כל יתר דרישות הייצור עדיין חלות.  
+**אופן הבדיקה:** קריאת קוד `main` ב-GitHub, GitHub Actions כולל לוגי כישלון, פריסות והגדרות Vercel, שאילתות `SELECT` בלבד ב-Supabase החי, Advisers, Resend Domains/Webhooks/Emails. **לא השתמשתי במסמכי הפערים/המוכנות הישנים כדי לקבוע מה פתוח**. לא בוצעו שינויים ב-Production, במסד, בסודות או בגרסת האפליקציה.
 
----
+## A. מקור האמת, גרסה והגבלות
 
-## 1. סיכום מנהלים (Executive Summary)
+- **GitHub:** `yotamfried-ux/Appointment-scheduling-system`, ענף הייצור `main` ב-`584188cd3ba29abfb02b58314f69ca5572b180c3`. ברירת המחדל של המאגר היא דווקא `claude/optimistic-hypatia-wh3zo3`; `main` אינו protected.
+- **Vercel:** פרויקט `appointment-scheduling-system`, פריסה Production `dpl_2SnAMjdauRC6oS56cKzXAEtA1Bz3` במצב `READY` מאותו commit, עם alias `turim.d2ryf.com`; הדומיין מסומן `verified`. אימות ישיר באמצעות Vercel `get_project` + `get_git_deployment_context` הראה שצוות הפרויקט בתוכנית **Hobby**. [מגבלת Vercel רשמית](https://vercel.com/docs/cron-jobs/usage-and-pricing): cron פעם ביום; תדירות גבוהה יותר תכשיל deployment. זו **מגבלת תשתית**, לא מגבלה בלוגיקת המערכת.
+- **GitHub Actions:** [CI כושל #40528809596](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/40528809596) מול [Security ירוק #40528809270](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/40528809270). שני אלה על אותה גרסה.
+- **Supabase Production:** `abhadytskhgwkrlmceew` באזור `eu-central-1`. קריאות SQL לא שינו נתונים.
+- **Resend:** `mail.d2ryf.com` verified / sending enabled; webhook enabled ל-`https://turim.d2ryf.com/api/webhooks/resend` עם `email.delivered`, `email.bounced`, `email.complained`, `email.delivery_delayed`. נמצאו הודעות אימות, איפוס סיסמה ואישור תור בסטטוס `delivered` (וכן הודעת אימות אחת `bounced`). ראיה למסירת דואר בפועל, לא להצלחת כל מסלול E2E בגרסה הנוכחית.
+- **מגבלות:** נסיונות למשוך Vercel runtime logs/runtime errors וקריאת האתר באמצעות החיבור החזירו `403`; גם גישה חיצונית לכלי הבדיקה של `/api/health` ו-`/api/ready` לא הצליחה. זו **מגבלת בדיקה/הרשאה**, לא ראיה שהאתר נפל. לא נמסרו ראיות מגובות להפעלת PITR, בדיקת restore בענן, בדיקת מסך ידנית או חוות דעת משפטית. משתני Vercel נבדקו בשמות/טווחי סביבה בלבד, **ללא פענוח ערכי secrets**.
 
-מערכת **Tori** עברה ביקורת והסמכה מקיפה, עצמאית ורב-ממדית לקראת הפעלה מלאה ב־Production. 
-הבדיקות נערכו בכל שכבות המערכת: החל מתשתית השרתים והאבטחה ב־Vercel וב־Supabase, דרך מנגנון האימות והסשנים השרתיים (Next.js 16 Server Components), מנוע התורים ומניעת מרוצים (Concurrency & Race Conditions), ועד אימות מסירת דוא"ל (Resend Deliverability), מניעת הזרקות קוד ב־CSV (Formula Injection), בידוד טננטים (Multi-Tenant RLS), ונהלי התאוששות מאסון (DR & Backup).
+`PASS` = אומת ישירות; `FAIL` = נצפה כישלון; `RISK` = הגדרה מסוכנת/פער מוכח, ללא הוכחת ניצול; `BLOCKED` = לא ניתן לאמת; `PARTIAL` = ראיות חלקיות; `NOT_TESTED` = לא בוצעה בדיקה עצמאית.
 
-### פסק הדין המערכתי:
-* **סטטוס נוכחי מאומת:** **`PILOT_READY`** ברמת אמינות גבוהה ביותר, עם זכאות מיידית למעבר ל־**`PRODUCTION_VERIFIED`** לאחר השלמת מחזור ה־CI הירוק של ענף `test/fix-onboarding-layout-overflow`.
-* **חסימות קריטיות באבטחה/תשתית:** **0**.
-* **חורי הרשאות או זליגת מידע רב-דיירי (Cross-Tenant):** **0**.
-* **כיסוי בדיקות קוד (Unit & Integration):** **688 מתוך 688 בדיקות עברו בהצלחה (100% PASS)** ב־50 קובצי בדיקה.
-* **תשלומים וסליקה:** מחוץ להיקף הבדיקה (Out of Scope) לפי הגדרת הלקוח.
+## B. מטריצת מוכנות — ללא ממשק תשלום
 
----
+| רכיב | תוצאה | ראיה ישירה / משמעות |
+|---|---|---|
+| פריסת הקוד והשוואה ל-main | **PASS** | Vercel READY, אותו SHA כמו main |
+| דומיין Production | **PASS** | alias קיים ומאומת; HTTP חי לא נבדק בהצלחה |
+| CI: Lint / Typecheck / Unit / Build / Bundle | **PASS** | job `Lint · Types · Unit · Build` ירוק בריצת #40528809596 |
+| CI: E2E Desktop + Mobile | **FAIL** | **625 passed; 2 failed** באותו מבחן waitlist-day-status ב-Desktop וב-Mobile; `tests/e2e/sim-status-text.spec.ts`, ציפייה `יש תורים פנויים` מול `מלא` |
+| CI: DB pgTAP / schema lint | **FAIL** | כ-1066 assertions נסרקו; בדיקות schema lint נכשלו חוזר בגלל **שתי** פונקציות `SECURITY DEFINER` ב-public. לא לפרש כ-17 באגים נפרדים |
+| SAST/SCA/Secrets/License/SBOM | **PASS** | חמש עבודות: CodeQL, OSV, Trivy, Gitleaks, Licences+SBOM עברו ב-Security #40528809270 |
+| RLS בבסיס החי | **PASS (הגדרה בלבד)** | 29 טבלאות public; **0** ללא RLS ו-**0** ללא FORCE RLS. לא מהווה בדיקת חדירה עצמאית לייצור |
+| Supabase Security Advisors | **PARTIAL** | 2 WARN על RPC definer ציבוריים, WARN על leaked-password protection כבוי; 7 INFO על טבלאות עם RLS וללא policy (לרוב deny-by-default, לא לחשוף אוטומטית) |
+| Cron / jobs | **FAIL (תזמון ישן; Pro אושר)** | צוות Vercel **שודרג ל-Pro**, אולם `main/vercel.json` עדיין מתזמן פעם ביום, וה-DB מראה ריצה אחת ב-24h. יש לתקן `vercel.json` ולהפיץ ל-Production. `after(kickOutbox)` ממשיך להפעיל ניסיון מיידי למשלוח אישורי תור. |
+| Job health | **FAIL (נגזר מקוד ו-DB)** | `job-health.ts` מגדיר ספי stale: outbox 15 דק', reminders 45 דק', waitlist 15 דק'; בדגימת SQL של 08:49 UTC הגילאים היו ~202/~203/~153 דקות. לכן `assess()` היה מחזיר `ok=false`. HTTP עצמו לא נבדק |
+| Resend / Webhook | **PASS (תשתית)** | דומיין וה-webhook מאומתים; קיימות הודעות delivered במערכת הספק |
+| פרטי env ב-Vercel | **PARTIAL / RISK** | שמות secrets מוגדרים, אך חיבור Supabase ו-`SUPABASE_SECRET_KEY` משויכים **גם ל-Production וגם ל-Preview**; ראו P0-01 |
+| גיבויים ושחזור Production | **BLOCKED** | PITR, retention, גיבוי ושחזור בענן לא אומתו; קובץ `scripts/drills/restore.sh` הוא בדיקת dump מקומית, לא הוכחת שחזור Supabase Production |
+| ניטור והתראות תפעוליות | **BLOCKED** | endpoints קיימים, אך קריאת Vercel runtime errors/logs נדחתה 403; אין ראיית alert-to-human חיצונית |
+| תרחיש משתמש על הדומיין החי | **NOT_TESTED בגרסה הזאת** | DB: שני עסקים, שני memberships, **אפס תורים כרגע**. Resend הראה אישור תור היסטורי; אין אימות חדש מלא של שרשרת לקוח בגרסה 584188c |
+| Auth/MFA | **PARTIAL** | קוד מסלולי כניסה, MFA וטוקנים קיים; settings של Supabase Auth לא נבדקו במלואם. Advisor מאשר leaked-password protection כבוי |
+| Privacy/legal/accessibility | **PARTIAL / BLOCKED** | קיים טקסט מוצג ב-`lib/legal/content.ts` ובדיקות נגישות אוטומטיות ב-CI; אישור הדין הישראלי ובדיקת קורא מסך בידי אדם לא אומתו |
+| מעקב dependency/branch protection | **RISK** | `main` לא protected; ברירת מחדל על ענף פיתוח, PRs אוטומטיים של Dependabot פונים אליו |
+| עומס/תפוקה מסחרית | **NOT TESTED** | דוחות בדיקות מקומיות אינם מוכיחים capacity ב-Production. אין נתוני field ברמת עומס מסחרי |
 
-## 2. מטריצת מוכנות לייצור (Production Qualification Matrix)
+## C. חסמי P0 — יש לסגור לפני השקה פתוחה
 
-| # | רכיב / ממד מערכתי | סטטוס מאומת | מקור דרישה (Engineering-OS) | בדיקות שבוצעו וראיות בפועל | סיכונים שזוהו | פעולה נדרשת / תיקון שבוצע |
-|---|---|:---:|---|---|---|---|
-| **1** | **סביבת Production ופריסת Vercel** | **PASS** | `docs/operations/operational-readiness-audit.md` §Deployment Parity | אימות `https://turim.d2ryf.com` מחזיר HTTP 200, גרסת קוד `e191edb`, פריסת Vercel `dpl_22BXqVeAKLwzjVQQDQZf1G8CsFfG` במצב `READY`, נתיבי בריאות `/api/health` ו־`/api/ready` פעילים ומחזירים סטטוס תקין. | פריסה של קוד ישן או אי-התאמה בין main ל־production. | **אומת:** הפריסה הפעילה תואמת במדויק ל־main. |
-| **2** | **ניתוב שרתי מבוסס סשן (`/`)** | **PASS** | `patterns/security/README.md` §Session State Machine | בדיקות יחידה ב־`tests/unit/home-redirect.test.ts` (8/8 PASS) + אימות ב־Next.js Server Component ב־`app/page.tsx`. משתמש לא מחובר רואה דף נחיתה; בעל עסק מופנה ל־`/dashboard`; מנהל מערכת ל־`/admin`; משתמש ללא עסק ל־`/onboarding`; דורש MFA ל־`/auth/mfa`. | לולאות הפניה או חשיפת לוח בקרה של עסק אחר. | **בוצע:** הניתוב הועבר כולו לשרת (Server-Side) באמצעות קריאה ל־`supabase.auth.getClaims()` ואימות מצב סשן חי. |
-| **3** | **אבטחת תקשורת וראשי HTTPS** | **PASS** | `patterns/security/README.md` §Edge Headers & CSP | בדיקת ראשי HTTP חיים ב־`https://turim.d2ryf.com`: `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`, `Content-Security-Policy` קפדני עם Dynamic Nonce, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`. | Clickjacking, MIME sniffing, גניבת סשן. | **אומת:** כל הראשים מחמירים ועומדים ברמת A+ בסריקות OWASP/Mozilla Observatory. |
-| **4** | **בידוד טננטים והרשאות מסד נתונים (RLS)** | **PASS** | `patterns/security/README.md` §Multi-Tenant RLS | סריקת כל טבלאות בסיס הנתונים בפרויקט Frankfurt (`abhadytskhgwkrlmceew`). RLS מופעל על 100% מהטבלאות. טבלאות פנימיות (`billing_events`, `job_runs`, `rate_counters` וכו') מוגדרות ב־Deny-by-default לציבור. גישה ללקוחות/תורים/שירותים מבודדת לחלוטין ברמת `business_id`. | דליפת מידע בין עסקים מתחרים. | **אומת:** 0 חריגות RLS. נבדק ב־`tenancy.spec.ts` ו־`db-security-schema.sql`. |
-| **5** | **מניעת מרוצים במנוע הזמנת תורים (Concurrency)** | **PASS** | `patterns/testing/README.md` §Concurrency Qualification | הרצת `tests/e2e/load-smoke.spec.ts`: 60 בקשות בו-זמניות (Concurrency 60) ל־12 משבצות זמן מוגבלות. תוצאה מדויקת: 12 הצלחות (201 Created), 48 דחיות מרוץ (409 Conflict). אילוץ PostgreSQL GiST `tstzrange && tstzrange` מנע ב־100% כפילויות. | Double-booking של לקוחות על אותו ספר/מטפל. | **אומת:** 0 חפיפות זמן במסד הנתונים תחת עומס קיצוני. |
-| **6** | **אימות ואמינות מסירת דוא"ל (Resend)** | **PASS** | `docs/operations/operational-readiness-audit.md` §Outbox & Transports | בדיקת הדומיין `mail.d2ryf.com` (מזהה: `d815dc3e-5b4a-47ba-989d-8485d9e5b932`) ב־Resend: סטטוס `verified`, אזור `eu-west-1`. רישומי DNS: SPF (`verified`), DKIM (`verified`), MX (`verified`). בדיקת לוגים של הודעות חיות: כל המיילים לאימות הרשמה והתראות נמסרו בסטטוס `delivered`. | חסימת הודעות אימות כ־Spam או אי-מסירה. | **אומת:** תשתית הדוא"ל חתומה ותקינה לחלוטין. מנגנון Outbox טרנזקציוני מבטיח שלא תאבד אף הודעה במקרה נפילת צד ג'. |
-| **7** | **הגנה מפני הזרקת נוסחאות בקובצי CSV** | **PASS** | `patterns/security/README.md` §CSV Injection Mitigation | בדיקה ב־`tests/unit/comprehensive-scenario-qualification.test.ts`: ניקוי תווים מסוכנים `=+\-@\t\r` גם כאשר הם מוקדמים ברווחים או בתווי בקרה `[\x00-\x1f]`. הוספת גרש מנטרל (`'`) וקידוד UTF-8 BOM (`\uFEFF`) לתמיכה מלאה ב־Excel בעברית. | הרצת פקודות מאקרו זדוניות במחשב של בעל העסק בעת פתיחת דוח ב־Excel. | **תוקן ואומת:** פונקציית `csvCell` ב־`modules/reports/csv.ts` חסינה לחלוטין מפני עקיפות רווחים ותווי בקרה. |
-| **8** | **עמידות תשתיתית ושחזור מאסון (DR & Backup)** | **PILOT_READY** | `docs/runbooks/restore.md` §RPO/RTO Targets | גיבויי בסיס נתונים יומיים אוטומטיים מנוהלים ב־Supabase באזור פרנקפורט (`eu-central-1`). נוהל שחזור מתועד ב־`docs/runbooks/restore.md`. יעד RPO: פחות מ־24 שעות בגיבוי רגיל (פחות מ־2 דקות עם תוסף PITR). יעד RTO: 15–30 דקות לשחזור מלא. | איבוד מידע במקרה תקלה פיזית באזור הענן. | **המלצה תפעולית:** לקראת צמיחה מסחרית מעבר ל־Pilot, מומלץ להפעיל את תוסף ה־PITR (Point-in-Time Recovery) בלוח הניהול של Supabase. |
-| **9** | **עמידות תצוגה במובייל (Viewport Layout 320px/360px)** | **PASS** | `patterns/testing/README.md` §Responsive Integrity | בדיקת רכיב `components/lab/onboarding/onboarding-wizard.tsx` ברוחב 320px ובמובייל 360px. מניעת גלישה אופקית (Horizontal Overflow) ב־header בעת הזנת שמות עסקים ארוכים, והתאמת כפתור היציאה. | שיבוש תצוגה וחוסר נגישות במכשירי סלולר בעלי מסך צר. | **תוקן ואומת:** תיקון גלישת ה־Header יושם בענף `test/fix-onboarding-layout-overflow` ונבדק. |
-| **10** | **ניהול זהויות, סיסמאות ו־MFA** | **PILOT_READY** | `patterns/security/README.md` §IAM & Credential Stuffing | אימות שדות סיסמה, מדיניות סיסמאות קשיחה, הצפנת Token ב־HMAC SHA-256, תמיכה מלאה ב־TOTP MFA (רמת AAL2). | מתקפות Credential Stuffing על חשבונות בעלי עסקים. | **פעולה תפעולית פתוחה:** הפעלת בדיקת Leaked Passwords (HaveIBeenPwned) בלשונית Auth בלוח Supabase (הגדרה ברמת Dashboard). |
+### P0-01 — בידוד מוחלט בין Preview ל-Production (אבטחה/נתונים)
+**ראיה:** Vercel `filter_project_envs(decrypt=false)` החזיר רשומת `SUPABASE_SECRET_KEY` אחת עם `target: ["production","preview"]`; כך גם `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `APP_URL` ו-`CRON_SECRET`. משתנה `ALLOW_NON_PRODUCTION_DEFAULTS` מוקצה ל-Preview. קוד `platform/system-db/index.ts` משתמש ב-`SUPABASE_SECRET_KEY` לביצוע פעולות עם הרשאות גבוהות, וקוד `lib/env.ts` מקל על סביבת Preview עם המתג האמור.
 
----
+**סיכון:** build, preview, בדיקה או קוד פיתוח יכולים לבצע פעולה נגד מסד Production אם אותן רשומות אכן מוזרקות ללא override. השיוך המשותף מאומת; **לא נחשפו ערכי הסודות ולא נבדק runtime של Preview**, ולכן אין להסיק שנוצלה גישה בפועל.
 
-## 3. אינדקס ראיות טכניות (Evidence Index)
+**סגירה:** לפרוס פרויקט/DB Supabase נפרד לחלוטין ל-Preview (URL, publishable/secret key שונים); להסיר שיוך Production secrets מ-Preview; להחליף APP_URL/CRON_SECRET לפי סביבה, למנוע email אמיתי ללקוחות מתוך Preview, לוודא isolation בבדיקת קריאה/כתיבה מול fixtures לא רגישים ושהגדרות הגנת Preview תקינות. אם הופעלו keys ב-builds לא מהימנים, להעריך סיבוב סודות. **אין להעתיק נתוני לקוחות אמיתיים לסביבת Preview.**
 
-כל קביעה בדוח זה מבוססת על ראיה טכנית מאומתת שניתנת לשחזור:
+### P0-02 — ה-Pro אומת, אבל ה-Cron עדיין מוגדר לפי מגבלות Hobby; חסר שינוי תצורה ופריסה
 
-1. **ריצת בדיקות יחידה מלאה (Unit & Integration):**
-   * פקודה: `npm test` (סביבת Vitest 5.0.3)
-   * תוצאה: **50 קבצים עברו, 688 בדיקות עברו (0 נכשלו, 0 דילוגים)**
-   * קובץ יומן: `task-8908.log`
+**עדכון תשתית, אומת ישירות 2026-10-30:** קריאת `Vercel.get_git_deployment_context` אימתה כי תוכנית הצוות של הפרויקט שודרגה ל-**Pro**. לפי [תיעוד Vercel Cron](https://vercel.com/docs/cron-jobs/usage-and-pricing) תדירות מינימלית ב-Pro היא פעם בדקה. עם זאת, הקריאה הנוכחית ל-[`vercel.json`](../../vercel.json) של `main` הראתה שארבע המשימות **עדיין מוגדרות פעם ביום**; ברישומי `public.job_runs` של 24 השעות האחרונות יש עדיין ריצה אחת לכל משימה. **השדרוג לבדו לא שינה את Cron**, ונדרש תיקון קובץ ו-Production deployment חדש. 
 
-2. **בדיקת טיפוסים (TypeScript Static Analysis):**
-   * פקודה: `npm run typecheck` (`tsc --noEmit`)
-   * תוצאה: **Exit Code 0** (0 שגיאות טיפוסים)
+**סיבת השורש בעבר:** בדיקת `Vercel.get_project` הראתה שהפרויקט שייך לצוות `team_uUUpzY1J0BvqvtYwemoFoBdm`; בדיקת `Vercel.get_git_deployment_context` הראתה `plan: hobby` לאותו צוות. לפי [התיעוד הרשמי של Vercel](https://vercel.com/docs/cron-jobs/usage-and-pricing), ב-Hobby ניתן לקבוע Cron **פעם ביום בלבד**. הגדרה כל 5 או 15 דקות ב-`vercel.json` תגרום לכישלון ה-Deployment; ב-Pro ניתן לתזמן פעם בדקה. ב-Hobby גם שעה מדויקת אינה מובטחת (עד ±59 דקות). זוהי **מגבלה בתשתית**, לא באלגוריתם התורים. גם אם נשדרג, יש לעדכן בפועל את התדירות בקובץ ולפרוס מחדש.
 
-3. **בדיקת סגנון ואיכות קוד (ESLint):**
-   * פקודה: `npm run lint` (`eslint .`)
-   * תוצאה: **Exit Code 0** (0 שגיאות, 11 אזהרות לא-חוסמות)
-   * קובץ יומן: `task-8943.log`
+**ראיות קוד ונתונים:** [vercel.json](../../vercel.json) מתזמן `outbox` ב-05:00, `reminders` ב-05:10, `waitlist` ב-05:20, `maintenance` ב-03:20 — כל אחת **פעם ביום ב-UTC**. שאילתות קריאה ב-`public.job_runs` הראו ב-2026-10-30 **ריצה מוצלחת אחת לכל משימה ב-24h**, ללא failures. בגילאים של כ-202/203/153 דקות ללא הרצה חדשה ל-outbox/reminders/waitlist, הקוד ב-[job-health.ts](../../modules/notifications/job-health.ts) היה מסווג אותן כ-`stale` ביחס לספי 15/45/15 דקות. לכן נתיב הבריאות צפוי להחזיר 503; HTTP ישיר אליו לא נבדק בשל חסימת גישה (403).
 
-4. **אימות דומיין ותעבורת מיילים (Resend Live API):**
-   * דומיין: `mail.d2ryf.com`
-   * מזהה: `d815dc3e-5b4a-47ba-989d-8485d9e5b932`
-   * רשומות DNS מאומתות: SPF (`verified`), DKIM (`verified`), MX (`verified`).
-   * לוג מסירות: מזהה `ee18939b-e766-4cb8-8e65-276f571b058a` (נמסר בהצלחה ל־`yotam.fried@gmail.com`).
+**אבל שליחת מייל אישור תור אינה ממתינה תמיד ל-Cron:** [app/api/public/[slug]/bookings/route.ts](../../app/api/public/%5Bslug%5D/bookings/route.ts) מבצע `if (!replay) after(kickOutbox)` מיד לאחר יצירת תור חדש, ו-[modules/notifications/service.ts](../../modules/notifications/service.ts) מגדיר ניסיון fan-out/שליחה מיידי (עד חמישה אירועים, חמישה sends, deadline של שמונה שניות). לכן אישור תור יכול להישלח מיד — הדבר **אינו מבטיח** שכל מייל מיידי נשלח (כשל ב-`after`, רשת, timeout, backlog). [Vercel מתעדת](https://vercel.com/docs/functions/functions-api-reference/vercel-functions-package) ש-`after()` רץ רק בעקבות בקשת HTTP ועד לתום פונקציית השרת. ללא cron אין טיפול מחזורי עצמאי בשגיאות או בהודעות מאוחרות.
 
-5. **בסיס נתונים ו־PostgreSQL:**
-   * פרויקט Supabase: `abhadytskhgwkrlmceew` (`appointment-system-frankfurt`)
-   * גרסה: PostgreSQL 17.11 (`ga`), אזור `eu-central-1`
-   * סטטוס בריאות: `ACTIVE_HEALTHY`
-   * אבטחה: סריקת Advisor מראה שכל טבלאות המערכת מוגנות ב־RLS.
+| משימה | הטריגר הנדרש | הסיבה |
+|---|---|---|
+| אישורי תור חדש | ניסיון מיידי ב-`after(kickOutbox)`, בנוסף ל-retry | לא לעכב אישור; מימוש כבר קיים במסלול יצירת תור ציבורי |
+| `outbox` | כל 5 דקות | חוזר לאחר כשל, backlog והודעות שנוצרו במקומות אחרים |
+| `reminders` | כל 15 דקות | יצירת תזכורות כשמועד התור מתקרב, גם בלי משתמש באתר |
+| `waitlist` | כל 5 דקות | פקיעת הצעות, שחרור והקצאת משבצת פנויה הבאה |
+| `maintenance` | פעם ביום | טיהור נתונים ותחזוקה; ה-Cron של Hobby יכול להישאר |
 
-6. **בדיקות Concurrency ונעילות:**
-   * קובץ: `tests/e2e/load-smoke.spec.ts`
-   * ביצוע: בדיקת 60 לקוחות על 12 משבצות זמן מוכיחה בדיוק של 100% מניעת התנגשויות ברמת מסד הנתונים.
+**בדיקת החלופה שכבר קיימת:** [PR #25](https://github.com/yotamfried-ux/Appointment-scheduling-system/pull/25) הוא Draft וטרם מוזג; הוא מוסיף `.github/workflows/jobs.yml` עם `*/5 * * * *` וקריאות HTTP מוגנות ב-`CRON_SECRET`. אולם ה-Default Branch ב-GitHub הוא **`claude/optimistic-hypatia-wh3zo3`**, ולא `main`. לפי [GitHub schedule docs](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule), workflows מתוזמנים רצים **רק אם הם קיימים בענף ברירת המחדל**. לכן **מיזוג PR #25 ל-`main` בלבד לא יפעיל את ה-Cron** במצב הנוכחי. שנית, ה-workflow המוצע **מסיים בירוק גם כשחסר `CRON_SECRET`** (מדפיס warning וקורא רק `/api/ready`) — ירוק אינו מוכיח הרצת jobs. שלישית, GitHub מציינת שריצות schedule עלולות להתעכב או להישמט בזמני עומס; עבור תזכורות רגישות לזמן זהו פתרון best-effort בלבד.
 
-7. **ריצות GitHub Actions CI:**
-   * ריצת ענף main (`e191edb`): `#40507238234`
-     * `Security`: **Success**
-     * `DB (migrations · pgTAP · schema lint)`: **Success**
-     * `Lint · Types · Unit · Build`: **Success**
-   * ריצת אימות תיקון Layout (`dd4c638`): `#40511544431` בענף `test/fix-onboarding-layout-overflow`.
+**הפתרון הנבחר לאחר שדרוג Vercel Pro: Vercel Cron בלבד.** אין צורך ב-Hetzner, Google Cloud Scheduler או GitHub Actions להפעלת המשימות. לשנות את [vercel.json](../../vercel.json) בענף פיתוח/PR, ולא במישרין בסביבת Production:
 
----
-
-## 4. פירוט השינויים שבוצעו בקוד
-
-### א. תיקון גלישת Header במובייל וב־Design Lab
-* **קובץ שנערך:** `components/lab/onboarding/onboarding-wizard.tsx`
-* **הבעיה שטופלה:** שימוש בביטוי `email={s.business.name.trim() || email}` גרם לכך שהזנת שם עסק ארוך (מעל 40 תווים) הוזרקה לתוך תגית ה־Email ב־Header. ביחד עם כפתור ה־Logout שנוסף, נוצרה גלישה אופקית (Horizontal Overflow) ברוחב 320px ו־360px שכשלה בבדיקות ה־E2E של Playwright.
-* **הפתרון שיושם:**
-  1. ביטול העברת שם העסק כ־email: הועבר המשתנה `email` המקורי בלבד (שמועבר רק כאשר המשתמש מחובר למערכת).
-  2. הגדרת `bdi` של שם המשתמש עם `hidden min-w-0 max-w-[140px] truncate sm:inline-block sm:max-w-[200px]` ומכולת Flex עם `min-w-0` ו־`gap-2`.
-  3. כעת ב־Design Lab (שבו אין משתמש מחובר) ה־Header נקי לחלוטין מגלישות, ובסביבת Onboarding אמיתית מוצג כפתור יציאה תקני ללא חריגה מרוחב המסך.
-
-### ב. מיקוד מדדים כספיים בלוח מנהל הפלטפורמה
-* **ענף:** `feature/admin-personal-profit-metrics` (קומיט `a0d14b9` ו־`6ce65e8`)
-* **השינוי:** הפרדה מוחלטת בין מחזור העסקאות של הלקוחות (Bookings Turnover) לבין הרווח האישי של בעל הפלטפורמה (Platform Owner Personal Revenue & Profit). תצוגת מנהל המערכת הותאמה להציג מדדי MRR, ARR, גבייה בפועל מתוכניות מנויים (PRO Plan Subscriptions), והוצאות תשתית נטו.
-
----
-
-## 5. חסמים פתוחים ופעולות תפעוליות להשקה
-
-שתי פעולות תפעוליות קלות מומלצות בלוח הניהול (אין צורך בשינויי קוד):
-
-1. **הפעלת Leaked Password Protection ב־Supabase:**
-   * מיקום: Supabase Dashboard -> Authentication -> Password Policy.
-   * פעולה: סימון ה־Toggle לבדיקת סיסמאות מול מאגר HaveIBeenPwned.
-2. **הגדרת כתובת דוא"ל ייעודית לפניות משפטיות:**
-   * מומלץ להפנות את תיבת `legal@d2ryf.com` או `d2r.yotam@gmail.com` לקבלת פניות בנושאי נגישות ותנאי שימוש כפי שמופיע במסמכי המדיניות הציבוריים.
-
----
-
-## 6. פסק דין והמלצת שחרור (Final Verdict)
-
-מערכת **Tori** עומדת בכל דרישות האיכות, האבטחה, הבידוד והאמינות המחמירות המוגדרות בספריית **Engineering-OS**.
-
-```mermaid
-flowchart TD
-    A["Tori Production Release Gate"] --> B["Security & Headers: PASS (A+)"]
-    A --> C["Multi-Tenant Isolation & RLS: PASS (100%)"]
-    A --> D["Booking Engine Concurrency: PASS (0 Overlaps)"]
-    A --> E["Email Deliverability: PASS (SPF/DKIM/MX Verified)"]
-    A --> F["Navigation & Live Sessions: PASS (Server-Side)"]
-    A --> G["Mobile & Layout Integrity: VERIFIED"]
-    
-    B & C & D & E & F & G --> H{"Final Verdict"}
-    H --> I["PILOT_READY / PRODUCTION_VERIFIED"]
+```json
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["fra1"],
+  "crons": [
+    {"path": "/api/jobs/outbox", "schedule": "*/5 * * * *"},
+    {"path": "/api/jobs/reminders", "schedule": "*/15 * * * *"},
+    {"path": "/api/jobs/waitlist", "schedule": "*/5 * * * *"},
+    {"path": "/api/jobs/maintenance", "schedule": "20 3 * * *"}
+  ]
+}
 ```
 
-**החלטה:** המערכת מאושרת רשמית לעלייה מלאה כ־**`PILOT_READY`** מיידי, וזכאית לסיווג **`PRODUCTION_VERIFIED`** מלא עם מיזוג ענף התיקונים המאומת.
+**התאמה לקוד שנבדק:** ארבעת הנתיבים מוגדרים במערכת ומקבלים `GET`; Vercel Cron שולחת GET לנתיבי Production, והקוד ב-[lib/security/cron.ts](../../lib/security/cron.ts) כבר בודק `Authorization: Bearer <CRON_SECRET>`. ב-Vercel משתנה `CRON_SECRET` כבר משויך ל-Production (ערכו לא פוענח); Vercel מוסיפה אוטומטית את הכותרת בעת הפעלת Cron, אם המשתנה קיים. יש לאמת ערך חזק, שאינו מכיל newline, ללא הצגתו בלוגים. השעות הן תמיד **UTC**, ומשימת `maintenance` נשארת יומית.
+
+**הערות בטיחות ותפעול:** Vercel אינה מבצעת retry אוטומטי כאשר קריאת Cron נכשלת ([תיעוד רשמי](https://vercel.com/docs/cron-jobs/manage-cron-jobs)); הרצת Outbox המחזורית מעבדת חובות שנותרו, אך נדרשת התראה על כשל וסף freshness. Vercel עשויה להפעיל Cron פעמיים או לחפוף בין ריצות; הקוד משתמש ב-`job_begin` וב-claim locking, אבל צריך לאמת התנהגות מקבילה ו-idempotency בבדיקה. לכל המשימות `maxDuration = 60`: למדוד שמשך ביצוע בעומס אינו גורם ל-timeout, ולבדוק backlog drain.
+
+**יישום בטוח:** לפני מיזוג, לוודא שאין Cron מתחרה מ-PR #25 (עדיין Draft) או מתזמן חיצוני; להריץ בדיקות סטטיות ו-PR CI; לאחר אישור שחרור למזג ל-`main` ולפרוס מחדש ל-**Production** (Cron אינו מתעדכן בפריסת Preview). ב-Vercel dashboard: Project > Settings > Cron Jobs, לראות ארבע משימות ושעותיהן. לאמת ריצות בפועל בממשק Logs וב-`public.job_runs`, ולהגדיר uptime/heartbeat alert על `/api/jobs/health`. היעד: **outbox ו-waitlist כל 5 דקות, reminders כל 15 דקות, maintenance פעם ביום**. לאחר 24–48 שעות ותרחיש כשל מוכח, ניתן לסמן P0-02 `PASS`.
+
+**מצב נוכחי:** המינוי **Pro** אומת, אך שינוי תצורת Cron, מיזוג, Production deploy והוכחת תדירות **טרם בוצעו**. לא בוצע שינוי production בביקורת זו.
+
+**קריטריוני סגירה:** מתזמן קיים ופועל באמת; 24–48 שעות ריצות בקצב 5/15 דקות; `/api/jobs/health` מחזיר 200; הודעת אישור תור נשלחת מיד ותזכורת/הצעת waitlist נשלחות בטווח זמן מתאים; בדיקת נפילת scheduler או Resend מייצרת התרעה; כל זה אחרי אימות Preview מבודד ובאישור לפני Production.
+
+### P0-03 — CI ירוק על **אותה** גרסת Production (E2E ו-DB)
+**ראיה:** [CI #40528809596](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/40528809596), commit 584188c:
+1. E2E: **625 passed / 2 failed**. הלוג: `tests/e2e/sim-status-text.spec.ts:74–87`; עבור יום שהבדיקה ציפתה שיסומן פנוי, ה-UI מציג `מלא`. קרה ב-Desktop וב-Mobile 360 וב-retry. **לא הוכרע** אם זו סטייה בלוגיקת הזמינות או setup/test assumption.
+2. pgTAP: שתי הפרות של `private.lint_violations()` מסוג `definer_in_exposed_schema`: `public.admin_dashboard_metrics`, `public.admin_list_businesses`. ב-Production יש להן `prosecdef=true` ו-`authenticated EXECUTE=true`. התוכן מפנה לפונקציות `private` שבהן `private.is_platform_admin()` בודקת הרשאת מנהל עם second factor; **אזהרה אינה הוכחה לדליפה**, אך זו חריגה מגדר החשיפה וכלל lint קיים.
+
+**סגירה:** שחזור ופענוח התנהגות waitlist; תיקון המוצר **או** תיקון ציפיית הבדיקה רק עם הוכחת נתונים. העברת wrappers הציבוריים ל-`SECURITY INVOKER` ככל שה-privileges מאפשרים, תוך שמירת בדיקת מנהל ב-private; בדיקות פוזיטיביות ואנטי-cross-tenant, בדיקת SQL ב-preview ואז migration מאומת. הרצת CI DB/E2E + Security מחדש; **all green** על commit חדש לפני deploy.
+
+### P0-04 — reconciliation של היסטוריית המיגרציות לפני `db push`/שחזור
+**ראיה:** בענף `main` נמצאו **46 קובצי migrations**; טבלת `supabase_migrations.schema_migrations` החיה מכילה **41 רשומות**. **15 גרסאות שבקוד אינן מופיעות בהיסטוריה**, כולל `20261054000000`, `20261055000000`, `20261056000000` ו-`20261057000000`; מנגד יש **10 גרסאות DB** עם timestamps אחרים של שינויים ששמם חופף לשמות בקוד. חלק מהאובייקטים של migrations מאוחרים קיימים ב-Production, לכן **אין להסיק שהם לא יושמו**; יש אי-התאמה בהיסטוריה ובגרסאות, גם אם הסכמה תפקודית.
+
+**סיכון:** `supabase db push`/מנגנון CI של migrations יכול להפעיל SQL שוב, להיכשל, לדרוס functions או ליצור מצב שאי אפשר לשחזר אוטומטית. **אין לבצע `db push` ישירות על Production כדי לנסות לסדר את המצב.**
+
+**סגירה:** להשוות גרסאות לפי שם, תוכן/SQL והגדרות אובייקטים מול DB חיה; להכין מפת equivalence ושרשרת migrations קנונית חדשה; לבצע `supabase migration repair` **רק לאחר אימות** ובאישור מפורש; להקים Supabase scratch חדש מאפס ולהריץ את כל migrations ואת pgTAP, להשוות schema fingerprints, grants, RLS, triggers ו-functions, ואז להוכיח dry-run נגד מסד דומה לייצור.
+
+### P0-05 — E2E חי על דומיין Production, כולל כשלי דואר והתאוששות
+**ראיה:** יש שני עסקים ב-DB ואפס רשומות `appointments` כרגע; Resend מכיל מייל `booking confirmed` שנמסר בתאריך קודם אך אין מבחן end-to-end אקטואלי של גרסת 584188c. קריאת live endpoints נחסמה בכלי הבדיקה ולא נחשבת PASS.
+
+**סגירה:** בדיקות עם חשבון/עסק בדיקה ייעודי ב-Production **לאחר** תיקון P0-01/03 ובחלון מורשה: הרשמה/אימות, MFA, Onboarding, שירות/צוות/שעות, הזמנת תור, idempotency + double-booking, אישור מייל/קישור ניהול, שינוי/ביטול/רשימת המתנה, תזכורת, זכאויות Free/Pro ללא גבייה, מחיקת נתוני בדיקה, מובייל/RTL, כשל ספק מייל ואי-חציית טננטים. לתעד מזהי ריצה ותוצאה, לא מידע אישי.
+
+### P0-06 — יכולת שחזור נתונים מוכחת, לא רק runbook
+**ראיה:** קיימים `scripts/drills/restore.sh` ונהלי restore, אך אין אימות ישיר של הגדרות Supabase Backups/PITR או שחזור מענן Production. אין RPO/RTO מדוד.
+
+**סגירה:** לבחור יעד RPO/RTO ומסלול גיבוי בהתאם לגודל הסיכון; לאמת plan, retention, היתכנות PITR, הגבלת גישה לגיבויים; לבצע תרגיל שחזור **לסביבה מבודדת** מגיבוי שמדמה Production, כולל עמידות סכמה/תורים/הרשאות/שדות; לשמור ראיית תאריך, זמן ושגיאות. אין לבצע rollback או restore על DB חיה כחלק מהבדיקה.
+
+### P0-07 — ניטור תפעולי עם התראות נבדקות
+**ראיה:** `/api/health`, `/api/ready` ו-`/api/jobs/health` מוגדרים בקוד; אך Vercel Runtime Logs ו-Runtime Errors החזירו `403` לחיבור, ולא אומתו ניטור חיצוני, alert routing או טיפול באירוע. `job-health` צפוי להיות stale בגלל P0-02.
+
+**סגירה:** להפעיל monitor חיצוני ל-ready, job-health מורשה ודומיין TLS; error tracking עם request IDs וללא PII; לנתב התראות לבעלים, לדמות job שנעצר/HTTP 503/מייל שנכשל ולוודא שהתקבלה התראה ושאפשר לחקור לוגים. לתקן הרשאות קריאה של חיבור Vercel או לספק ראיות ממסוף הניהול.
+
+### P0-08 — בדיקות תנאי השקה משפטיים ותפעול משתמשים
+**ראיה:** `lib/legal/content.ts` מכיל Terms, Privacy, Cookies, Accessibility, נתוני צרכנים ותיאור העיבוד; משתני `NEXT_PUBLIC_LEGAL_CONTACT` ו-`NEXT_PUBLIC_A11Y_CONTACT` קיימים. **לא הוצגה/אומתה בביקורת זו חוות דעת משפטית** על התאמה בפועל לחקיקה בישראל, הסכמי עיבוד, עוסק/מפעיל, הודעות פרטיות ומנגנון פניות; וגם לא ביקורת נגישות ידנית. זהו **BLOCKED על אישור חיצוני**, לא טענה שקיים בהכרח אי-ציות.
+
+**סגירה:** אישור אחראי ההפעלה ומומחה משפטי לפי השירות והדין החל בישראל (לרבות הגנת פרטיות ונגישות), פרטי גורם מפעיל אמיתיים, תהליך טיפול בבקשות לקוחות/אירועי אבטחה, מדיניות שמירת מידע והתקשרויות ספקים. מבחן נגישות ידני במסלולים קריטיים לפי תחולה. החלטת release מתועדת.
+
+## D. פערי P1/Hardening (אינם מתעלמים מהם)
+
+1. **Auth – הגנה על סיסמאות שדלפו:** Supabase security adviser מציג `Leaked Password Protection Disabled`. להפעיל, ולבדוק הגדרות Auth redirect/site URL, MFA, rate limiting, email sender ותבניות בפועל. [Supabase guidance](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection).
+2. **Repo/release governance:** `main` אינו protected ו-default branch הוא ענף פיתוח; Dependabot PRs #43–#46 מבוססים על הענף הלא-ייצורי. לקבוע default `main` בהתאם להליך עבודה, required checks, הגבלת force-push, review ו-deploy controls. שינוי default branch מחייב בחינת workflows לפני ביצוע.
+3. **Security deeper validation:** [Security CI](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/40528809270) ירוק, אך אין בביקורת זו ראיה לסריקת DAST/Strix מוצלחת ומאושרת על סביבת מבחן או penetration test אנושי. הפעלת Strix/DAST על fixtures בלבד, לא על Production ללא אישור מפורש.
+4. **DB advisor performance:** 8 foreign keys ללא covering index (כולל `appointments.customer_id`/`service_id` ו-`waitlist_entries`), 2 unused indexes והערת Auth DB connections קבועים. לבצע `EXPLAIN ANALYZE` על queries בעלי נפח, ולשנות אינדקסים רק לפי תוכנית/מדדים. [Supabase Advisor](https://supabase.com/docs/guides/database/database-linter?lint=0001_unindexed_foreign_keys).
+5. **7 טבלאות RLS ללא policies:** `billing_events`, `booking_idempotency`, `domain_events`, `email_suppressions`, `job_runs`, `rate_counters`, `token_uses`. זו **INFO**, והדפוס עשוי להיות intentional deny-by-default. לוודא שאכן נדרשת גישה שרתית בלבד; לא ליצור policies פתוחות כדי "להעלים" את ההתראה. [Advisor](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
+6. **Preview UX/system emails:** לוודא שקישורי Preview אינם שולחים ל-`APP_URL` של Production, שמפתחות Resend אמיתיים לא נחשפים ל-Preview, ושאין הודעות אמיתיות ללקוחות מתוך fixtures.
+7. **עומס, SLA, UX ונגישות:** למדוד זמני תגובה/תקלות ב-Production בתנאי עומס מותרים, Web Vitals/RTL ב-mobile אמיתי, קורא מסך ומצב Low-bandwidth; להגדיר ספי capacity לפי לקוחות מתוכננים.
+8. **מסלולי Trial ללא סליקה:** שתי רשומות `subscriptions` הן `active/pro/manual`. לוודא מסלול משתמש חדש ו-14-day trial/Free/Manual grants, expiration and reminders ללא תלות בספק תשלום, לפי מודל ההשקה שנבחר.
+
+## E. מה כן אומת כבר וחשוב לשמר
+
+- Vercel READY על `main` בדיוק; דומיין production verified.
+- קוד Lint/Types/Unit/Build/Bundle scan ירוק ב-commit 584188c.
+- CodeQL / OSV / Trivy / Gitleaks / Licence+SBOM ירוקים באותו SHA.
+- RLS + FORCE RLS על כל 29 הטבלאות הציבוריות; אין בשאילתת המבנה חריגה.
+- Resend verified, webhook פעיל, מיילים delivered כולל הודעת אישור תור ואימות חשבון בעבר; קיימת גם הקפצה (bounce) לדוגמה ולכן יש לוודא טיפול באירועים.
+- Job runs מתחילים ומסתיימים ב-success, ללא failed ב-24h; **התדירות בלבד אינה מתאימה**.
+- אתר ומסלולי signup/booking/admin/owner קיימים בקוד; עצם קיומם **אינו** PASS למסלול live.
+
+## F. סדר ביצוע מומלץ לפי ROI וסיכון
+
+1. **קודם אבטחת נתונים:** לנתק Preview מסודות/DB של Production ולבנות סביבת DB מבודדת (P0-01).
+2. **לעדכן את `vercel.json` ל-Vercel Pro Cron ולחבר ניטור:** P0-02 + P0-07; לשמר `after(kickOutbox)` להודעות מיידיות, להריץ בדיקות, למזג עם שער אישור, לפרוס ל-Production ולהוכיח תדירות ריצה כל 5/15 דקות ו-`job-health=200`; להוסיף התראה על החמצת משימה.
+3. **לתקן CI:** לפרק את כשלי E2E/DB, להוריד definer wrappers מאזור החשיפה ולדרוש CI ירוק (P0-03).
+4. **להסדיר migrations לפני כל שינוי סכמה:** מפת גרסאות והרצה בסביבת scratch בלבד (P0-04).
+5. **אימות שרידות ומסלול אמיתי:** PITR/restore, הרצת E2E לקוח–עסק–דואר (P0-05/06).
+6. **סיום release-gate ציבורי:** Auth, branch protections, בדיקה משפטית ונגישות, בדיקת חדירה ו-load מותאמים (P0-08 + P1).
+
+**תנאי GO להגדרה "מוכן לייצור ללא סליקה":** כל P0 סגור בראיות מתוארכות, Production מבודד מ-Preview, אותה גרסת Release עוברת CI ו-Security במלואם, `job-health` ירוק ברציפות, בדיקת משתמש אמיתי עם נתוני מבחן עוברת, יכולת שחזור מוכחת, מנגנון alerts נבדק, וממונה ההשקה מאשר תנאים משפטיים ותפעוליים. עד אז **NO-GO להשקה ציבורית**; פיילוט קיים יכול להימשך בהגבלות ומודעות לסיכון.
+
+## G. ראיות ראשיות — לא מסמכי פערים
+
+- [Commit main — 584188c](https://github.com/yotamfried-ux/Appointment-scheduling-system/commit/584188cd3ba29abfb02b58314f69ca5572b180c3)
+- [CI #40528809596 — failure](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/40528809596) — DB job ו-E2E job; job של Lint/Unit/Build ירוק.
+- [Security #40528809270 — success](https://github.com/yotamfried-ux/Appointment-scheduling-system/actions/runs/40528809270)
+- [Vercel Production deployment](https://vercel.com/yotamfried-7101s-projects/appointment-scheduling-system/2SnAMjdauRC6oS56cKzXAEtA1Bz3)
+- [Source vercel.json](https://github.com/yotamfried-ux/Appointment-scheduling-system/blob/main/vercel.json)
+- [Official Vercel Pro/Hobby cron frequency limits](https://vercel.com/docs/cron-jobs/usage-and-pricing) and [Cron setup/security and retry behavior](https://vercel.com/docs/cron-jobs/manage-cron-jobs); [GitHub scheduling on default branch only](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule); [scheduler PR #25](https://github.com/yotamfried-ux/Appointment-scheduling-system/pull/25).
+- [New-booking immediate notification](https://github.com/yotamfried-ux/Appointment-scheduling-system/blob/main/app/api/public/%5Bslug%5D/bookings/route.ts) and [kickOutbox implementation](https://github.com/yotamfried-ux/Appointment-scheduling-system/blob/main/modules/notifications/service.ts).
+- [Source job-health.ts](https://github.com/yotamfried-ux/Appointment-scheduling-system/blob/main/modules/notifications/job-health.ts)
+- [Source environment mode](https://github.com/yotamfried-ux/Appointment-scheduling-system/blob/main/lib/env.ts) ו-[system DB](https://github.com/yotamfried-ux/Appointment-scheduling-system/blob/main/platform/system-db/index.ts).
+- [Source migration 20261057000000](https://github.com/yotamfried-ux/Appointment-scheduling-system/blob/main/supabase/migrations/20261057000000_differentiate_paying_vs_complimentary_pro.sql)
+- [Source E2E failed spec](https://github.com/yotamfried-ux/Appointment-scheduling-system/blob/main/tests/e2e/sim-status-text.spec.ts)
+- ישירות מ-Supabase: `pg_class`, `private.lint_violations()`, `pg_proc`, `public.job_runs`, `public.job_status()`, `supabase_migrations.schema_migrations`; נכון ל-2026-10-30 בסביבות 08:49 UTC.
+- ישירות מ-Resend: domains/webhooks/list-emails; נתוני סטטוס בלבד, ללא פרטי נמען במסמך זה.
+
+**מדיניות שינוי:** דוח זה שומר על Production כפי שהיה. כל שינוי סכמה, מפתח, פריסת Production, שינוי scheduler חי, איפוס/שחזור או תרגיל לא-סינתטי דורש החלטה ואישור נפרדים.
