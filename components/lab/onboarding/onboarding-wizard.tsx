@@ -260,6 +260,7 @@ export function OnboardingWizard({ onFinish, email, host }: { onFinish?: (payloa
           <HoursEditor
             className="mt-6"
             hours={s.hours}
+            minServiceDuration={s.services.length ? Math.min(...s.services.map((x) => x.durationMinutes)) : undefined}
             onToggle={(weekday) => dispatch({ type: "toggleDay", weekday })}
             onSet={(weekday, index, from, to) => dispatch({ type: "setHours", weekday, index, from, to })}
             onAdd={(weekday) => dispatch({ type: "addWindow", weekday })}

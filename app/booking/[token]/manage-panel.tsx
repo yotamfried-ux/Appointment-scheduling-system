@@ -2,6 +2,7 @@ import { CheckCircle2 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { AttendButton } from "@/app/booking/[token]/attend-button";
 import { CancelButton } from "@/app/booking/[token]/cancel-button";
+import { ModalityBadge } from "@/components/patterns/modality-badge";
 import { formatDayLabel } from "@/lib/lab/booking-data";
 import { priceLabel } from "@/lib/price";
 import type { AppointmentView } from "@/modules/booking/public/service";
@@ -21,6 +22,7 @@ export async function ManagePanel({ token, a, attended }: { token: string; a: Ap
   const rows: { label: string; value: React.ReactNode; id?: string }[] = [
     { label: t("business"), value: a.businessName },
     { label: t("service"), value: a.serviceName },
+    { label: "אופן המפגש", value: <ModalityBadge location={a.location} />, id: "modality" },
     ...(a.personName && (a.teamSize ?? 0) >= 2 ? [{ label: t("person"), value: a.personName, id: "manage-person" }] : []),
     { label: t("when"), value: <>{formatDayLabel(start.date)} · <bdi>{hhmm(start.minutes)}</bdi></>, id: "when" },
     ...(priceLabel(a.priceMode, a.priceCents / 100) ? [{ label: t("price"), value: priceLabel(a.priceMode, a.priceCents / 100) }] : []),

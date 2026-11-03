@@ -53,7 +53,7 @@ const hhmmToMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice
 const statusOf = (s: string): z.infer<typeof C.OwnerStatus> =>
   s === "cancellation_requested" ? "cancellationRequested" : s === "no_show" ? "noShow" : s.startsWith("cancelled") ? "cancelled" : (s as "confirmed" | "pending" | "completed");
 
-const COLUMNS = "id, status, starts_at, ends_at, source, out_of_availability, owner_note, resource_id, service_snapshot, customers(full_name, phone)";
+const COLUMNS = "id, status, location, starts_at, ends_at, source, out_of_availability, owner_note, resource_id, service_snapshot, customers(full_name, phone)";
 
 interface WaitlistRow {
   id: string;
@@ -69,6 +69,7 @@ interface WaitlistRow {
 interface Row {
   id: string;
   status: string;
+  location?: "business" | "customer" | "online";
   starts_at: string;
   ends_at: string;
   source: string;
@@ -112,7 +113,7 @@ export async function agenda(
   const [appts, cal, svcs, svcStaff, inbox, dead, wl, version, billing] = await Promise.all([
     (personId ? dayQuery.eq("resource_id", personId) : dayQuery).order("starts_at").limit(validRange ? 1500 : 300),
     loadTeamCalendar(ctx.supabase, ctx.business.id),
-    ctx.supabase.from("services").select("id, name, duration_minutes").eq("business_id", ctx.business.id).eq("active", true).eq("capacity", 1).order("position"),
+    ctx.supabase.from("services").select("id, name, duration_minutes, locations").eq("business_id", ctx.business.id).eq("active", true).eq("capacity", 1).order("position"),
     loadServiceStaff(ctx.supabase, ctx.business.id),
     ctx.supabase
       .from("appointments")
@@ -181,6 +182,7 @@ export async function agenda(
     phone: r.customers?.phone ?? "",
     service: r.service_snapshot.name,
     status: statusOf(r.status),
+    location: r.location ?? "business",
     manual: r.source === "manual",
     outOfHours: r.out_of_availability,
     ...(r.owner_note ? { note: r.owner_note } : {}),
@@ -241,6 +243,7 @@ export async function agenda(
       name: s.name as string,
       durationMinutes: s.duration_minutes as number,
       personIds: svcStaff.get(s.id as string) ?? null,
+      locations: ((s as { locations?: ("business" | "customer" | "online")[] | null }).locations) ?? null,
     })),
     business: { name: ctx.business.name, kind: ctx.business.kind },
   };
@@ -254,6 +257,7 @@ export function mapError(e: { code?: string | null; message?: string | null }) {
   if (m.includes("slot_in_past") || m.includes("slot_too_far")) return fail("INVALID_SLOT", "אפשר להוסיף תור עד 24 שעות אחורה.");
   if (m.includes("service_unavailable")) return fail("SERVICE_UNAVAILABLE", "השירות אינו זמין.");
   if (m.includes("resource_mismatch")) return fail("VALIDATION_FAILED", "האדם שנבחר אינו זמין.");
+  if (m.includes("invalid_location")) return fail("VALIDATION_FAILED", "אופן קבלת השירות שנבחר אינו זמין לשירות זה.", [{ field: "location", message: "אופן קבלת השירות שנבחר אינו זמין לשירות זה." }]);
   if (m.includes("slot_unavailable")) return fail("SLOT_TAKEN", "אי אפשר להציע את השעה הזו: היא תפוסה, קרובה מדי או שכבר יש עליה הצעה.");
   if (m.includes("invalid_state")) return fail("INVALID_TRANSITION", "לממתין כבר יש הצעה או שהוא הוסר. רעננו את הדף.");
   if (m.includes("plan_required") || m.includes("plan_limit") || m.includes("billing_inactive")) return fail("PAYMENT_REQUIRED", m.includes("plan_limit") ? "הגעתם למכסת השירותים בחבילה. שדרגו כדי להוסיף." : m.includes("billing_inactive") ? "המנוי אינו פעיל, ולכן אי אפשר להוסיף תורים חדשים." : "התכונה הזו אינה כלולה במנוי הנוכחי.");
@@ -285,6 +289,7 @@ export async function createManual(ctx: OwnerCtx, input: C.CreateManualInput): P
     p_resource: input.personId ?? null,
     p_email: input.email?.trim() || null,
     p_customer_id: input.customerId ?? null,
+    p_location: input.location ?? null,
   });
   if (error) throw mapError(error);
   const r = data as { id: string; reference: string; customerId?: string };

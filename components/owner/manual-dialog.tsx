@@ -2,7 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
-import { Check, Search, UserCheck, X } from "lucide-react";
+import { Search, UserCheck, X } from "lucide-react";
 import { FormField } from "@/components/patterns/form-field";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,9 +20,10 @@ export interface ManualService {
   name: string;
   durationMinutes: number;
   personIds?: string[] | null;
+  locations?: ("business" | "customer" | "online")[] | null;
 }
 
-const FIELD: Record<string, "service" | "date" | "time" | "name" | "phone" | "email" | "note"> = {
+const FIELD: Record<string, "service" | "date" | "time" | "name" | "phone" | "email" | "note" | "location"> = {
   serviceId: "service",
   date: "date",
   time: "time",
@@ -30,6 +31,7 @@ const FIELD: Record<string, "service" | "date" | "time" | "name" | "phone" | "em
   "customer.phone": "phone",
   "customer.email": "email",
   note: "note",
+  location: "location",
 };
 
 interface CustomerSearchResult {
@@ -63,11 +65,22 @@ export function ManualDialog({
   onCreated: (date: string) => void;
 }) {
   const t = useTranslations("owner.manual");
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    service: string;
+    person: string;
+    date: string;
+    time: string;
+    location: "business" | "customer" | "online";
+    name: string;
+    phone: string;
+    email: string;
+    note: string;
+  }>({
     service: "",
     person: defaultPerson,
     date,
     time,
+    location: "business",
     name: "",
     phone: "",
     email: "",
@@ -84,7 +97,7 @@ export function ManualDialog({
   // Reset when dialog re-opens
   useEffect(() => {
     if (open) {
-      setForm({ service: "", person: defaultPerson, date, time, name: "", phone: "", email: "", note: "" });
+      setForm({ service: "", person: defaultPerson, date, time, location: "business", name: "", phone: "", email: "", note: "" });
       setSelectedCustomerId(null);
       setSearchQuery("");
       setSearchResults([]);
@@ -120,6 +133,14 @@ export function ManualDialog({
   }, [searchQuery]);
 
   const selectedService = useMemo(() => services.find((s) => s.id === form.service) ?? null, [services, form.service]);
+  const allowedLocations = useMemo<("business" | "customer" | "online")[]>(() => {
+    if (selectedService?.locations && selectedService.locations.length > 0) {
+      return selectedService.locations;
+    }
+    return ["business", "online"];
+  }, [selectedService]);
+  const effectiveLocation = allowedLocations.includes(form.location) ? form.location : (allowedLocations[0] ?? "business");
+
   const eligiblePeople = useMemo(() => {
     if (!selectedService?.personIds || selectedService.personIds.length === 0) return people;
     return people.filter((p) => selectedService.personIds!.includes(p.id));
@@ -169,6 +190,7 @@ export function ManualDialog({
         serviceId: form.service,
         date: form.date,
         time: form.time,
+        location: effectiveLocation,
         customerId: selectedCustomerId ?? undefined,
         customer: {
           fullName: form.name.trim(),
@@ -202,7 +224,16 @@ export function ManualDialog({
         <form method="post" onSubmit={submit} noValidate className="grid gap-4" data-testid="manual-form">
           <FormField label={t("service")} error={errors.service}>
             {(a) => (
-              <NativeSelect {...a} value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })} data-testid="manual-service">
+              <NativeSelect
+                {...a}
+                value={form.service}
+                onChange={(e) => {
+                  const svc = services.find((s) => s.id === e.target.value);
+                  const nextLoc = svc?.locations?.[0] ?? form.location;
+                  setForm({ ...form, service: e.target.value, location: nextLoc });
+                }}
+                data-testid="manual-service"
+              >
                 <option value="">{t("choose")}</option>
                 {services.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </NativeSelect>
@@ -218,12 +249,26 @@ export function ManualDialog({
               )}
             </FormField>
           ) : null}
+          <FormField label="אופן מפגש" error={errors.location}>
+            {(a) => (
+              <NativeSelect
+                {...a}
+                value={effectiveLocation}
+                onChange={(e) => setForm({ ...form, location: e.target.value as "business" | "customer" | "online" })}
+                data-testid="manual-modality"
+              >
+                {allowedLocations.includes("business") ? <option value="business">פרונטלי</option> : null}
+                {allowedLocations.includes("online") ? <option value="online">אונליין</option> : null}
+                {allowedLocations.includes("customer") ? <option value="customer">פרונטלי (אצל הלקוח)</option> : null}
+              </NativeSelect>
+            )}
+          </FormField>
           <div className="grid gap-4 sm:grid-cols-2 sm:gap-3">
             <FormField label={t("date")} error={errors.date}>
               {(a) => <Input {...a} type="date" dir="ltr" className="text-start" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} data-testid="manual-date" />}
             </FormField>
             <FormField label={t("time")} error={errors.time}>
-              {(a) => <Input {...a} type="time" step={300} dir="ltr" className="text-start" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} data-testid="manual-time" />}
+              {(a) => <Input {...a} type="time" step={60} dir="ltr" className="text-start" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} data-testid="manual-time" />}
             </FormField>
           </div>
           {windows.length > 0 && form.date === date ? (

@@ -12,7 +12,33 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toast";
 import { priceLabel } from "@/lib/price";
-import { BUFFER_OPTIONS, DURATION_OPTIONS, fromCents, type ServiceRow } from "@/modules/catalog/schema";
+import { BUFFER_OPTIONS, DURATION_OPTIONS, fromCents, type ServiceLocation, type ServiceRow } from "@/modules/catalog/schema";
+
+type ModalityChoice = "default" | "business" | "online" | "both";
+
+function locationsToChoice(locs?: ServiceLocation[] | null): ModalityChoice {
+  if (!locs || locs.length === 0) return "default";
+  const hasBusiness = locs.includes("business") || locs.includes("customer");
+  const hasOnline = locs.includes("online");
+  if (hasBusiness && hasOnline) return "both";
+  if (hasOnline) return "online";
+  return "business";
+}
+
+function choiceToLocations(choice: ModalityChoice): ServiceLocation[] | null {
+  if (choice === "online") return ["online"];
+  if (choice === "business") return ["business"];
+  if (choice === "both") return ["business", "online"];
+  return null;
+}
+
+function modalitySummary(locs?: ServiceLocation[] | null): string | null {
+  const c = locationsToChoice(locs);
+  if (c === "online") return "אונליין בלבד";
+  if (c === "business") return "פרונטלי בלבד";
+  if (c === "both") return "פרונטלי או אונליין";
+  return null;
+}
 
 interface Draft {
   id?: string;
@@ -22,9 +48,19 @@ interface Draft {
   bufferMinutes: number;
   priceNis: string;
   priceMode: "fixed" | "from" | "free" | "hidden";
+  modality: ModalityChoice;
 }
-const blank: Draft = { name: "", description: "", durationMinutes: 30, bufferMinutes: 0, priceNis: "", priceMode: "fixed" };
-const toDraft = (s: ServiceRow): Draft => ({ id: s.id, name: s.name, description: s.description ?? "", durationMinutes: s.duration_minutes, bufferMinutes: s.buffer_minutes, priceNis: String(fromCents(s.price_cents)), priceMode: s.price_mode ?? "fixed" });
+const blank: Draft = { name: "", description: "", durationMinutes: 30, bufferMinutes: 0, priceNis: "", priceMode: "fixed", modality: "default" };
+const toDraft = (s: ServiceRow): Draft => ({
+  id: s.id,
+  name: s.name,
+  description: s.description ?? "",
+  durationMinutes: s.duration_minutes,
+  bufferMinutes: s.buffer_minutes,
+  priceNis: String(fromCents(s.price_cents)),
+  priceMode: s.price_mode ?? "fixed",
+  modality: locationsToChoice(s.locations),
+});
 
 export function ServicesManager({ services }: { services: ServiceRow[] }) {
   const t = useTranslations("settings.services");
@@ -47,7 +83,16 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
     if (fe.name || fe.price) return;
     setError(null);
     start(async () => {
-      const r = await saveServiceAction({ id: draft.id, name: draft.name, description: draft.description, durationMinutes: draft.durationMinutes, bufferMinutes: draft.bufferMinutes, priceNis: price, priceMode: draft.priceMode });
+      const r = await saveServiceAction({
+        id: draft.id,
+        name: draft.name,
+        description: draft.description,
+        durationMinutes: draft.durationMinutes,
+        bufferMinutes: draft.bufferMinutes,
+        priceNis: price,
+        priceMode: draft.priceMode,
+        locations: choiceToLocations(draft.modality),
+      });
       if (!r.ok) return setError(r.code === "DUPLICATE" ? t("errors.duplicate") : r.code === "FORBIDDEN" ? t("errors.forbidden") : t("errors.generic"));
       toast(t("saved"), { variant: "success" });
       setDraft(null);
@@ -114,6 +159,21 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
         {draft.priceMode === "free" ? null : <FormField label={t("price")} error={fieldErrors.price}>
           {(a) => <Input {...a} type="number" inputMode="decimal" min={0} step="1" value={draft.priceNis} onChange={(e) => setDraft({ ...draft, priceNis: e.target.value })} />}
         </FormField>}
+        <FormField label="אופן קבלת השירות">
+          {(a) => (
+            <NativeSelect
+              {...a}
+              value={draft.modality}
+              onChange={(e) => setDraft({ ...draft, modality: e.target.value as ModalityChoice })}
+              data-testid="service-modality"
+            >
+              <option value="default">לפי ברירת המחדל של העסק</option>
+              <option value="business">פרונטלי בלבד (בעסק)</option>
+              <option value="online">אונליין בלבד</option>
+              <option value="both">פרונטלי או אונליין (לבחירת הלקוח)</option>
+            </NativeSelect>
+          )}
+        </FormField>
       </div>
       {error ? <p role="alert" className="text-sm font-medium text-destructive" data-testid="service-error">{error}</p> : null}
       <div className="flex flex-wrap gap-2">
@@ -137,33 +197,37 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
         <EmptyState title={t("empty")} />
       ) : (
         <ul className="divide-y overflow-hidden rounded-lg border bg-card" data-testid="service-list">
-          {active.map((s) => (
-            <li key={s.id} data-testid={`service-${s.id}`}>
-              {draft?.id === s.id ? (
-                <div className="p-3">{form}</div>
-              ) : (
-                <div className="grid gap-2 px-4 py-3.5 sm:flex sm:items-center sm:gap-3">
-                  <div className="min-w-0 sm:flex-1">
-                    <p className="font-semibold [overflow-wrap:anywhere]">{s.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {t("minutes", { minutes: s.duration_minutes })}
-                      {s.buffer_minutes ? ` · +${t("minutes", { minutes: s.buffer_minutes })}` : ""} · {priceLabel(s.price_mode, fromCents(s.price_cents)) ?? t("priceModes.hidden")}
-                    </p>
+          {active.map((s) => {
+            const mod = modalitySummary(s.locations);
+            return (
+              <li key={s.id} data-testid={`service-${s.id}`}>
+                {draft?.id === s.id ? (
+                  <div className="p-3">{form}</div>
+                ) : (
+                  <div className="grid gap-2 px-4 py-3.5 sm:flex sm:items-center sm:gap-3">
+                    <div className="min-w-0 sm:flex-1">
+                      <p className="font-semibold [overflow-wrap:anywhere]">{s.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {t("minutes", { minutes: s.duration_minutes })}
+                        {s.buffer_minutes ? ` · +${t("minutes", { minutes: s.buffer_minutes })}` : ""} · {priceLabel(s.price_mode, fromCents(s.price_cents)) ?? t("priceModes.hidden")}
+                        {mod ? ` · ${mod}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex justify-start gap-1.5 sm:justify-end">
+                      <Button variant="outline" size="sm" aria-label={`${t("edit")} · ${s.name}`} disabled={pending} onClick={() => { setDraft(toDraft(s)); setError(null); setFieldErrors({}); }}>
+                        <Pencil aria-hidden />
+                        {t("edit")}
+                      </Button>
+                      <Button variant="ghost" size="sm" aria-label={`${t("archive")} · ${s.name}`} disabled={pending} onClick={() => toggle(s, false)}>
+                        <Archive aria-hidden />
+                        {t("archive")}
+                      </Button>
+                    </div>
                   </div>
-                  <div className="flex justify-start gap-1.5 sm:justify-end">
-                    <Button variant="outline" size="sm" aria-label={`${t("edit")} · ${s.name}`} disabled={pending} onClick={() => { setDraft(toDraft(s)); setError(null); setFieldErrors({}); }}>
-                      <Pencil aria-hidden />
-                      {t("edit")}
-                    </Button>
-                    <Button variant="ghost" size="sm" aria-label={`${t("archive")} · ${s.name}`} disabled={pending} onClick={() => toggle(s, false)}>
-                      <Archive aria-hidden />
-                      {t("archive")}
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </li>
-          ))}
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 

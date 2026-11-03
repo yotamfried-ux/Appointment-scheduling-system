@@ -10,6 +10,7 @@ import { useHoldTimer } from "@/components/lab/booking/use-hold-timer";
 import { WeekPicker } from "@/components/lab/booking/week-picker";
 import { ChoiceCard } from "@/components/patterns/choice-card";
 import { FormField } from "@/components/patterns/form-field";
+import { formatModalityLabel, ModalityBadge } from "@/components/patterns/modality-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -81,6 +82,16 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
   const horizon = Math.min(90, business?.horizonDays ?? HORIZON);
   const vocab = business?.vocab;
   const service = catalog.status === "ready" ? (catalog.data.services.find((x) => x.id === s.serviceId) ?? null) : null;
+  const serviceLocations = useMemo<("business" | "customer" | "online")[]>(() => {
+    if (service?.locations && service.locations.length > 0) return service.locations;
+    return business?.locations ?? ["business"];
+  }, [service, business]);
+  const rawLoc = s.details.location as "business" | "customer" | "online" | "";
+  const selectedLocation: "business" | "customer" | "online" =
+    rawLoc && serviceLocations.includes(rawLoc)
+      ? rawLoc
+      : (serviceLocations[0] ?? "business");
+
   const people = useMemo(() => {
     const team = catalog.status === "ready" ? catalog.data.team : [];
     return service?.personIds && service.personIds.length > 0 ? team.filter((p) => service.personIds!.includes(p.id)) : team;
@@ -170,7 +181,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
     if (!service || !s.day || !s.time || !business) return;
     setTouched(true);
     if (!detailsValid(s.details, requiredIntake) || !terms.ok) return;
-    const location = s.details.location ?? business.locations[0];
+    const location = selectedLocation;
     const body = {
       serviceId: service.id,
       date: s.day,
@@ -189,7 +200,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
     try {
       const b = await labApi.createBooking(opts, body, idem.current.key);
       terms.remember();
-      setBooking(b);
+      setBooking({ ...b, location: b.location ?? location });
       setSubmit({ status: "idle" });
       dispatch({ type: "next" });
     } catch (e) {
@@ -247,6 +258,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
       <Confirmation
         service={service}
         booking={booking}
+        location={booking.location ?? selectedLocation}
         email={base ? "" : s.details.email.trim()}
         opts={opts}
         doneTitle={vocab.doneTitle}
@@ -455,18 +467,39 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
                 {(a) => <Input {...a} type="email" inputMode="email" autoComplete="email" value={s.details.email} onChange={(e) => setDetails({ email: e.target.value })} />}
               </FormField>
 
-              {business.locations.length > 1 ? (
-                <fieldset>
-                  <legend className="mb-2 text-sm font-medium">{t("details.location")}</legend>
+              {serviceLocations.length > 1 ? (
+                <fieldset data-testid="modality-selector">
+                  <legend className="mb-2 text-sm font-medium">אופן המפגש ({t("details.location")})</legend>
                   <div className="grid grid-cols-1 gap-2">
-                    {business.locations.map((l) => (
-                      <ChoiceCard key={l} variant="card" name="location" value={l} checked={(s.details.location ?? business.locations[0]) === l} onChange={(v) => setDetails({ location: v })} testId={`location-${l}`}>
-                        <span className="font-medium">{t(`details.locations.${l}`)}</span>
+                    {serviceLocations.map((l) => (
+                      <ChoiceCard
+                        key={l}
+                        variant="card"
+                        name="location"
+                        value={l}
+                        checked={selectedLocation === l}
+                        onChange={(v) => setDetails({ location: v })}
+                        testId={`location-${l}`}
+                      >
+                        <div className="flex w-full items-center justify-between gap-2">
+                          <span className="font-medium">
+                            {l === "online" ? "אונליין" : l === "customer" ? "פרונטלי (אצלכם)" : "פרונטלי (אצל העסק)"}
+                          </span>
+                          <ModalityBadge location={l} />
+                        </div>
                       </ChoiceCard>
                     ))}
                   </div>
                 </fieldset>
-              ) : null}
+              ) : (
+                <div
+                  className="flex items-center justify-between rounded-lg border bg-muted/30 px-3.5 py-2.5 text-sm"
+                  data-testid="single-modality-info"
+                >
+                  <span className="font-medium text-muted-foreground">אופן המפגש</span>
+                  <ModalityBadge location={serviceLocations[0]} />
+                </div>
+              )}
 
               {business.intake.map((f) => (
                 <FormField key={f.id} label={f.label} error={detailsErrors[`intake.${f.id}`]}>
@@ -506,6 +539,14 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
               <dt className="text-muted-foreground">{t("summary.service")}</dt>
               <dd className="text-end font-semibold">{service ? service.name : t("summary.none")}</dd>
             </div>
+            {service ? (
+              <div className="flex items-center justify-between gap-3 py-3" data-testid="summary-modality">
+                <dt className="text-muted-foreground">אופן המפגש</dt>
+                <dd className="text-end font-semibold">
+                  <ModalityBadge location={selectedLocation} />
+                </dd>
+              </div>
+            ) : null}
             {people.length >= 2 ? (
               <div className="flex items-baseline justify-between gap-3 py-3">
                 <dt className="text-muted-foreground">{t("summary.person")}</dt>
@@ -550,6 +591,7 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
                 <p className="truncate text-muted-foreground">
                   {s.day ? formatDayLabel(s.day, "short") : null}
                   {s.time ? <> · <bdi>{s.time}</bdi></> : null}
+                  {s.step === "details" ? <> · {formatModalityLabel(selectedLocation)}</> : null}
                   {!s.day ? priceLabel(service.priceMode, service.priceNis) : null}
                 </p>
               </>
@@ -600,7 +642,25 @@ function ManageLink({ path }: { path: string }) {
   );
 }
 
-function Confirmation({ service, booking, email, opts, doneTitle, cancelUntilHours, onAnother }: { service: { name: string; priceNis: number; priceMode?: "fixed" | "from" | "free" | "hidden" }; booking: Booking; email: string; opts: ClientOptions; doneTitle: string; cancelUntilHours: number; onAnother: () => void }) {
+function Confirmation({
+  service,
+  booking,
+  location,
+  email,
+  opts,
+  doneTitle,
+  cancelUntilHours,
+  onAnother,
+}: {
+  service: { name: string; priceNis: number; priceMode?: "fixed" | "from" | "free" | "hidden" };
+  booking: Booking;
+  location: "business" | "customer" | "online";
+  email: string;
+  opts: ClientOptions;
+  doneTitle: string;
+  cancelUntilHours: number;
+  onAnother: () => void;
+}) {
   const t = useTranslations("booking");
   const headingRef = useRef<HTMLHeadingElement>(null);
   const [mail, setMail] = useState<{ subject: string; body: string; to: string } | null>(null);
@@ -625,6 +685,12 @@ function Confirmation({ service, booking, email, opts, doneTitle, cancelUntilHou
         <div className="flex justify-between gap-4 p-4">
           <dt className="text-muted-foreground">{t("summary.service")}</dt>
           <dd className="font-semibold">{service.name}</dd>
+        </div>
+        <div className="flex items-center justify-between gap-4 p-4">
+          <dt className="text-muted-foreground">אופן המפגש</dt>
+          <dd className="font-semibold" data-testid="done-modality">
+            <ModalityBadge location={location} />
+          </dd>
         </div>
         {booking.personName ? (
           <div className="flex justify-between gap-4 p-4">

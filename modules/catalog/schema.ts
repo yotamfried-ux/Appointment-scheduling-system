@@ -2,6 +2,9 @@
 // the database enforces the same ranges, so a bypassed UI still cannot store nonsense.
 import { z } from "zod";
 
+export const ServiceLocationSchema = z.enum(["business", "customer", "online"]);
+export type ServiceLocation = z.infer<typeof ServiceLocationSchema>;
+
 export const ServiceInput = z
   .object({
     id: z.uuid().optional(),
@@ -12,6 +15,7 @@ export const ServiceInput = z
     priceNis: z.number().min(0).max(100_000),
     priceMode: z.enum(["fixed", "from", "free", "hidden"]).default("fixed"),
     capacity: z.number().int().min(1).max(100).default(1),
+    locations: z.array(ServiceLocationSchema).min(1).max(3).nullable().optional(),
   })
   .strict();
 export type ServiceInput = z.infer<typeof ServiceInput>;
@@ -30,6 +34,7 @@ export interface ServiceRow {
   capacity: number;
   active: boolean;
   position: number;
+  locations?: ServiceLocation[] | null;
 }
 
 export const DURATION_OPTIONS = [5, 10, 15, 20, 30, 45, 60, 75, 90, 120, 150, 180, 240];

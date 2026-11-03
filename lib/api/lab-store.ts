@@ -24,6 +24,7 @@ interface StoredBooking {
   end: number;
   customerName: string;
   customerEmail: string;
+  location: "business" | "customer" | "online";
   group: boolean;
 }
 interface State {
@@ -78,7 +79,7 @@ function seedAppointments(kind: BusinessKindId): Appt[] {
       const p = solo[n % solo.length];
       const end = cursor + p.durationMinutes;
       if (end > w.to) break;
-      out.push({ id: `a${n + 1}`, date: LAB_TODAY, start: cursor, end, customer: NAMES[n % NAMES.length], service: p.name, status: "confirmed" });
+      out.push({ id: `a${n + 1}`, date: LAB_TODAY, start: cursor, end, customer: NAMES[n % NAMES.length], service: p.name, status: "confirmed", location: k.locations[n % k.locations.length] ?? "business" });
       cursor = end + (n % 3 === 2 ? 60 : 0); // every third appointment leaves a free gap
       n++;
     }
@@ -109,7 +110,8 @@ export const labReset = (session: string) => [...sessions.keys()].filter((k) => 
 
 // ---------- catalog ----------
 export function servicesOf(kind: BusinessKindId) {
-  return getKind(kind).presets.map((p) => ({ id: p.id, name: p.name, description: p.description, durationMinutes: p.durationMinutes, priceNis: p.priceNis, group: !!p.group }));
+  const k = getKind(kind);
+  return k.presets.map((p) => ({ id: p.id, name: p.name, description: p.description, durationMinutes: p.durationMinutes, priceNis: p.priceNis, group: !!p.group, locations: k.locations }));
 }
 export function findService(kind: BusinessKindId, id: string): ServicePreset | undefined {
   return getKind(kind).presets.find((p) => p.id === id);
@@ -246,7 +248,8 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function createBooking(session: string, kind: BusinessKindId, input: CreateBookingInput, idemKey: string) {
   const k = getKind(kind);
   const st = stateOf(session, kind);
-  const bodyHash = JSON.stringify(input);
+  const loc = input.location ?? k.locations[0] ?? "business";
+  const bodyHash = JSON.stringify({ ...input, location: loc });
 
   const prior = st.idem.get(idemKey);
   if (prior) {
@@ -261,7 +264,7 @@ export function createBooking(session: string, kind: BusinessKindId, input: Crea
   if (!phone) errors.push({ field: "customer.phone", message: "מספר הטלפון אינו תקין." });
   const email = input.customer.email.trim();
   if (!EMAIL.test(email)) errors.push({ field: "customer.email", message: "כתובת האימייל אינה תקינה." });
-  if (!k.locations.includes(input.location)) errors.push({ field: "location", message: "אופן קבלת השירות אינו נתמך." });
+  if (!k.locations.includes(loc)) errors.push({ field: "location", message: "אופן קבלת השירות אינו נתמך." });
   for (const key of Object.keys(input.intake)) {
     const f = k.intake.find((x) => x.id === key);
     if (!f) errors.push({ field: `intake.${key}`, message: "שדה לא מוכר." });
@@ -292,16 +295,17 @@ export function createBooking(session: string, kind: BusinessKindId, input: Crea
     end: start + svc.durationMinutes,
     customerName: input.customer.fullName.trim(),
     customerEmail: email,
+    location: loc,
     group: !!svc.group,
   };
   st.bookings.push(booking);
-  st.appointments.push({ id: booking.id, date: booking.date, start: booking.start, end: booking.end, customer: booking.customerName, service: svc.name, status: booking.status });
+  st.appointments.push({ id: booking.id, date: booking.date, start: booking.start, end: booking.end, customer: booking.customerName, service: svc.name, status: booking.status, location: loc });
   st.idem.set(idemKey, { hash: bodyHash, bookingId: booking.id });
   return { booking: toDto(booking, k.defaults.requireApproval), replay: false };
 }
 
 const toDto = (b: StoredBooking, requiresApproval: boolean) => ({
-  id: b.id, reference: b.reference, status: b.status, serviceId: b.serviceId, date: b.date, time: fmtTime(b.start), endTime: fmtTime(b.end), requiresApproval,
+  id: b.id, reference: b.reference, status: b.status, serviceId: b.serviceId, date: b.date, time: fmtTime(b.start), endTime: fmtTime(b.end), requiresApproval, location: b.location,
 });
 
 export function notificationFor(session: string, kind: BusinessKindId, bookingId: string): EmailPreview {

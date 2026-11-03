@@ -3,6 +3,7 @@
 import { Check, X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
+import { ModalityBadge } from "@/components/patterns/modality-badge";
 import { Button } from "@/components/ui/button";
 import { formatDayLabel } from "@/lib/lab/booking-data";
 import { fmt, type DashboardAction, type LabAppointment } from "@/lib/lab/dashboard-data";
@@ -36,7 +37,10 @@ export function ApprovalsPanel({ appointments, onAction, busyIds }: { appointmen
           {shownPending.map((a) => (
             <li key={a.id} className="grid min-w-0 gap-3 px-4 py-3.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center xl:grid-cols-1" data-testid={`approval-${a.id}`}>
               <div>
-                <p className="font-medium [overflow-wrap:anywhere]">{a.customer}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium [overflow-wrap:anywhere]">{a.customer}</p>
+                  <ModalityBadge location={a.location} data-testid={`approval-modality-${a.id}`} />
+                </div>
                 <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
                   {a.service} · {when(a)}
                   {a.note ? <> · {a.note}</> : null}
@@ -56,7 +60,10 @@ export function ApprovalsPanel({ appointments, onAction, busyIds }: { appointmen
             <li key={a.id} className="grid min-w-0 gap-3 bg-muted/40 px-4 py-4" data-testid={`approval-${a.id}`}>
               <div>
                 <p className="text-xs font-semibold text-warning">{t("cancelRequest")}</p>
-                <p className="font-medium [overflow-wrap:anywhere]">{a.customer}</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="font-medium [overflow-wrap:anywhere]">{a.customer}</p>
+                  <ModalityBadge location={a.location} data-testid={`approval-modality-${a.id}`} />
+                </div>
                 <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
                   {a.service} · {when(a)}
                   {a.note ? <> · {a.note}</> : null}

@@ -13,7 +13,10 @@ import { MoveDialog } from "@/components/owner/move-dialog";
 import { OfferDialog } from "@/components/owner/offer-dialog";
 import { UndeliveredBanner } from "@/components/owner/undelivered-banner";
 import { WaitlistPanel, type WaitlistEntry } from "@/components/owner/waitlist-panel";
+import { ModalityBadge } from "@/components/patterns/modality-badge";
+import { StatusBadge, type AppointmentStatus } from "@/components/patterns/status-badge";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { dismissAllToasts, toast } from "@/components/ui/toast";
 import { ApiClientError, ownerApi } from "@/lib/api/client";
@@ -35,6 +38,15 @@ const shortDateLabel = (iso: string) =>
   new Intl.DateTimeFormat("he-IL", { day: "numeric", month: "numeric", timeZone: LAB_TIMEZONE }).format(new Date(`${iso}T12:00:00Z`));
 const monthLabel = (iso: string) =>
   new Intl.DateTimeFormat("he-IL", { month: "long", year: "numeric", timeZone: LAB_TIMEZONE }).format(new Date(`${iso}T12:00:00Z`));
+
+const STATUS_MAP: Record<LabAppointment["status"], { badge: AppointmentStatus; key: string }> = {
+  confirmed: { badge: "confirmed", key: "confirmed" },
+  pending: { badge: "pending", key: "pending" },
+  completed: { badge: "completed", key: "completed" },
+  noShow: { badge: "noShow", key: "noShow" },
+  cancelled: { badge: "cancelled", key: "cancelled" },
+  cancellationRequested: { badge: "cancellationRequested", key: "cancellationRequested" },
+};
 
 function computeRangeForView(anchor: string | undefined, view: CalendarView): { from: string; to: string } | undefined {
   if (!anchor || view === "day") return undefined;
@@ -67,6 +79,7 @@ function shiftMonthIso(iso: string, deltaMonths: number): string {
 /** The owner's working day, week, or month: who is coming, what needs a decision, what is free. */
 export function OwnerAgenda() {
   const t = useTranslations("owner");
+  const tRoot = useTranslations();
   const router = useRouter();
   const [view, setView] = useState<CalendarView>("day");
   const [date, setDate] = useState<string | undefined>(undefined);
@@ -78,6 +91,7 @@ export function OwnerAgenda() {
   const [dialog, setDialog] = useState<{ open: boolean; time: string; date?: string }>({ open: false, time: "" });
   const [offering, setOffering] = useState<WaitlistEntry | null>(null);
   const [moving, setMoving] = useState<LabAppointment | null>(null);
+  const [selectedAppt, setSelectedAppt] = useState<LabAppointment | null>(null);
   const [person, setPerson] = useState<string | undefined>(undefined);
   const [pollMs, setPollMs] = useState(10_000);
   const inFlight = useRef(false);
@@ -363,6 +377,7 @@ export function OwnerAgenda() {
                 renderActions={rowActions}
                 showPerson={team}
                 showGaps={!team || filtering}
+                onSelectAppointment={(a) => setSelectedAppt(a)}
                 onAddInGap={(start) => {
                   dismissAllToasts();
                   setDialog({ open: true, time: fmt(start), date: agenda.date });
@@ -468,6 +483,8 @@ export function OwnerAgenda() {
                         item.kind === "appt" ? (
                           <div
                             key={item.appt.id}
+                            data-testid={`week-appt-${item.appt.id}`}
+                            data-modality={item.appt.location ?? "business"}
                             onClick={() => {
                               go(day.date);
                               setView("day");
@@ -476,9 +493,7 @@ export function OwnerAgenda() {
                           >
                             <div className="flex items-center justify-between gap-1 text-xs font-semibold tabular-nums">
                               <bdi>{fmt(item.appt.start)}–{fmt(item.appt.end)}</bdi>
-                              {item.appt.status === "pending" ? (
-                                <span className="text-[11px] font-medium text-muted-foreground">ממתין</span>
-                              ) : null}
+                              <ModalityBadge location={item.appt.location} size="sm" />
                             </div>
                             <p className="mt-1 truncate text-xs font-bold">{item.appt.customer}</p>
                             <p className="truncate text-[11px] text-muted-foreground">
@@ -596,15 +611,23 @@ export function OwnerAgenda() {
                 {appts
                   .filter((a) => a.status !== "cancelled")
                   .map((a) => (
-                    <li key={a.id} className="grid gap-1.5 p-3 text-sm">
+                    <li key={a.id} className="grid gap-1.5 p-3 text-sm" data-testid={`inspector-appt-${a.id}`}>
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-bold tabular-nums"><bdi>{fmt(a.start)}–{fmt(a.end)}</bdi></span>
-                        <span className="text-xs text-muted-foreground">{a.service}</span>
+                        <ModalityBadge location={a.location} size="sm" />
                       </div>
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-medium">{a.customer}</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedAppt(a)}
+                          className="font-medium text-start hover:underline"
+                          data-testid={`inspector-detail-${a.id}`}
+                        >
+                          {a.customer}
+                        </button>
                         <bdi className="text-xs text-muted-foreground">{formatPhone(a.phone)}</bdi>
                       </div>
+                      <p className="text-xs text-muted-foreground">{a.service}</p>
                       <div className="flex flex-wrap items-center gap-1 pt-1">
                         {rowActions(a)}
                       </div>
@@ -626,6 +649,81 @@ export function OwnerAgenda() {
           </aside>
         </div>
       )}
+
+      {/* Appointment Details Dialog */}
+      {selectedAppt ? (
+        <Dialog open onOpenChange={(open) => !open && setSelectedAppt(null)}>
+          <DialogContent className="sm:max-w-md" data-testid="appointment-detail-dialog">
+            <DialogHeader>
+              <DialogTitle>פרטי התור</DialogTitle>
+              <DialogDescription>{formatDayLabel(selectedAppt.date ?? agenda.date)}</DialogDescription>
+            </DialogHeader>
+            <dl className="divide-y rounded-lg border bg-card text-sm">
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <dt className="text-muted-foreground">לקוח/ה</dt>
+                <dd className="font-semibold">{selectedAppt.customer}</dd>
+              </div>
+              {selectedAppt.phone ? (
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <dt className="text-muted-foreground">טלפון</dt>
+                  <dd className="font-semibold tabular-nums"><bdi>{formatPhone(selectedAppt.phone)}</bdi></dd>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <dt className="text-muted-foreground">שירות</dt>
+                <dd className="font-semibold">{selectedAppt.service}</dd>
+              </div>
+              {team && selectedAppt.personName ? (
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <dt className="text-muted-foreground">איש/אשת צוות</dt>
+                  <dd className="font-semibold">{selectedAppt.personName}</dd>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <dt className="text-muted-foreground">שעה</dt>
+                <dd className="font-semibold tabular-nums"><bdi>{fmt(selectedAppt.start)}–{fmt(selectedAppt.end)}</bdi></dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 px-4 py-3" data-testid="detail-dialog-modality-row">
+                <dt className="text-muted-foreground">אופן מפגש</dt>
+                <dd>
+                  <ModalityBadge location={selectedAppt.location} size="md" data-testid="detail-dialog-modality" />
+                </dd>
+              </div>
+              <div className="flex items-center justify-between gap-3 px-4 py-3">
+                <dt className="text-muted-foreground">סטטוס</dt>
+                <dd>
+                  <StatusBadge status={STATUS_MAP[selectedAppt.status].badge} label={tRoot(`status.${STATUS_MAP[selectedAppt.status].key}`)} />
+                </dd>
+              </div>
+              {selectedAppt.note ? (
+                <div className="flex items-center justify-between gap-3 px-4 py-3">
+                  <dt className="text-muted-foreground">הערה</dt>
+                  <dd className="text-end">{selectedAppt.note}</dd>
+                </div>
+              ) : null}
+            </dl>
+            <DialogFooter className="gap-2">
+              {selectedAppt.status === "confirmed" && !started(selectedAppt) ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const target = selectedAppt;
+                    setSelectedAppt(null);
+                    setMoving(target);
+                  }}
+                  data-testid="detail-dialog-move"
+                >
+                  {t("agenda.move")}
+                </Button>
+              ) : null}
+              <Button type="button" onClick={() => setSelectedAppt(null)} data-testid="detail-dialog-close">
+                סגירה
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       {moving ? (
         <MoveDialog

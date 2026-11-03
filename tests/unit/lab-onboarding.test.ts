@@ -132,15 +132,17 @@ describe("business kinds in onboarding", () => {
     expect(s.hours[0].windows).toEqual([{ from: "06:00", to: "10:00" }, { from: "17:00", to: "21:00" }]);
   });
 
-  it("windows can be added (max 3) and removed (min 1); overlaps and inversions are invalid", () => {
-    let s = onboardingReducer(initialOnboarding, { type: "addWindow", weekday: 1 });
-    expect(s.hours[1].windows).toHaveLength(2);
-    expect(hoursValid(s.hours)).toBe(true); // added window is placed after the previous one
-    s = onboardingReducer(s, { type: "addWindow", weekday: 1 });
-    s = onboardingReducer(s, { type: "addWindow", weekday: 1 });
-    expect(s.hours[1].windows).toHaveLength(3);
-    s = onboardingReducer(s, { type: "removeWindow", weekday: 1, index: 2 });
-    s = onboardingReducer(s, { type: "removeWindow", weekday: 1, index: 1 });
+  it("windows can be added without a 3-window cap and removed (min 1); overlaps and inversions are invalid", () => {
+    let s = onboardingReducer(initialOnboarding, { type: "setHours", weekday: 1, index: 0, from: "08:00", to: "09:00" });
+    for (let i = 0; i < 6; i++) {
+      s = onboardingReducer(s, { type: "addWindow", weekday: 1 });
+    }
+    expect(s.hours[1].windows.length).toBe(7);
+    expect(hoursValid(s.hours)).toBe(true);
+    while (s.hours[1].windows.length > 1) {
+      s = onboardingReducer(s, { type: "removeWindow", weekday: 1, index: s.hours[1].windows.length - 1 });
+    }
+    expect(s.hours[1].windows).toHaveLength(1);
     expect(onboardingReducer(s, { type: "removeWindow", weekday: 1, index: 0 }).hours[1].windows).toHaveLength(1);
     expect(windowsValid([{ from: "09:00", to: "12:00" }, { from: "11:00", to: "14:00" }])).toBe(false);
     expect(windowsValid([{ from: "09:00", to: "12:00" }, { from: "12:00", to: "14:00" }])).toBe(true);

@@ -28,7 +28,17 @@ export interface NotifContext {
   type: NotificationType;
   recipient: "customer" | "owner" | "admin";
   /** Set for booking messages; null for waitlist messages. */
-  appointment: { id: string; status: string; startsAt: string; endsAt: string; reference: string; serviceName: string; /** Only in a business with two or more people. */ personName?: string | null } | null;
+  appointment: {
+    id: string;
+    status: string;
+    startsAt: string;
+    endsAt: string;
+    reference: string;
+    serviceName: string;
+    location?: "business" | "customer" | "online" | null;
+    /** Only in a business with two or more people. */
+    personName?: string | null;
+  } | null;
   /** Set for the owner's daily digest only. */
   /** Set for the owner's subscription notices only. */
   billing?: { status: string; trialEndsAt: string | null; graceUntil: string | null } | null;
@@ -259,6 +269,10 @@ export function render(ctx: NotifContext, opts: { appUrl: string; manageToken?: 
 
   const rows: [string, string][] = [["מועד", when]];
   if (showService) rows.push(["שירות", clean(serviceName)]);
+  if (ctx.appointment) {
+    const modalityLabel = ctx.appointment.location === "online" ? "אונליין" : "פרונטלי";
+    rows.push(["אופן מפגש", modalityLabel]);
+  }
   const person = ctx.appointment?.personName ?? offer?.personName;
   if (person) rows.push(["אצל", clean(person)]);
   if (owner) rows.unshift(["לקוח/ה", name]);

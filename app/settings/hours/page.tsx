@@ -33,6 +33,7 @@ export default async function HoursPage({ searchParams }: { searchParams: Promis
   const active = services.filter((s) => s.active);
   const wanted = (await searchParams).service;
   const picked = active.find((s) => s.id === wanted) ?? active[0];
+  const minServiceDuration = picked?.duration_minutes ?? (active.length ? Math.min(...active.map((s) => s.duration_minutes)) : undefined);
   return (
     <SettingsPage email={business.name} title={t("hours.title")} description={t("hours.subtitle")}>
       {activePeople.length > 1 && mine ? (
@@ -40,7 +41,7 @@ export default async function HoursPage({ searchParams }: { searchParams: Promis
           {t("hours.teamNote", { name: mine.name })} <Link href="/settings/team" className="font-semibold text-primary underline underline-offset-2">{t("hours.teamLink")}</Link>
         </p>
       ) : null}
-      <HoursManager initial={rulesToDayHours(rules)} exceptions={exceptions} today={today} />
+      <HoursManager initial={rulesToDayHours(rules)} exceptions={exceptions} today={today} minServiceDuration={minServiceDuration} />
       <section aria-labelledby="preview-title" className="grid gap-4">
         <div>
           <h2 id="preview-title" className="text-lg font-semibold">{t("preview.title")}</h2>

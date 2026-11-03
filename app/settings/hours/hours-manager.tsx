@@ -12,13 +12,41 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toast";
 import { formatDayLabel } from "@/lib/lab/booking-data";
-import { addWindow, hoursValid, removeWindow, setWindow, toggleDay, type DayHours } from "@/lib/lab/onboarding";
+import {
+  addWindow,
+  hoursValid,
+  isValidHHmm,
+  onboardingToMinutes as toMin,
+  removeWindow,
+  setWindow,
+  toggleDay,
+  type DayHours,
+} from "@/lib/lab/onboarding";
 import type { ExceptionRow } from "@/modules/availability/schema";
 
 const fmt = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 const TIMES = Array.from({ length: 49 }, (_, i) => fmt(i * 30)).filter((x) => x !== "24:00");
+const TO_TIMES = Array.from({ length: 48 }, (_, i) => fmt((i + 1) * 30));
 
-export function HoursManager({ initial, exceptions, today }: { initial: DayHours[]; exceptions: ExceptionRow[]; today?: string }) {
+function optionsWithCurrent(base: string[], current: string, allow24End: boolean): string[] {
+  if (base.includes(current)) return base;
+  if (isValidHHmm(current, allow24End)) {
+    return [...base, current].sort((a, b) => toMin(a) - toMin(b));
+  }
+  return [current, ...base];
+}
+
+export function HoursManager({
+  initial,
+  exceptions,
+  today,
+  minServiceDuration,
+}: {
+  initial: DayHours[];
+  exceptions: ExceptionRow[];
+  today?: string;
+  minServiceDuration?: number;
+}) {
   const t = useTranslations("settings");
   const router = useRouter();
   const [hours, setHours] = useState(initial);
@@ -41,6 +69,7 @@ export function HoursManager({ initial, exceptions, today }: { initial: DayHours
       <section aria-labelledby="weekly-title" className="grid gap-4">
         <HoursEditor
           hours={hours}
+          minServiceDuration={minServiceDuration}
           onToggle={(d) => setHours((h) => toggleDay(h, d))}
           onSet={(d, i, from, to) => setHours((h) => setWindow(h, d, i, from, to))}
           onAdd={(d) => setHours((h) => addWindow(h, d))}
@@ -71,7 +100,8 @@ function ExceptionsManager({ exceptions, today }: { exceptions: ExceptionRow[]; 
   const hasRange = kind === "open" || partial;
 
   const add = () => {
-    const e = { date: date ? undefined : t("dateRequired"), range: hasRange && from >= to ? t("rangeInvalid") : undefined };
+    const validTimes = !hasRange || (isValidHHmm(from, false) && isValidHHmm(to, true) && toMin(from) < toMin(to));
+    const e = { date: date ? undefined : t("dateRequired"), range: !validTimes ? t("rangeInvalid") : undefined };
     setErrors(e);
     if (e.date || e.range) return;
     start(async () => {
@@ -160,10 +190,50 @@ function ExceptionsManager({ exceptions, today }: { exceptions: ExceptionRow[]; 
         {hasRange ? (
           <div className="grid gap-4 sm:grid-cols-2">
             <FormField label={t("from")}>
-              {(a) => <NativeSelect {...a} value={from} onChange={(e) => setFrom(e.target.value)}>{TIMES.map((x) => <option key={x}>{x}</option>)}</NativeSelect>}
+              {(a) => (
+                <div className="grid grid-cols-[1fr_5.5rem] items-center gap-1.5">
+                  <NativeSelect {...a} value={from} onChange={(e) => setFrom(e.target.value)}>
+                    {optionsWithCurrent(TIMES, from, false).map((x) => (
+                      <option key={x} value={x}>{x}</option>
+                    ))}
+                  </NativeSelect>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    dir="ltr"
+                    maxLength={5}
+                    placeholder="HH:MM"
+                    className="px-2 text-center font-mono text-sm tabular-nums"
+                    aria-label={`הזנה ידנית ${t("from")}`}
+                    data-testid="exception-manual-from"
+                    value={from}
+                    onChange={(e) => setFrom(e.target.value)}
+                  />
+                </div>
+              )}
             </FormField>
             <FormField label={t("to")} error={errors.range}>
-              {(a) => <NativeSelect {...a} value={to} onChange={(e) => setTo(e.target.value)}>{TIMES.map((x) => <option key={x}>{x}</option>)}</NativeSelect>}
+              {(a) => (
+                <div className="grid grid-cols-[1fr_5.5rem] items-center gap-1.5">
+                  <NativeSelect {...a} value={to} onChange={(e) => setTo(e.target.value)}>
+                    {optionsWithCurrent(TO_TIMES, to, true).map((x) => (
+                      <option key={x} value={x}>{x}</option>
+                    ))}
+                  </NativeSelect>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    dir="ltr"
+                    maxLength={5}
+                    placeholder="HH:MM"
+                    className="px-2 text-center font-mono text-sm tabular-nums"
+                    aria-label={`הזנה ידנית ${t("to")}`}
+                    data-testid="exception-manual-to"
+                    value={to}
+                    onChange={(e) => setTo(e.target.value)}
+                  />
+                </div>
+              )}
             </FormField>
           </div>
         ) : null}
