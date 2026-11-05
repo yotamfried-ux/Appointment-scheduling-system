@@ -17,6 +17,24 @@ export interface EmailPort {
   send(message: EmailMessage): Promise<{ id: string }>;
 }
 
+export interface WhatsAppMessage {
+  to: string;
+  body: string;
+  /** Optional Meta Cloud API template payload for business-initiated template messages. */
+  template?: {
+    name: string;
+    languageCode?: string;
+    bodyParams?: string[];
+  };
+  idempotencyKey: string;
+  attempt: number;
+}
+
+export interface WhatsAppPort {
+  readonly name: "meta" | "fake" | "disabled";
+  send(message: WhatsAppMessage): Promise<{ id: string }>;
+}
+
 /** Worth retrying: provider down, rate limited, network, or a duplicate request still in flight. */
 export class TransientEmailError extends Error {
   constructor(message: string, public retryAfterSeconds?: number) {

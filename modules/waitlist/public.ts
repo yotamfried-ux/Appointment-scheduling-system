@@ -61,6 +61,7 @@ export async function joinWaitlist(c: Catalog, input: C.JoinWaitlistInput, idemK
 function mapJoinError(e: { code?: string | null; message?: string | null }) {
   const m = e.message ?? "";
   if (m.includes("waitlist_limit")) return fail("WAITLIST_LIMIT", "אפשר להיות ברשימת המתנה של עד שלושה ימים בו-זמנית. אפשר להסיר אחד מהם בקישור שקיבלתם.");
+  if (m.includes("waitlist_day_full")) return fail("WAITLIST_DAY_FULL", "רשימת ההמתנה ליום זה מלאה. בחרו יום אחר או נסו שוב מאוחר יותר.");
   if (m.includes("service_unavailable")) return fail("SERVICE_UNAVAILABLE", "השירות כבר אינו זמין. בחרו שירות אחר.");
   if (m.includes("date_out_of_range")) return fail("VALIDATION_FAILED", "הבקשה אינה תקינה.", [{ field: "date", message: "התאריך מחוץ לטווח ההזמנות של העסק." }]);
   if (m.includes("email_required")) return fail("VALIDATION_FAILED", "הבקשה אינה תקינה.", [{ field: "customer.email", message: "יש להזין כתובת אימייל — ההצעות נשלחות אליה." }]);

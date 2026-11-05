@@ -123,6 +123,7 @@ export function WaitlistJoinForm({
       const message =
         err instanceof ApiClientError && err.code === "VALIDATION_FAILED" && err.details.length ? null
         : err instanceof ApiClientError && err.code === "WAITLIST_LIMIT" ? t("errors.limit")
+        : err instanceof ApiClientError && err.code === "WAITLIST_DAY_FULL" ? t("errors.dayFull")
         : err instanceof ApiClientError && err.code === "RATE_LIMITED" ? t("errors.rate")
         : err instanceof ApiClientError && err.code === "SERVICE_UNAVAILABLE" ? t("errors.unavailable")
         : err instanceof ApiClientError && err.code === "NOT_FOUND" ? t("errors.closed")

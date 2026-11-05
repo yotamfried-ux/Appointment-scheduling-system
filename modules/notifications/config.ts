@@ -1,8 +1,10 @@
 import "server-only";
 import { createHmac } from "node:crypto";
 import { fakeAdapter } from "@/modules/notifications/adapters/fake";
+import { fakeWhatsAppAdapter } from "@/modules/notifications/adapters/fake-whatsapp";
 import { resendAdapter } from "@/modules/notifications/adapters/resend";
-import type { EmailPort } from "@/modules/notifications/ports";
+import { metaWhatsAppAdapter } from "@/modules/notifications/adapters/whatsapp";
+import type { EmailPort, WhatsAppPort } from "@/modules/notifications/ports";
 import { isProductionLike } from "@/lib/env";
 
 const isProduction = isProductionLike;
@@ -43,4 +45,40 @@ export const storesPreview = (p: EmailPort) => p.name === "fake";
 /** Designated recipient for platform administrator alerts (e.g. new business registration). */
 export function platformAdminEmail(): string {
   return process.env.PLATFORM_ADMIN_EMAIL ?? "yotam.fried@gmail.com";
+}
+
+const disabledWhatsAppPort: WhatsAppPort = {
+  name: "disabled",
+  async send() {
+    return { id: "disabled" };
+  },
+};
+
+/**
+ * WhatsApp channel provider.
+ * CRITICAL: Disabled by default (`WHATSAPP_PROVIDER` defaults to `"disabled"`).
+ * Even when configured, a business only sends WhatsApp notifications if `business.whatsappEnabled === true`.
+ */
+export function whatsappProvider(): WhatsAppPort {
+  const which = process.env.WHATSAPP_PROVIDER ?? "disabled";
+  if (which === "disabled" || which === "off" || which === "") {
+    return disabledWhatsAppPort;
+  }
+  if (which === "fake") {
+    if (isProduction()) throw new Error("the fake WhatsApp provider is not allowed in production");
+    return fakeWhatsAppAdapter();
+  }
+  if (which === "meta") {
+    const accessToken = process.env.WHATSAPP_ACCESS_TOKEN;
+    const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID;
+    if (!accessToken || !phoneNumberId) {
+      throw new Error("WHATSAPP_ACCESS_TOKEN and WHATSAPP_PHONE_NUMBER_ID are required for the meta WhatsApp provider");
+    }
+    return metaWhatsAppAdapter({
+      accessToken,
+      phoneNumberId,
+      apiVersion: process.env.WHATSAPP_API_VERSION ?? "v21.0",
+    });
+  }
+  throw new Error("unknown WHATSAPP_PROVIDER");
 }

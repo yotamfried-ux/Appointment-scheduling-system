@@ -296,9 +296,13 @@ export const MergeCustomersRequest = z
 
 export const OwnerOfferRequest = z.object({ time: HHmm }).strict();
 export const OwnerWaitlistSettingsRequest = z
-  .object({ autoOffer: z.boolean().optional(), enabled: z.boolean().optional() })
+  .object({
+    autoOffer: z.boolean().optional(),
+    enabled: z.boolean().optional(),
+    dailyLimit: z.number().int().min(1).max(500).nullable().optional(),
+  })
   .strict()
-  .refine((v) => v.autoOffer !== undefined || v.enabled !== undefined, "יש לציין הגדרה לשינוי.");
+  .refine((v) => v.autoOffer !== undefined || v.enabled !== undefined || v.dailyLimit !== undefined, "יש לציין הגדרה לשינוי.");
 export const OwnerOutcomeResponse = z.object({ ok: z.literal(true) });
 export const OwnerVersionResponse = z.object({ version: z.string() });
 
@@ -318,6 +322,7 @@ export const ERROR_CODES = [
   "TOO_LATE",
   "TOO_EARLY",
   "WAITLIST_LIMIT",
+  "WAITLIST_DAY_FULL",
   "UNAUTHENTICATED",
   "FORBIDDEN",
   "PAYMENT_REQUIRED",

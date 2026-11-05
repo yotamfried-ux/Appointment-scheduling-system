@@ -14,5 +14,9 @@ export const BookingRulesInput = z.object({
   autoCompleteHours: z.number().int().min(1).max(168).nullable(),
   digestFrequency: z.enum(["off", "daily"]),
   rescheduleServiceChange: z.boolean(),
+  /** Uniform daily limit on waitlist registrations across all working days (null = unlimited). */
+  waitlistDailyLimit: z.number().int().min(1).max(500).nullable().optional().default(null),
+  /** Opt-in WhatsApp notifications (never enabled by default; gated by subscription plan in the future). */
+  whatsappEnabled: z.boolean().optional().default(false),
 });
 export type BookingRules = z.infer<typeof BookingRulesInput>;

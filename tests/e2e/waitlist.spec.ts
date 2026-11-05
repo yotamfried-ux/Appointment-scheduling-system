@@ -105,6 +105,27 @@ test.describe("joining (WLT-08)", () => {
     expect((await admin().from("waitlist_entries").select("id").eq("business_id", b.id)).data).toHaveLength(3);
   });
 
+  test("daily waitlist limit (waitlist_daily_limit): caps registrations per day across all working days with WAITLIST_DAY_FULL (409)", async ({ request }) => {
+    const b = await makeBusiness("barber");
+    expect((await b.db.from("businesses").update({ waitlist_daily_limit: 2 }).eq("id", b.id)).error).toBeNull();
+    const f = await firstDayWithSlots(request, b);
+    const days = C.AvailabilityResponse.parse(
+      await (await request.get(`/api/public/${b.slug}/availability?service=${b.services[0].id}&from=${f.date}&days=14`)).json(),
+    ).days.filter((d) => !d.closed);
+    const day1 = days[0].date;
+    const day2 = days[1].date;
+
+    expect((await join(request, b, day1, 1)).status()).toBe(201);
+    expect((await join(request, b, day1, 2)).status()).toBe(201);
+
+    const thirdOnDay1 = await join(request, b, day1, 3);
+    expect(thirdOnDay1.status()).toBe(409);
+    expect(C.ApiErrorBody.parse(await thirdOnDay1.json()).error.code).toBe("WAITLIST_DAY_FULL");
+
+    // Same customer can still join on day2 because the daily limit applies per day across all working days
+    expect((await join(request, b, day2, 3)).status()).toBe(201);
+  });
+
   test("rate limit: the per-IP limit answers 429 with Retry-After; another IP is unaffected; a switched-off waitlist is a plain 404", async ({ request }) => {
     const b = await makeBusiness("barber");
     const f = await firstDayWithSlots(request, b);

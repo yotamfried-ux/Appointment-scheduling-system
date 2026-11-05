@@ -361,9 +361,13 @@ export async function waitlistOffer(ctx: OwnerCtx, id: string, time: string): Pr
   if (error) throw mapError(error);
 }
 
-export async function waitlistSettings(ctx: OwnerCtx, input: { autoOffer?: boolean; enabled?: boolean }): Promise<void> {
+export async function waitlistSettings(ctx: OwnerCtx, input: { autoOffer?: boolean; enabled?: boolean; dailyLimit?: number | null }): Promise<void> {
   if (input.enabled === true || input.autoOffer === true) await requireFeature(ctx, "waitlist");
-  const patch = { ...(input.autoOffer !== undefined ? { waitlist_auto_offer: input.autoOffer } : {}), ...(input.enabled !== undefined ? { waitlist_enabled: input.enabled } : {}) };
+  const patch = {
+    ...(input.autoOffer !== undefined ? { waitlist_auto_offer: input.autoOffer } : {}),
+    ...(input.enabled !== undefined ? { waitlist_enabled: input.enabled } : {}),
+    ...(input.dailyLimit !== undefined ? { waitlist_daily_limit: input.dailyLimit } : {}),
+  };
   const { data, error } = await ctx.supabase.from("businesses").update(patch).eq("id", ctx.business.id).select("id");
   if (error) throw mapError(error);
   if (!data?.length) throw fail("FORBIDDEN", "רק מנהל העסק יכול לשנות את ההגדרה.");
