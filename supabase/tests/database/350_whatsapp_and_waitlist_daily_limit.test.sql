@@ -218,12 +218,11 @@ select is(
 );
 
 -- 5. Verify notif_context includes business.whatsappEnabled and customer.phone
-select pg_temp.as_system();
 create temp table notif_test as
-  select public.public_book(
+  select public.public_book_team(
     (select b from ids),
     (select s from ids),
-    ((select d1 from ids)::text || ' 10:00:00+02')::timestamptz,
+    now() + interval '2 days',
     'לקוח וואטסאפ',
     '+972549998877',
     'wa-cust@example.com',
@@ -231,10 +230,11 @@ create temp table notif_test as
     '{}'::jsonb,
     'idem-wa-book-1',
     'hash-wa-book-1',
-    '2026-04',
-    '2026-04'
+    null::uuid[],
+    false
   ) as booked;
 
+select pg_temp.as_system();
 create temp table notif_row as
   select private.notif_enqueue(((select booked->>'id' from notif_test))::uuid, 'booking_confirmed', 'customer') as nid;
 
