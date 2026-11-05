@@ -1,10 +1,10 @@
 import "server-only";
 import { systemDb } from "@/platform/system-db";
 import { signToken } from "@/modules/booking/token";
-import { addressHash, appUrl, emailProvider, platformAdminEmail, storesPreview } from "@/modules/notifications/config";
+import { addressHash, appUrl, emailProvider, platformAdminEmail, storesPreview, whatsappProvider } from "@/modules/notifications/config";
 import { plan, staleReason, type OutboxEvent } from "@/modules/notifications/plan";
 import { PermanentEmailError, TransientEmailError, type EmailPort } from "@/modules/notifications/ports";
-import { render, type NotifContext } from "@/modules/notifications/templates";
+import { render, renderWhatsApp, type NotifContext } from "@/modules/notifications/templates";
 
 export const MAX_ATTEMPTS = 7;
 const backoffSeconds = (attempts: number, hint?: number) => Math.max(hint ?? 0, Math.min(60 * 2 ** (attempts - 1), 3600));
@@ -114,8 +114,34 @@ async function sendOne(row: Claimed, provider: EmailPort, s: RunSummary, now: Da
   try {
     const fromName = isRegistration ? "ניהול יומן ותורים" : ctx.recipient === "customer" ? ctx.business.name : undefined;
     const sent = await provider.send({ to, fromName, subject: message.subject, html: message.html, text: message.text, idempotencyKey: `notif-${row.id}`, attempt: row.attempts });
+    let whatsappMessageId: string | undefined;
+    if (ctx.business.whatsappEnabled === true && !isRegistration) {
+      const wa = whatsappProvider();
+      const toPhone = ctx.recipient === "owner" ? ctx.business.phone : ctx.customer.phone;
+      if (wa.name !== "disabled" && toPhone) {
+        try {
+          const waBody = renderWhatsApp(ctx, { appUrl: appUrl(), manageToken }, now);
+          const waSent = await wa.send({
+            to: toPhone,
+            body: waBody,
+            idempotencyKey: `notif-wa-${row.id}`,
+            attempt: row.attempts,
+          });
+          whatsappMessageId = waSent.id;
+        } catch {
+          // Secondary opt-in WhatsApp channel does not fail the primary email notification
+        }
+      }
+    }
     s.sent++;
-    await finish(row.id, "sent", { provider: provider.name, messageId: sent.id, hash, preview: storesPreview(provider) ? { to: ctx.recipient, subject: message.subject, text: message.text } : undefined });
+    await finish(row.id, "sent", {
+      provider: provider.name,
+      messageId: sent.id,
+      hash,
+      preview: storesPreview(provider)
+        ? { to: ctx.recipient, subject: message.subject, text: message.text, ...(whatsappMessageId ? { whatsappMessageId } : {}) }
+        : undefined,
+    });
   } catch (err) {
     if (err instanceof PermanentEmailError) {
       s.dead++;

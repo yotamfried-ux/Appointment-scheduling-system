@@ -47,8 +47,8 @@ export interface NotifContext {
   registration?: { businessId: string; name: string; slug: string; kind: BusinessKindId; createdAt: string; ownerEmail?: string | null } | null;
   /** Set for waitlist messages; null for booking messages. */
   offer: { id: string; status: string; slotStartsAt: string; expiresAt: string; serviceName: string; entryId: string; personName?: string | null } | null;
-  business: { name: string; slug: string; kind: BusinessKindId; timezone: string; phone: string | null };
-  customer: { name: string; email: string | null };
+  business: { name: string; slug: string; kind: BusinessKindId; timezone: string; phone: string | null; whatsappEnabled?: boolean };
+  customer: { name: string; email: string | null; phone?: string | null };
   owner: { email: string | null };
 }
 
@@ -306,4 +306,82 @@ export function render(ctx: NotifContext, opts: { appUrl: string; manageToken?: 
     ...noteText,
   ].join("\n");
   return { subject, html, text };
+}
+
+/**
+ * Renders a right-to-left Hebrew WhatsApp message for the given notification context.
+ * Respects the exact same privacy rules as email (`hideServiceNameInMessages` for sensitive business kinds).
+ */
+export function renderWhatsApp(ctx: NotifContext, opts: { appUrl: string; manageToken?: string }, now: Date = new Date()): string {
+  const biz = clean(ctx.business.name);
+  if (ctx.type === "admin_business_registered" || ctx.registration || ctx.digest || ctx.billing) {
+    const rendered = render(ctx, opts, now);
+    return `*${biz}*\n${rendered.text.split("\n").slice(2).join("\n").trim()}`;
+  }
+
+  const k = BUSINESS_KINDS[ctx.business.kind];
+  const name = clean(ctx.customer.name);
+  const offer = ctx.offer;
+  const when = whenLabel(ctx.appointment?.startsAt ?? offer!.slotStartsAt, ctx.business.timezone);
+  const serviceName = ctx.appointment?.serviceName ?? offer!.serviceName;
+  const showService = !k.privacy.hideServiceNameInMessages;
+  const owner = ctx.recipient === "owner";
+  const lead = LEAD[ctx.type](name);
+
+  const details: string[] = [];
+  if (owner) {
+    details.push(`👤 *לקוח/ה:* ${name}`);
+  }
+  details.push(`📅 *מועד:* ${when}`);
+  if (showService) {
+    details.push(`✨ *שירות:* ${clean(serviceName)}`);
+  }
+  if (ctx.appointment) {
+    const modalityLabel = ctx.appointment.location === "online" ? "אונליין" : "פרונטלי";
+    details.push(`📍 *אופן מפגש:* ${modalityLabel}`);
+  }
+  const person = ctx.appointment?.personName ?? offer?.personName;
+  if (person) {
+    details.push(`🧑‍💼 *אצל:* ${clean(person)}`);
+  }
+  if (ctx.type === "waitlist_offer" && offer) {
+    const expiresTime = new Intl.DateTimeFormat("he-IL", {
+      timeZone: ctx.business.timezone,
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(new Date(offer.expiresAt));
+    details.push(`⏳ *תקף עד:* ${expiresTime}`);
+  }
+  if (ctx.appointment) {
+    details.push(`🔖 *מספר אישור:* ${ctx.appointment.reference}`);
+  }
+
+  const links: string[] = [];
+  if (owner) {
+    links.push(`פתיחת היומן: ${opts.appUrl}/dashboard`);
+  } else if (offer && opts.manageToken) {
+    const label = ctx.type === "waitlist_offer" ? "לצפייה ולאישור התור" : "מצב ההמתנה שלי";
+    links.push(`${label}: ${opts.appUrl}/waitlist/${opts.manageToken}`);
+  } else if (ctx.appointment) {
+    const isCancelledOrDeclined =
+      ctx.type === "booking_declined" ||
+      ctx.type === "booking_cancelled_by_business" ||
+      ctx.type === "booking_cancelled_by_customer";
+    if (isCancelledOrDeclined) {
+      links.push(`לקביעת מועד חדש: ${opts.appUrl}/book/${ctx.business.slug}`);
+    } else if (opts.manageToken) {
+      links.push(`אישור הגעה: ${opts.appUrl}/booking/${opts.manageToken}?confirm=1`);
+      links.push(`שינוי או ביטול: ${opts.appUrl}/booking/${opts.manageToken}/reschedule`);
+    }
+  }
+
+  const lines: string[] = [`*${biz}*`, lead, "", ...details];
+  if (links.length > 0) {
+    lines.push("", ...links);
+  }
+  if (!owner && ctx.business.phone) {
+    lines.push("", `לשאלות: ${formatPhone(ctx.business.phone)}`);
+  }
+  return lines.join("\n");
 }

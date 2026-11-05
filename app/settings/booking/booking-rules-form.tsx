@@ -94,6 +94,40 @@ export function BookingRulesForm({ initial }: { initial: BookingRules }) {
         </FormField>
       </fieldset>
 
+      <fieldset className="grid gap-4">
+        <legend className="mb-1 text-lg font-semibold">{t("waitlistSection")}</legend>
+        <FormField label={t("waitlistDailyLimit")} hint={t("waitlistDailyLimitHint")}>
+          {(a) => (
+            <Input
+              {...a}
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={500}
+              placeholder={t("unlimited")}
+              value={f.waitlistDailyLimit === null || f.waitlistDailyLimit === undefined || Number.isNaN(f.waitlistDailyLimit) ? "" : f.waitlistDailyLimit}
+              onChange={(e) => setF({ ...f, waitlistDailyLimit: e.target.value === "" ? null : num(e.target.value) })}
+              data-testid="rules-waitlist-daily-limit"
+            />
+          )}
+        </FormField>
+      </fieldset>
+
+      <fieldset className="grid gap-4">
+        <legend className="mb-1 text-lg font-semibold">{t("whatsappSection")}</legend>
+        <label className="flex min-h-11 items-center gap-3">
+          <input
+            type="checkbox"
+            className="size-5"
+            checked={Boolean(f.whatsappEnabled)}
+            onChange={(e) => setF({ ...f, whatsappEnabled: e.target.checked })}
+            data-testid="rules-whatsapp-enabled"
+          />
+          <span>{t("whatsappEnabled")}</span>
+        </label>
+        <p className="text-sm text-muted-foreground">{t("whatsappEnabledHint")}</p>
+      </fieldset>
+
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" size="lg" disabled={pending} data-testid="rules-save">{pending ? t("saving") : t("save")}</Button>
         <p role="status" aria-live="polite" className="text-sm font-medium" data-testid="rules-status">
