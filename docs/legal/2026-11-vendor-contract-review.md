@@ -9,11 +9,10 @@ Date: 2026-11-11. Status: PARTIAL. Do not mark vendor DPAs accepted without acco
 | GitHub | Code and CI. | Confirm CI never processes live personal data and secrets remain protected. |
 | Grow | Future payment provider; not enabled per project records. | Defer until billing is implemented; review merchant contract, privacy and tax documents before activation. |
 
-## Controller / processor map for counsel
-- For appointment records, business usually determines purpose and use; D2R provides processing service. This is a working characterization, not a legal determination for every purpose.
-- For platform account, support, fraud prevention and billing information, D2R may independently determine purposes.
-- Supplier DPAs do not replace a written D2R–business processing agreement.
-- Draft business DPA should cover: parties, purposes, duration, data categories, documented instructions, confidentiality, security measures, subprocessors and objections, international transfers, assistance with rights and incidents, deletion/return, audit and liability allocation. Avoid promising supplier capabilities that are not verified.
+## Controller / processor map & embedded Business DPA (`2026-11-14`)
+- For end-customer appointment records, the Business is designated as the Data Controller (`בעל השליטה במאגר`) and D2R as the Data Processor (`מחזיק/מעבד`) in `lib/legal/content.ts` (`PRIVACY#who`, `TERMS#customers`). Counsel should verify this characterization for edge cases.
+- For platform business accounts, security, billing/subscription status, and anti-abuse logs, D2R acts as Data Controller.
+- Supplier DPAs do not replace a written D2R–business processing agreement. Accordingly, **`TERMS` section `dpa` (`lib/legal/content.ts`, v. `2026-11-14`) now incorporates a binding Data Processing Addendum (DPA)** covering documented instructions, processing purposes & duration, data categories & subjects, confidentiality, technical & organizational security measures (aligned with the 2017 Data Security Regulations), authorized sub-processors & EU transfer basis (2001 Transfer Regulations), DSAR & incident notification assistance, and termination deletion/export without promising unverified supplier capabilities.
 
 ## Owner actions
 1. Confirm actual Vercel Tori team/project and Pro contract.

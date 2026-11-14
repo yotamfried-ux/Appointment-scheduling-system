@@ -1,18 +1,18 @@
-# Legal qualification (draft for counsel)
+# Legal qualification (reconciled 2026-11-14)
 
-Product: "תורים", multi-tenant appointment-booking SaaS for small businesses, web only. Revision: branch `claude/optimistic-hypatia-wh3zo3`. Environments: local (pgTAP, Playwright), cloud test (Vercel Preview + Supabase `datohhabfakiacvndvle`).
+Product: "תורים" (brand) / D2R (operator), multi-tenant appointment-booking SaaS for small businesses, web only. Environments: local (pgTAP, Playwright), Production (Vercel `fra1` + Supabase `eu-central-1` `abhadytskhgwkrlmceew`, historical Singapore test project deleted).
 
-## 1. Scope facts (from the library's Phase A)
+## 1. Scope facts (reconciled)
 | Fact | Value | Source |
 |---|---|---|
-| Operator legal entity, address, contact | name **D2R**; tax registration not yet opened; mailbox not yet given (`NEXT_PUBLIC_LEGAL_CONTACT` is a visible placeholder). See [open-decisions.md](open-decisions.md) G-01, G-02 | owner, 2026-10-20 |
-| Markets | Israel only (owner decision 2026-10-20), Hebrew/RTL. EU/UK/US targeting: none in code (no locale/currency/ads) | code |
-| Audiences | B2B: business owners (account holders, SaaS customers). B2C: end customers of each business (no account; name, phone, optional e-mail) | schema |
-| Roles | Platform vs tenant business: **TO_REVIEW** (for end-customer data the business is likely the controller and the platform a processor; owner/counsel decision) | privacy draft section "who we are" |
-| Minors / health | Business kinds include clinic/therapy/trainer/beauty/nails. Sensitive intake fields (allergies, fitness goal, reason for visit) were **removed** on 2026-10-20 and a unit test fails if one returns; free-text notes could still receive health data, so the terms forbid it. Row 10 is therefore no longer blocked by this, but notes remain a residual risk | `modules/tenancy/business-kind.ts` |
-| Money movement | None live: billing provider is manual/fake (future provider: Grow, owner decision 2026-10-20). Prices for customers are display only (no payment taken by the platform) | `modules/billing`, A3/A5 |
-| Trackers | None: no analytics, ads, third-party embeds, error tracker. Only essential cookies | `lib/consent.ts` (`OPTIONAL_CATEGORIES` empty), `tests/e2e/consent-cookies.spec.ts` |
-| Hosting regions | Cloud test DB: Supabase `ap-southeast-1` (Singapore) per Supabase console; functions ran in Vercel `iad1`/`pdx1` per runtime logs; **production target: Vercel `fra1` + Supabase `eu-central-1` (Frankfurt), not yet created; backup location: unknown** | Supabase MCP `get_project`, Vercel runtime logs |
+| Operator legal entity, address, contact | Operator name **D2R** (brand **"תורים"**; explicitly NOT "בע\"מ"); official contact **`yotam.fried@gmail.com`** active in `lib/legal/config.ts`; tax registration target January 2027 (no invented ID number; disclosed honestly in `Operator`). See [open-decisions.md](open-decisions.md) G-01 | `lib/legal/config.ts`, `components/legal/operator.tsx` |
+| Markets | Israel only (owner decision 2026-10-20), Hebrew/RTL. EU/UK/US targeting: none in code | `lib/legal/content.ts`, `next.config.*` |
+| Audiences | B2B: business owners/staff (account holders, 18+). B2C: end customers of each business (name, phone, e-mail, optional notes) | schema |
+| Roles | Dual role explicitly formalized in `PRIVACY#who` & `TERMS#dpa` (v. `2026-11-14`): **Business = Data Controller**, **D2R = Data Processor / Holder** for end-customer appointment records; **D2R = Data Controller** for business accounts, security, billing & anti-abuse. **Counsel review recommended** | `lib/legal/content.ts` (`PRIVACY#who`, `TERMS#dpa`) |
+| Minors / health | Sensitive intake fields (allergies, goal, reason) removed on 2026-10-20 (unit test guard). `TERMS#sensitive-data`, `PRIVACY#what`, `TermsAcceptanceBox`, and notes hints explicitly forbid medical/health/ID data in free text; `PRIVACY#minors` requires parent/guardian booking under 18 | `modules/tenancy/business-kind.ts`, `lib/legal/content.ts`, `messages/he.json` |
+| Money movement | None live: billing provider is manual/trial (`14-day trial`); future provider: Grow/Meshulam when integrated (`GATE-D` / `LR-13`). Customer prices display-only | `modules/billing`, `TERMS#subscription` |
+| Trackers | None: no analytics, ads, third-party embeds, or error trackers. Only essential cookies/storage (`COOKIES_ESSENTIAL`, count = 4). Enforced by `lib/security/csp.ts` & E2E | `lib/consent.ts`, `tests/e2e/legal-calendar.spec.ts` |
+| Hosting regions | Production target/live DB: Supabase `abhadytskhgwkrlmceew` in **`eu-central-1` (Frankfurt)**; Vercel **`fra1` (Frankfurt)**; old Singapore project deleted (`open-decisions.md`); Resend `noreply@mail.d2ryf.com`. Vendor dashboard DPA archival pending (`LR-05`) | [processors-and-transfers.md](processors-and-transfers.md) |
 
 ## 2. Regimes considered
 | Regime | Status | Why |

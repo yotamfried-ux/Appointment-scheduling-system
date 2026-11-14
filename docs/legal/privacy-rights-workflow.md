@@ -1,12 +1,11 @@
-# How rights requests are handled today (2026-10-14)
+# Data Subject Rights (DSAR) workflow (reconciled 2026-11-14)
 
-| Request | Who receives it | Mechanism in the product | Evidence | Gap |
+Aligned with Israeli Privacy Protection Law (Sections 13–14, Amendment 13) and `lib/legal/content.ts` (`PRIVACY#rights`, `TERMS#dpa`).
+
+| Request | Who receives it | Mechanism in the product | Evidence | Residual gap / control |
 |---|---|---|---|---|
-| End customer asks to see / correct / delete their data | the **business** (the privacy draft tells customers to contact the business) | owner screen "customers" shows the record; export (CSV) of customers and appointments; "delete personal details" anonymises (name, phone, e-mail, notes, intake) | E2E `customers.spec`, `permission-matrix` (export is admin only and audited) | the customer has no self-service route and no way to reach the platform if the business does not answer: counsel must decide whether one is required |
-| Business owner asks for access / export | self-service | account export (JSON, admin only), audit row written | `owner/account/export`, permission matrix | none known |
-| Business owner asks for deletion | self-service | typed business name, 14-day grace, customers notified, cancel possible during grace, then purge | `140_account_lifecycle`, `account.spec` | owner e-mail receipt of completion: tested? **NOT TESTED** |
-| Withdraw consent | n/a | there is no optional processing and no marketing mail | consent test | revisit when any optional category appears |
-| Request log (type, received, owner, status) | n/a | none (there is no ticket system) | none | P2: keep a simple register once a real contact address exists |
-| Identity verification | the business knows its own customers | none built | none | counsel: acceptable? |
-
-Guard rails: a deleted customer's future appointments must be cancelled first (the function refuses with `has_upcoming`); exports are audited and need the admin role; no secrets appear in tickets because there is no ticket system.
+| End customer asks to inspect / correct / delete their data | Primary: the **Business** (Controller). Secondary fallback / escalation: **D2R** via `LEGAL.contact` (`yotam.fried@gmail.com`) | Owner screen `/customers/[id]` shows full record, notes, history; CSV/Excel export; immediate "delete personal details" anonymization (`anonymize_customer_impl` clears name, phone, e-mail, notes, intake, closes waitlist entries). If customer contacts D2R directly (`PRIVACY#rights`), D2R routes/assists with the request on the Business's behalf within statutory SLA. | E2E `customers.spec.ts`, pgTAP permissions, `PRIVACY#rights` | Maintain a ticket/request log when external customer DSAR requests arrive (`LR-09`). |
+| Business owner asks for access / portability export | Self-service or via `LEGAL.contact` | Owner account JSON export + Excel/CSV customers & appointments export (admin only, audited). | `owner/account/export`, permission matrix | Verified |
+| Business owner asks for full deletion | Self-service | Typed business name confirmation -> 14-day grace period -> upcoming appointments cancelled & customers notified -> permanent purge incl. `auth.users`. | `140_account_lifecycle.test.sql`, E2E `account.spec.ts` | Production owner completion e-mail verification tracked under QA |
+| Withdraw consent (optional / marketing) | n/a today (marketing OFF) | Strictly operational notifications today; no optional trackers/analytics. Marketing cannot launch until dedicated unticked opt-in & suppression mechanism pass `GATE-C` (`LR-12`). | `consent.test.ts`, `csp.test.ts` | Tracked under `LR-12` |
+| Identity verification | Business knows its own customers / D2R verifies proportionate to sensitivity | Guard rails: customer anonymization requires zero upcoming active appointments first (`has_upcoming`); exports require authenticated admin/owner session + AAL2 MFA; requests to D2R require proportionate ownership/identity confirmation before disclosure. | `anonymize_customer_impl`, MFA gate | Document intake SOP for multi-business customers (`LR-09`) |

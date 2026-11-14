@@ -1,12 +1,11 @@
 # Tori / D2R — Israeli regulatory assessment (working counsel brief)
-Date: 2026-11-11. Status: ENGINEERING DRAFT — not legal approval.
+Date: 2026-11-14 (initial draft: 2026-11-11). Status: ENGINEERING & CONTRACT HARDENING IMPLEMENTED (`2026-11-14`) — external Israeli counsel sign-off still pending (`D-10`).
 
 ## Confirmed operating facts
-- Owner intends to register as an exempt dealer in **early January 2027**. No business registration number may be displayed until verified.
+- Owner intends to register as an exempt dealer in **early January 2027**. No business registration number is displayed until verified; `components/legal/operator.tsx` explicitly discloses this status and clarifies D2R is not a "בע\"מ" entity (`LR-01`).
 - Israel-targeted multi-tenant appointment SaaS; businesses manage their clients' appointments.
-- Supabase project `appointment-system-frankfurt` (`abhadytskhgwkrlmceew`) was observed ACTIVE_HEALTHY in `eu-central-1` on 2026-11-11. This does NOT establish all vendor log, backup, or subprocessor locations.
-- Production Vercel account could NOT be accessed with the current Vercel connector: only an unrelated video project was listed. Account-level plan, DPA applicability and production deployment remain UNVERIFIED.
-- The legal source `lib/legal/content.ts` contains public privacy/terms text. The older `processors-and-transfers.md` is outdated.
+- Supabase project `appointment-system-frankfurt` (`abhadytskhgwkrlmceew`) is active in `eu-central-1` (Frankfurt), and Vercel runs in `fra1`. Old historical references in `docs/legal/processors-and-transfers.md`, `data-map.md`, and `retention-deletion-matrix.md` were reconciled on `2026-11-14` (`LR-17`). Account-level vendor DPA archives remain an owner action (`2026-11-vendor-contract-review.md`).
+- Legal texts (`lib/legal/config.ts`, `lib/legal/content.ts`) were hardened on `2026-11-14` (version `2026-11-14`): explicit Controller/Processor roles, embedded Business DPA (`TERMS#dpa`), full statutory Section 11 collection notice (`PRIVACY#why` + UI `TermsAcceptanceBox` + sign-up note), Calmark-grade platform intermediary & No-Show rules (`TERMS#service`, `TERMS#customer-terms`), sensitive medical data prohibition (`TERMS#sensitive-data` + notes hints), and Standard Contracts Law liability carve-out (`TERMS#liability`).
 - Supabase security advisor returned seven **INFO** notices for RLS-enabled internal tables without policies; this is not proof of exposure. Verify grants and intended service-role access before changes.
 
 ## Israeli Privacy Protection Law / Amendment 13 — decision matrix
