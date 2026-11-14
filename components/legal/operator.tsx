@@ -8,11 +8,12 @@ export async function Operator() {
   return (
     <section aria-labelledby="operator-h" className="grid gap-2 rounded-lg border bg-card p-4" data-testid="operator">
       <h2 id="operator-h" className="text-xl font-semibold">{t("title")}</h2>
-      <p>{t("name", { name: LEGAL.operator.name })}</p>
+      <p>{t("name", { brand: LEGAL.operator.brand, name: LEGAL.operator.name })}</p>
       <p>
         <span className="font-semibold">{t("contact")}: </span>
         {contact ? <a href={`mailto:${contact}`} className="underline underline-offset-4" dir="ltr">{contact}</a> : <span className="text-warning-soft-foreground" data-placeholder>{t("placeholder")}</span>}
       </p>
+      <p className="text-xs leading-5 text-muted-foreground" data-testid="operator-registration">{t("registrationPending")}</p>
     </section>
   );
 }

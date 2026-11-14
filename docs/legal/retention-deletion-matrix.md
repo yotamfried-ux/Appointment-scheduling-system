@@ -1,20 +1,17 @@
-# Retention and deletion matrix (2026-10-14)
+# Retention and deletion matrix (reconciled 2026-11-14)
 
-Status words: PASS = behavior proven by a test in this repository; NOT TESTED = no evidence in this session.
+Status words: **PASS** = behavior proven by automated migration/unit/pgTAP/E2E test in this repository; **PARTIAL** / **NOT TESTED** = operational gap or infrastructure-dependent verification remaining.
 
-| Category | Retention today | What removes it | Evidence | Status |
+| Category | Retention rule | What removes / anonymizes it | Evidence | Status |
 |---|---|---|---|---|
-| Customer identity (name, phone, e-mail, notes) | while the business is active | owner presses "delete personal details" (refused while a future appointment exists); business purge | pgTAP and E2E (`customers` stage 8), `140_account_lifecycle` | PASS |
-| Intake answers, owner notes | with the customer | cleared by the same anonymise | `anonymize_customer_impl` | PASS (E2E assertion of the cleared intake: **NOT TESTED** separately) |
-| Appointment facts after anonymise | kept without identity so reports stay true | business purge | policy text in privacy draft | PASS |
-| Whole business (owner request) | 14-day grace after the owner types the business name, customers are told, then purge incl. members' `auth.users` rows | `maintenance` cron job `purge_deleted_businesses` | `140_account_lifecycle.test.sql`, E2E `account.spec.ts` | PASS |
-| Technical rows (rate counters 1 day, token uses 1 day, idempotency 30 days, job runs 30 days, processed domain events 90 days) | listed | `maintenance_run` (daily) | `20261021000000_maintenance.sql`, pgTAP | PASS |
-| `notification_log` | with the business (rows hold a hash of the address, no body) | business purge | schema | **PARTIAL: no age-based purge while a business is active** (gap P2) |
-| Customer identity of an active business | **3 years after the customer's last activity** (owner decision 2026-10-20) | `retention_anonymize` in the daily maintenance job (same erasure as the owner's "delete personal details"; appointment facts stay without identity) | pgTAP `190_retention` | PASS |
-| `email_suppressions` | indefinite (hash) | none | schema | decision needed (a suppression should outlive the customer it protects) |
-| `audit_log` | append-only, never deleted | none (`audit_log is append-only` test); holds actor uuid and counters, no personal fields | `010_tenancy`, `110_identity_hardening`, `140_account_lifecycle` | PASS (retention period still a counsel question) |
-| Supabase backups | **unknown** | provider plan | none | NOT TESTED |
-| Restore after deletion (deleted data reappears from a restore) | **unknown** | runbook `docs/runbooks/restore.md`; logical restore drill script exists (`scripts/drills/restore.sh`); does not model deletions replayed after a restore | PARTIAL |
-| Vercel logs | **unknown** | provider plan | none | NOT TESTED |
+| End-customer identity (name, phone, e-mail, notes, intake) — owner request | While active; immediate erasure upon owner request if no upcoming appointments | `anonymize_customer_impl` ("delete personal details" in customer card) | `20261018000000_customers_reports.sql`, `20261046000000`, pgTAP & E2E `customers.spec.ts` | **PASS** |
+| End-customer identity — automatic inactivity retention | **3 years (36 months)** after last activity (`last_activity_at` + no future appointments) | `private.retention_anonymize_impl()` invoked daily via `maintenance` job | `20261037000000_retention_3y.sql`, pgTAP `190_retention.test.sql` | **PASS** |
+| De-identified appointment metrics | Retained without personal identifiers so historical revenue/visit reports remain accurate | Deleted permanently on business purge | `20261018000000`, `PRIVACY#retention` | **PASS** |
+| Whole business account deletion | **14-day grace period** (future bookings cancelled & customers notified; owner can abort), then permanent hard purge incl. `auth.users` | `maintenance` cron job `purge_deleted_businesses` | `20261028000000_purge_removes_identity.sql`, pgTAP `140_account_lifecycle.test.sql`, E2E `account.spec.ts` | **PASS** |
+| `notification_log` | **90 days** after creation for finished rows (`sent`, `skipped`, `dead`) while business is active; immediate cascade on business purge | `private.maintenance_impl()` daily cleanup | `20261040000000_notification_log_retention.sql` | **PASS** |
+| Technical rows (`rate_counters` 1d, `token_uses` 1d, `booking_idempotency` 30d, `job_runs` 30d, `domain_events` 90d) | 1 to 90 days | `private.maintenance_impl()` daily cleanup | `20261021000000_maintenance.sql`, `20261040000000`, pgTAP | **PASS** |
+| `email_suppressions` | Indefinite hashed suppression record | None automatic (required to avoid re-mailing opted-out/bounced addresses) | Schema `20261016000000` | **DECISION / COUNSEL REVIEW** |
+| `audit_log` | Append-only ledger (actor UUID & action metadata, zero customer PII) | Append-only rule | `010_tenancy`, `110_identity_hardening`, `140_account_lifecycle` | **PASS** (retention horizon for counsel) |
+| Cloud backups (Supabase) & Vercel logs | Provider plan retention | Automated rolling expiry on provider platform | `docs/runbooks/restore.md`, `scripts/drills/restore.sh` | **PARTIAL / OWNER_ACTION** (production PITR restore + re-deletion drill `LR-08` scheduled) |
 
-Copy that must not over-promise: the privacy draft promises only what the table shows (customer detail deletion by the business, de-identified appointment facts kept). It does not say that backups or logs vanish immediately; keep it that way.
+**Truthfulness rule**: Public privacy and DPA copy (`lib/legal/content.ts`, version `2026-11-14`) states that deleted data may persist in encrypted provider backups until automatic expiry and does not promise instantaneous erasure from immutable historical backups.

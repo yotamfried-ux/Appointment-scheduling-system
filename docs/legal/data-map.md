@@ -1,26 +1,23 @@
-# Personal-data ledger and processing register (from the schema, 2026-10-14)
+# Personal-data ledger and processing register (reconciled 2026-11-14)
 
-Source of truth: `supabase/migrations/*`, `modules/*`, `lib/legal/content.ts`. "Role" is the working hypothesis to confirm with counsel: **B** = the business is controller and the platform processor; **P** = the platform is controller. Sensitivity: N normal, S sensitive-risk (may reveal health).
+Source of truth: `supabase/migrations/*`, `modules/*`, `lib/legal/config.ts`, `lib/legal/content.ts`.
+Role hypothesis (`LR-02` / `PRIVACY#who` / `TERMS#dpa`): **B** = Tenant Business is Data Controller (`בעל השליטה במאגר`) and D2R is Data Processor (`מחזיק/מעבד`); **P** = D2R is Data Controller. Sensitivity: **N** = normal personal data, **S-RISK** = free-text field with policy prohibition against sensitive/medical data.
 
 | Data | Where (table.column) | Subject | Why | Role | Sensitivity | Who can read | Lives until |
 |---|---|---|---|---|---|---|---|
-| E-mail, password hash | `auth.users` (Supabase Auth) | business owner/admin/staff | sign-in | P | N | the person; platform admins (back-office API, MFA) | account purge |
-| Display name, phone | `profiles` | business user | contact | P | N | the person, members of their business | account purge |
-| Business name, kind, phone, address, slug | `businesses` | business | service | P | N (public: name, address, kind) | public page shows name/address/services | account purge (14-day grace) |
-| Accepted terms/privacy version and time | `legal_acceptances` | business user | proof of acceptance | P | N | the person | account purge |
-| Customer name, phone, optional e-mail | `customers` | end customer | run the appointment, reminders | B | N | members of that business only (RLS) | until the customer is anonymised or the business is purged |
-| Owner notes about a customer | `customers.notes`, `appointments.owner_note` | end customer | CRM | B | possible S (free text) | that business | cleared by customer anonymise |
-| Intake answers | `appointments.intake` (jsonb, ≤4 KB) | end customer | optional questions per kind: allergies/sensitivities (beauty, nails), goal incl. "rehabilitation" (trainer), reason for visit (clinic) | B | **S** | that business only; never in mail or calendar files | cleared by customer anonymise |
-| Appointment time, service snapshot, price, status, reference | `appointments` | end customer | the booking | B | N (service name may hint at health for clinic kinds) | that business; the customer through a signed private link | stays (de-identified) after anonymise; deleted with the business |
-| Waitlist request (date, window, status) | `waitlist_entries`, `waitlist_offers` | end customer | waitlist | B | N | that business; customer via signed link | closed on anonymise; deleted with the business |
-| Delivery record of mail | `notification_log` (type, status, attempts, **hash** of address, no body) | end customer / owner | delivery and retries | B/P | N | system only | with the business |
-| Suppression list | `email_suppressions` (hash of address, reason) | anyone who bounced/complained | stop mailing | P | N (hash only) | system only | indefinite (a suppression must outlive the data it protects: decision needed) |
-| Audit trail | `audit_log` (actor uuid, action, entity id, counters; no personal fields) | business user | accountability | P | N | members (their business) | append-only, kept; purge writes `account.purged` |
-| Idempotency, rate counters, token uses, job runs, domain events | `booking_idempotency`, `rate_counters`, `token_uses`, `job_runs`, `domain_events` | technical | abuse and retry control | P | N (may hold request hashes) | system only | 1 to 90 days (maintenance job) |
-| Subscription state, billing events | `subscriptions`, `billing_events` | business | access to features | P | N | members; platform admins | with the business |
-| Server logs | Vercel runtime logs | visitors | operations | P | N (code logs fixed event words and request ids; no bodies) | operator | Vercel plan retention (**unknown**) |
-| Cookies | `sb-…-auth-token` (HttpOnly), `tori_consent`, theme in localStorage | visitor/owner | session, preference | P | N | browser | session / 180 days |
-
-Facts verified in code: customers have a unique phone per business; anonymise sets name to a fixed word, e-mail and notes to null, replaces the phone with a generated one, clears `appointments.intake` and `owner_note`, closes waitlist requests, writes an audit row (`20261018000000_customers_reports.sql`). Business purge deletes the business (cascade) and the `auth.users` rows of its members (`20261028000000_purge_removes_identity.sql`), tested in `140_account_lifecycle.test.sql`.
-
-Not tested / unknown: contents of Supabase automatic backups and their retention; Vercel log retention; whether support exports ever exist outside the system (none are produced by the product).
+| E-mail, password hash, TOTP MFA factor | `auth.users`, `auth.mfa_factors` (Supabase Auth) | Business owner/admin/staff | Sign-in & AAL2 security | P | N | The user; platform admins (audited back-office API) | Account purge (`20261028000000_purge_removes_identity.sql`) |
+| Display name, phone | `public.profiles` | Business user | Account contact | P | N | The user, members of their business (RLS) | Account purge |
+| Business name, kind, phone, address, slug | `public.businesses` | Business | Public booking page & directory | P | N (public fields) | Public page shows name/address/kind/services | Account purge after 14-day grace |
+| Business owner legal acceptances | `public.legal_acceptances` (`terms`, `privacy`, version `2026-11-14`) | Business user | Re-acceptance audit trail (`CMP-03`) | P | N | The user; RLS enforced | Account purge |
+| Customer name, phone, optional e-mail | `public.customers` | End customer | Schedule/manage appointments & operational reminders | B | N | Members of that business only (RLS) | 3 years of inactivity (`retention_anonymize_impl`) or earlier business anonymization / purge |
+| Customer & appointment free-text notes | `public.customers.notes`, `public.appointments.owner_note` | End customer | Operational CRM note (non-medical only) | B | S-RISK (UI warns against health/ID data) | That business only (never sent to customer in e-mail) | Cleared to `NULL` by anonymization or business purge |
+| Legacy/custom intake JSON | `public.appointments.intake` (jsonb, ≤4 KB) | End customer | Optional custom non-medical fields (**sensitive allergies/goal/visit-reason fields removed** in `business-kind.ts`, enforced by unit test) | B | S-RISK (restricted) | That business only; never in e-mail or `.ics` | Cleared to `{}` by anonymization or business purge |
+| End-customer legal acceptance | `public.appointments` & `public.waitlist_entries` (`terms_version`, `privacy_version`, `terms_accepted_at`) | End customer | Section 11 & Terms/Privacy version proof (`20261047000000`) | B / P | N | That business; system | Cleared/deleted with anonymization or business purge |
+| Appointment facts, service, modality, price, status, reference | `public.appointments` (`location`, `starts_at`, `price_ils`, etc.) | End customer | Booking ledger & business reports | B | N | That business; customer via hashed `manage_token` link | Kept de-identified after customer anonymization; deleted on business purge |
+| Waitlist entry & offer status | `public.waitlist_entries`, `public.waitlist_offers` | End customer | Slot waitlist offers | B | N | That business; customer via signed link | Cancelled & e-mail nulled on anonymization; deleted on business purge |
+| Notification delivery log | `public.notification_log` (type, status, `failure_code`, recipient **hash**, no body) | End customer / owner | Delivery retries & failure diagnostics | B / P | N | Members (`failure_code`/`status`); system | **90 days** for finished (`sent`/`skipped`/`dead`) rows via `private.maintenance_impl()` (`20261040000000`) |
+| Suppression list | `public.email_suppressions` (e-mail hash, reason) | Bounced / complained recipient | Prevent repeated undesired mail | P | N (hash only) | System only | Indefinite (to enforce suppression; counsel review) |
+| Audit log | `public.audit_log` (actor uuid, action, entity id, metadata) | Business user / platform admin | Accountability & security trace | P | N | Business members (their business) | Append-only |
+| Technical maintenance tables | `booking_idempotency`, `rate_counters`, `token_uses`, `job_runs`, `domain_events` | Technical | Replay protection, rate limits, cron health | P | N | System only | 1–90 days (`private.maintenance_impl()`) |
+| Subscription & billing events | `public.subscriptions`, `public.billing_events` | Business | Trial/plan gating (14-day trial; no live card clearing) | P | N | Business members; platform admins | With the business |
+| Essential cookies & browser storage | `sb-…-auth-token` (HttpOnly), `tori_consent`, `theme`, `tori_terms_accepted` | Visitor / owner | Authentication & legal acceptance memory | P | N | Browser / Auth endpoint | Session / 180 days / until browser clear |

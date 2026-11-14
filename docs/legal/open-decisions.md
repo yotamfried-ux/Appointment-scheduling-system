@@ -1,4 +1,4 @@
-# Decisions and gaps before a real production launch (updated 2026-10-25)
+# Decisions and gaps before a real production launch (reconciled 2026-11-14)
 
 Owner: the owner of D2R (the only person who runs the system). This file is the single list of what is decided, what is built, and what must still be closed **before the product takes real customers in production**. It is engineering evidence, not legal advice; it approves nothing. Status words: DECIDED, BUILT, GAP (must close before production), LATER (after launch), TO DECIDE.
 
@@ -15,17 +15,17 @@ Owner: the owner of D2R (the only person who runs the system). This file is the 
 | D-07 | Server region | Fast for Israeli users | Vercel functions run in `fra1` (Frankfurt). Database in Frankfurt (`eu-central-1`, project `abhadytskhgwkrlmceew`) |
 | D-08 | Incident roles | One person (the owner) holds every role; everything must reach the mailbox | `docs/runbooks/incident.md`; official mailbox is `yotam.fried@gmail.com` (G-02) |
 | D-09 | Business roles | The owner does everything | no separate roles to name |
-| D-10 | Legal texts | Drafted fully by engineering using the Engineering-OS legal library, no lawyer retained | privacy (12 sections), terms (16 sections incl. processing terms for the business's customers' data), cookies, accessibility; versions `2026-10-21` (owners must re-accept). The "draft" banner was removed on 2026-10-21 on the owner's instruction (G-10; `legal-owner-approval.md`) |
+| D-10 | Legal texts & DPA | Upgraded in PR #80 (2026-11-14) inspired by Calmark & Israeli SaaS standards | Privacy (9 sections incl. full Section 11 notice, Controller/Processor matrix, EU transfer basis, DSAR fallback, incident management), Terms (17 sections incl. embedded Business DPA `TERMS#dpa`, intermediary disclaimer, No-Show/cancellation terms, balanced Standard Contracts Law liability carve-out, notice & takedown), Cookies (4 essential entries), Accessibility (IS 5568). Versions `2026-11-14` (`CMP-03` re-acceptance triggered); `TermsAcceptanceBox` + notes hints hardened for Section 11 & sensitive-data warnings; verified by `tests/unit/legal-hardening.test.ts` |
 
 Note on D-10: the library says generic drafts are not a substitute for legal review and that an AI cannot sign off a legal text. The owner chose to proceed without counsel; the consequence is that the owner, as the responsible human, approves the texts (G-10) and accepts the residual risk. Clauses a lawyer normally writes (liability cap, indemnity, governing law and forum, subscription cancellation) are in the terms in their common form; they are the first thing to review if a lawyer is ever involved.
 
-## Status of every gap (updated 2026-10-25)
+## Status of every gap (reconciled 2026-11-14)
 
 OPEN = nothing done. PARTIAL = built or started, something remains. WAITING = only the owner can act. DONE = closed.
 
 | ID | Status | Summary |
 |---|---|---|
-| G-01 | WAITING (owner) | Tax file and business registration details (to add to `lib/legal/config.ts` once registered) |
+| G-01 | WAITING (owner) | Tax file and business registration details (target January 2027; honest pending notice added in `Operator` block and `lib/legal/config.ts`) |
 | G-02 | DONE 2026-10-25 | `yotam.fried@gmail.com` is configured in Vercel environment and hard-coded as fallback in `lib/legal/config.ts`; shows on operator and accessibility pages |
 | G-03 | DONE 2026-10-24 | Leaked-password protection enabled in Supabase Auth and confirmed by the security advisor |
 | G-04 | DONE 2026-10-25 | Frankfurt production project (`abhadytskhgwkrlmceew`) is live and serving production; old Singapore test project confirmed deleted |

@@ -33,10 +33,11 @@ export function useTermsAcceptance() {
 
 export function TermsAcceptanceBox({ checked, onChange, error, testId = "terms-accept" }: { checked: boolean; onChange: (v: boolean) => void; error?: string; testId?: string }) {
   const t = useTranslations("legal.termsAccept");
+  const noticeId = `${testId}-notice`;
   return (
     <div className="grid gap-1.5" data-testid={`${testId}-box`}>
       <div className="flex items-start gap-3">
-        <Checkbox id={testId} checked={checked} onCheckedChange={(v) => onChange(v === true)} aria-invalid={error ? true : undefined} aria-describedby={error ? `${testId}-error` : undefined} className="mt-0.5 size-5" data-testid={testId} />
+        <Checkbox id={testId} checked={checked} onCheckedChange={(v) => onChange(v === true)} aria-invalid={error ? true : undefined} aria-describedby={error ? `${testId}-error ${noticeId}` : noticeId} className="mt-0.5 size-5" data-testid={testId} />
         <label htmlFor={testId} className="min-h-6 text-sm leading-6">
           {t.rich("label", {
             terms: (c) => <Link href="/terms" target="_blank" className="font-medium underline underline-offset-2">{c}</Link>,
@@ -44,6 +45,7 @@ export function TermsAcceptanceBox({ checked, onChange, error, testId = "terms-a
           })}
         </label>
       </div>
+      <p id={noticeId} className="text-xs leading-5 text-muted-foreground" data-testid={noticeId}>{t("notice")}</p>
       {error ? <p id={`${testId}-error`} role="alert" className="text-sm font-medium text-destructive" data-testid={`${testId}-error`}>{error}</p> : null}
     </div>
   );
