@@ -11,7 +11,7 @@ import { normalizePhone } from "@/lib/phone";
 import { addDaysIso } from "@/modules/availability/slots";
 import { insideHours, teamWindowsForDate } from "@/modules/availability/team";
 import { loadServiceStaff, loadTeamCalendar } from "@/modules/team/repo";
-import type { BusinessKindId } from "@/modules/tenancy/business-kind";
+import { allowedLocationsForKind, type BusinessKindId } from "@/modules/tenancy/business-kind";
 import { systemClock, zonedParts, zonedTimeToUtc } from "@/platform/clock";
 
 // Owner operations run as the signed-in user: Row Level Security decides what is visible, the RPCs decide what may change.
@@ -243,7 +243,10 @@ export async function agenda(
       name: s.name as string,
       durationMinutes: s.duration_minutes as number,
       personIds: svcStaff.get(s.id as string) ?? null,
-      locations: ((s as { locations?: ("business" | "customer" | "online")[] | null }).locations) ?? null,
+      locations: allowedLocationsForKind(
+        ctx.business.kind as BusinessKindId,
+        ((s as { locations?: ("business" | "customer" | "online")[] | null }).locations) ?? null,
+      ),
     })),
     business: { name: ctx.business.name, kind: ctx.business.kind },
   };

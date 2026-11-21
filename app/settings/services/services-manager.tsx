@@ -13,6 +13,7 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { toast } from "@/components/ui/toast";
 import { priceLabel } from "@/lib/price";
 import { BUFFER_OPTIONS, DURATION_OPTIONS, fromCents, type ServiceLocation, type ServiceRow } from "@/modules/catalog/schema";
+import { supportsOnlineModality } from "@/modules/tenancy/business-kind";
 
 type ModalityChoice = "default" | "business" | "online" | "both";
 
@@ -62,7 +63,8 @@ const toDraft = (s: ServiceRow): Draft => ({
   modality: locationsToChoice(s.locations),
 });
 
-export function ServicesManager({ services }: { services: ServiceRow[] }) {
+export function ServicesManager({ services, businessKind = "barber" }: { services: ServiceRow[]; businessKind?: string }) {
+  const canChooseModality = supportsOnlineModality(businessKind);
   const t = useTranslations("settings.services");
   const router = useRouter();
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -91,7 +93,7 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
         bufferMinutes: draft.bufferMinutes,
         priceNis: price,
         priceMode: draft.priceMode,
-        locations: choiceToLocations(draft.modality),
+        locations: canChooseModality ? choiceToLocations(draft.modality) : null,
       });
       if (!r.ok) return setError(r.code === "DUPLICATE" ? t("errors.duplicate") : r.code === "FORBIDDEN" ? t("errors.forbidden") : t("errors.generic"));
       toast(t("saved"), { variant: "success" });
@@ -159,21 +161,23 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
         {draft.priceMode === "free" ? null : <FormField label={t("price")} error={fieldErrors.price}>
           {(a) => <Input {...a} type="number" inputMode="decimal" min={0} step="1" value={draft.priceNis} onChange={(e) => setDraft({ ...draft, priceNis: e.target.value })} />}
         </FormField>}
-        <FormField label="אופן קבלת השירות">
-          {(a) => (
-            <NativeSelect
-              {...a}
-              value={draft.modality}
-              onChange={(e) => setDraft({ ...draft, modality: e.target.value as ModalityChoice })}
-              data-testid="service-modality"
-            >
-              <option value="default">לפי ברירת המחדל של העסק</option>
-              <option value="business">פרונטלי בלבד (בעסק)</option>
-              <option value="online">אונליין בלבד</option>
-              <option value="both">פרונטלי או אונליין (לבחירת הלקוח)</option>
-            </NativeSelect>
-          )}
-        </FormField>
+        {canChooseModality ? (
+          <FormField label="אופן קבלת השירות">
+            {(a) => (
+              <NativeSelect
+                {...a}
+                value={draft.modality}
+                onChange={(e) => setDraft({ ...draft, modality: e.target.value as ModalityChoice })}
+                data-testid="service-modality"
+              >
+                <option value="default">לפי ברירת המחדל של העסק</option>
+                <option value="business">פרונטלי בלבד (בעסק)</option>
+                <option value="online">אונליין בלבד</option>
+                <option value="both">פרונטלי או אונליין (לבחירת הלקוח)</option>
+              </NativeSelect>
+            )}
+          </FormField>
+        ) : null}
       </div>
       {error ? <p role="alert" className="text-sm font-medium text-destructive" data-testid="service-error">{error}</p> : null}
       <div className="flex flex-wrap gap-2">
@@ -198,7 +202,7 @@ export function ServicesManager({ services }: { services: ServiceRow[] }) {
       ) : (
         <ul className="divide-y overflow-hidden rounded-lg border bg-card" data-testid="service-list">
           {active.map((s) => {
-            const mod = modalitySummary(s.locations);
+            const mod = canChooseModality ? modalitySummary(s.locations) : null;
             return (
               <li key={s.id} data-testid={`service-${s.id}`}>
                 {draft?.id === s.id ? (

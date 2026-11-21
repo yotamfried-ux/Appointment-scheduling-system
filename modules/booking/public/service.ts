@@ -12,7 +12,7 @@ import { segmentsFromSlots } from "@/modules/availability/segments";
 import { addDaysIso } from "@/modules/availability/slots";
 import { eligiblePeople, orderCandidates, peopleOpenAt, teamAvailabilityForRange, teamSlotsForDay, teamWindowsForDate, type TeamBusy, type TeamException, type TeamPerson, type TeamRule } from "@/modules/availability/team";
 import { signToken, verifyToken } from "@/modules/booking/token";
-import { BUSINESS_KINDS, KIND_IDS, type BusinessKindId } from "@/modules/tenancy/business-kind";
+import { BUSINESS_KINDS, KIND_IDS, allowedLocationsForKind, type BusinessKindId } from "@/modules/tenancy/business-kind";
 import { systemDb } from "@/platform/system-db";
 import { systemClock, zonedParts, zonedTimeToUtc } from "@/platform/clock";
 
@@ -93,7 +93,7 @@ export function toServicesResponse(c: Catalog): z.infer<typeof C.ServicesRespons
     business: {
       name: c.business.name,
       address: c.business.address,
-      locations: k.locations,
+      locations: allowedLocationsForKind(kindOf(c)),
       intake: k.intake.map((f) => ({ id: f.id, label: f.label, type: f.type, options: f.options, required: f.required })),
       vocab: { ...k.vocab } as Record<string, string>,
       requireApproval: c.business.requiresApproval,
@@ -111,7 +111,7 @@ export function toServicesResponse(c: Catalog): z.infer<typeof C.ServicesRespons
       priceMode: s.priceMode,
       group: false,
       personIds: s.staffIds,
-      locations: s.locations && s.locations.length > 0 ? s.locations : k.locations,
+      locations: allowedLocationsForKind(kindOf(c), s.locations),
     })),
     team: c.team.length > 1 ? c.team : [],
   };
@@ -187,8 +187,7 @@ const hashOf = (x: unknown) => createHash("sha256").update(JSON.stringify(x)).di
 export async function createBooking(c: Catalog, input: C.CreateBookingInput, idemKey: string): Promise<{ booking: z.infer<typeof C.BookingDto>; replay: boolean }> {
   if (!c.business.acceptingBookings) throw fail("BOOKINGS_CLOSED", "העסק אינו מקבל כרגע תורים חדשים.");
   const svc = findService(c, input.serviceId);
-  const k = BUSINESS_KINDS[kindOf(c)];
-  const allowedLocations = svc && svc.locations && svc.locations.length > 0 ? svc.locations : k.locations;
+  const allowedLocations = allowedLocationsForKind(kindOf(c), svc?.locations);
   const effectiveLocation = input.location ?? allowedLocations[0] ?? "business";
   const errors = validateIntake(kindOf(c), input, allowedLocations, effectiveLocation);
   const phone = normalizePhone(input.customer.phone);

@@ -11,6 +11,7 @@ import { saveService, setServiceActive } from "@/modules/catalog/service";
 import { createStaff, setServiceStaff, setStaffHours, updateStaff } from "@/modules/team/repo";
 import { ServiceStaffInput, StaffNameInput, StaffUpdateInput, type TeamErrorCode } from "@/modules/team/schema";
 import { mapRpcError } from "@/modules/tenancy/errors";
+import { supportsOnlineModality } from "@/modules/tenancy/business-kind";
 import { listMyBusinesses } from "@/modules/tenancy/service";
 import { checkSession } from "@/lib/auth/live-session";
 import { legalAccepted } from "@/lib/legal/gate";
@@ -28,7 +29,7 @@ async function context() {
   if (!(await legalAccepted(supabase))) return { ok: false as const, error: "FORBIDDEN" as const }; // CMP-03 on actions too
   const business = (await listMyBusinesses(supabase))[0];
   if (!business) return { ok: false as const, error: "FORBIDDEN" as const };
-  return { ok: true as const, supabase, businessId: business.id };
+  return { ok: true as const, supabase, businessId: business.id, businessKind: business.kind };
 }
 
 export async function saveServiceAction(raw: unknown): Promise<Ok | Fail<CatalogErrorCode>> {
@@ -36,7 +37,16 @@ export async function saveServiceAction(raw: unknown): Promise<Ok | Fail<Catalog
   if (!c.ok) return { ok: false, code: c.error };
   const parsed = ServiceInput.safeParse(raw);
   if (!parsed.success) return { ok: false, code: "VALIDATION" };
-  const r = await saveService(c.supabase, c.businessId, parsed.data);
+  const data = supportsOnlineModality(c.businessKind) || !parsed.data.locations
+    ? parsed.data
+    : {
+        ...parsed.data,
+        locations: (() => {
+          const filtered = parsed.data.locations.filter((l) => l !== "online");
+          return filtered.length > 0 ? filtered : null;
+        })(),
+      };
+  const r = await saveService(c.supabase, c.businessId, data);
   if (r.ok) revalidatePath("/settings/services");
   return r;
 }
