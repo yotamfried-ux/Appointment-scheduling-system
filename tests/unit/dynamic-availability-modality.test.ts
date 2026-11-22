@@ -19,6 +19,7 @@ import { CreateBookingRequest } from "@/lib/api/contracts";
 import { LEGAL } from "@/lib/legal/config";
 import { formatModalityLabel } from "@/components/patterns/modality-badge";
 import { render, type NotifContext } from "@/modules/notifications/templates";
+import { allowedLocationsForKind, BUSINESS_KINDS, KIND_IDS, supportsOnlineModality } from "@/modules/tenancy/business-kind";
 
 const toMinutes = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 const fromMinutes = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
@@ -356,5 +357,19 @@ describe("FEATURE-03: Appointment Modality (Online vs. Frontal) (TEST-E, TEST-F,
     );
     expect(frontalMail.text).toContain("אופן מפגש: פרונטלי");
     expect(frontalMail.html).toContain("פרונטלי");
+  });
+
+  it("restricts online/frontal modality choice strictly to teachers and strips 'online' for all other business kinds", () => {
+    expect(supportsOnlineModality("teacher")).toBe(true);
+    expect(BUSINESS_KINDS.teacher.locations).toContain("online");
+    expect(allowedLocationsForKind("teacher", ["business", "online"])).toEqual(["business", "online"]);
+
+    const nonTeacherKinds = KIND_IDS.filter((k) => k !== "teacher");
+    for (const kind of nonTeacherKinds) {
+      expect(supportsOnlineModality(kind), kind).toBe(false);
+      expect(BUSINESS_KINDS[kind].locations, kind).not.toContain("online");
+      expect(allowedLocationsForKind(kind, ["business", "online"]), kind).toEqual(["business"]);
+      expect(allowedLocationsForKind(kind, ["online"]), kind).not.toContain("online");
+    }
   });
 });

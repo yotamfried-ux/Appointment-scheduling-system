@@ -11,6 +11,7 @@ import { WeekPicker } from "@/components/lab/booking/week-picker";
 import { ChoiceCard } from "@/components/patterns/choice-card";
 import { FormField } from "@/components/patterns/form-field";
 import { formatModalityLabel, ModalityBadge } from "@/components/patterns/modality-badge";
+import { allowedLocationsForKind } from "@/modules/tenancy/business-kind";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
@@ -83,9 +84,9 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
   const vocab = business?.vocab;
   const service = catalog.status === "ready" ? (catalog.data.services.find((x) => x.id === s.serviceId) ?? null) : null;
   const serviceLocations = useMemo<("business" | "customer" | "online")[]>(() => {
-    if (service?.locations && service.locations.length > 0) return service.locations;
-    return business?.locations ?? ["business"];
-  }, [service, business]);
+    if (catalog.status !== "ready") return ["business"];
+    return allowedLocationsForKind(catalog.data.kind, service?.locations);
+  }, [catalog, service]);
   const rawLoc = s.details.location as "business" | "customer" | "online" | "";
   const selectedLocation: "business" | "customer" | "online" =
     rawLoc && serviceLocations.includes(rawLoc)

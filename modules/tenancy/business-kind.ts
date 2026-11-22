@@ -150,7 +150,7 @@ export const BUSINESS_KINDS: Record<BusinessKindId, KindConfig> = {
     defaults: { slotStepMinutes: 60, bufferMinutes: 0, requireApproval: false, cancelUntilHours: 24, allowLastMinute: false, noShowTracking: true },
     hours: week([{ from: H(6), to: H(10) }, { from: H(17), to: H(21) }], [{ from: H(7), to: H(11) }]),
     intake: [],            // owner decision 2026-10-20: no sensitive intake fields are collected
-    locations: ["business", "customer", "online"],
+    locations: ["business", "customer"],
     group: { supported: true, defaultCapacity: 8 },
     privacy: { sensitive: false, hideServiceNameInMessages: false, allowFreeTextNotesInMessages: false },
     sample: { businessName: "בלנס · אימון אישי", address: "אצלי בסטודיו או אצלכם" },
@@ -187,7 +187,7 @@ export const BUSINESS_KINDS: Record<BusinessKindId, KindConfig> = {
     defaults: { slotStepMinutes: 30, bufferMinutes: 10, requireApproval: true, cancelUntilHours: 24, allowLastMinute: false, noShowTracking: true },
     hours: week([{ from: H(8), to: H(16) }], [{ from: H(8), to: H(12) }]),
     intake: [],            // owner decision 2026-10-20: no sensitive intake fields are collected
-    locations: ["business", "online"],
+    locations: ["business"],
     group: { supported: false, defaultCapacity: 1 },
     privacy: { sensitive: true, hideServiceNameInMessages: true, allowFreeTextNotesInMessages: false },
     sample: { businessName: "קליניקת אור", address: "ויצמן 5, רעננה" },
@@ -216,4 +216,25 @@ export function getKind(id: BusinessKindId): KindConfig {
 /** Parses untrusted input (query/path param). Anything unknown — including prototype keys — falls back safely. */
 export function kindFromParam(value: unknown): BusinessKindId {
   return typeof value === "string" && (KIND_IDS as readonly string[]).includes(value) ? (value as BusinessKindId) : DEFAULT_KIND;
+}
+
+/** Only teachers ("teacher") expose the online/in-person modality choice to customers. */
+export function supportsOnlineModality(kind: string): boolean {
+  return kind === "teacher";
+}
+
+/**
+ * Resolves the effective allowed service locations for a business kind.
+ * Online modality is restricted strictly to teachers ("teacher"); non-teacher businesses
+ * never expose or accept "online" even if an existing service row contains it.
+ */
+export function allowedLocationsForKind(
+  kind: BusinessKindId | string,
+  serviceLocations?: readonly LocationMode[] | null,
+): LocationMode[] {
+  const safeKind = kindFromParam(kind);
+  const base = serviceLocations && serviceLocations.length > 0 ? serviceLocations : BUSINESS_KINDS[safeKind].locations;
+  if (supportsOnlineModality(safeKind)) return [...base];
+  const filtered = base.filter((loc) => loc !== "online");
+  return filtered.length > 0 ? filtered : [...BUSINESS_KINDS[safeKind].locations];
 }

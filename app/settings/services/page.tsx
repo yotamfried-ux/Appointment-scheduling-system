@@ -16,7 +16,7 @@ export default async function ServicesPage() {
   const services = await listServices(supabase, business.id);
   return (
     <SettingsPage email={business.name} title={t("title")} description={t("subtitle")}>
-      <ServicesManager services={services} />
+      <ServicesManager services={services} businessKind={business.kind} />
     </SettingsPage>
   );
 }

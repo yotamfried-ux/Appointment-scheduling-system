@@ -88,10 +88,11 @@ describe("business kinds (adaptability across business types)", () => {
     expect(getKind("barber").group.supported).toBe(false);
   });
 
-  it("location modes: customer-site and online only where relevant", () => {
+  it("location modes: online only for teachers; customer-site where relevant", () => {
     expect(getKind("barber").locations).toEqual(["business"]);
-    expect(getKind("trainer").locations).toEqual(expect.arrayContaining(["business", "customer", "online"]));
-    expect(getKind("clinic").locations).toEqual(expect.arrayContaining(["business", "online"]));
+    expect(getKind("trainer").locations).toEqual(["business", "customer"]);
+    expect(getKind("clinic").locations).toEqual(["business"]);
+    expect(getKind("teacher").locations).toEqual(expect.arrayContaining(["business", "customer", "online"]));
   });
 
   describe("privacy (docs/05 §2: health-related kinds)", () => {
