@@ -416,7 +416,7 @@
       "holdExpired": "פג תוקף השמירה. אפשר לבחור שעה מחדש.",
       "taken": "תפוס",
       "ribbonLabel": "זמינות ב{day}",
-      "openWindows": "פנוי: {windows}",
+      "openWindows": "פנוי: <windows></windows>",
       "loadError": "לא הצלחנו לטעון את הזמנים.",
       "left": "נותרו {count}",
       "loading": "טוענים זמנים…"
