@@ -104,17 +104,18 @@ test("the page works when the browser blocks storage: the box is shown and booki
 });
 
 test.describe("API: only the current versions are accepted", () => {
-  const post = (request: APIRequestContext, b: TestBusiness, acceptedTerms: unknown, key: string) =>
+  const post = (request: APIRequestContext, b: TestBusiness, acceptedTerms: unknown, key: string, date: string) =>
     request.post(`/api/public/${b.slug}/bookings`, {
       headers: { "idempotency-key": key },
-      data: { serviceId: b.services[0].id, date: new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10), time: "10:00", location: "business", customer: { ...customer(900), email: mail() }, ...(acceptedTerms === undefined ? {} : { acceptedTerms }) },
+      data: { serviceId: b.services[0].id, date, time: "10:00", location: "business", customer: { ...customer(900), email: mail() }, ...(acceptedTerms === undefined ? {} : { acceptedTerms }) },
     });
 
   test("missing, old or extra versions give VALIDATION_FAILED (422, like every validation error here) with a Hebrew message on the consent field", async ({ request }) => {
     const b = await makeBusiness("barber");
+    const { date } = await firstDayWithSlots(request, b, 0, 1); // an open day: "today + 3" is a Saturday on some weekdays, and the barber is closed then
     let i = 0;
     for (const bad of [undefined, {}, { terms: "2020-01-01", privacy: LEGAL.privacy.version }, { terms: LEGAL.terms.version, privacy: "x" }, { ...ACCEPTED, extra: 1 }]) {
-      const r = await post(request, b, bad, `terms-bad-key-${Date.now()}-${i++}`);
+      const r = await post(request, b, bad, `terms-bad-key-${Date.now()}-${i++}`, date);
       expect(r.status(), JSON.stringify(bad)).toBe(422);
       const body = await r.json();
       expect(body.error.code).toBe("VALIDATION_FAILED");
@@ -127,7 +128,7 @@ test.describe("API: only the current versions are accepted", () => {
   test("the waitlist is the same", async ({ request }) => {
     const b = await makeBusiness("barber");
     await sql(`update public.businesses set waitlist_enabled = true where id = '${b.id}'`);
-    const date = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
+    const { date } = await firstDayWithSlots(request, b, 0, 1); // a closed day is refused by design ("העסק סגור ביום הזה"); "today + 3" is a Saturday on some weekdays
     const send = (acceptedTerms?: unknown) => request.post(`/api/public/${b.slug}/waitlist`, { data: { serviceId: b.services[0].id, date, customer: { ...customer(901), email: mail() }, ...(acceptedTerms === undefined ? {} : { acceptedTerms }) } });
     const bad = await send();
     expect(bad.status()).toBe(422);

@@ -388,7 +388,15 @@ export function BookingFlow({ kind, session: sessionParam, limit, base, initialC
                 <>
                   {openWindows(slots.data.segments).length ? (
                     <p className="text-sm font-medium text-muted-foreground" data-testid="time-summary">
-                      {t("time.openWindows", { windows: openWindows(slots.data.segments).join(" · ") })}
+                      {t.rich("time.openWindows", {
+                        windows: () =>
+                          openWindows(slots.data.segments).map((w, i) => (
+                            <span key={w}>
+                              {i > 0 ? " · " : null}
+                              <bdi>{w}</bdi>
+                            </span>
+                          )),
+                      })}
                     </p>
                   ) : null}
                   {timeBounds ? (
